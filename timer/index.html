@@ -592,8 +592,8 @@ function renderSetup(){
     <div class="row">
       <label class="fld" style="flex:1">Start type
         <select onchange="draft.startMode=this.value">
-          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial — one after the other</option>
-          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start — all boats together</option>
+          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial</option>
+          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start</option>
         </select>
       </label>
       <button class="btn ghost" style="align-self:flex-end" onclick="addBoat()">+ Add boat</button>
