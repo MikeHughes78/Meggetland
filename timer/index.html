@@ -1,1 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EUBC Timing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --baby:#89CFF0;
+  --baby-soft:#B7E3FA;
+  --baby-deep:#4FA8D8;
+  --ink:#EAF6FD;
+  --ink-dim:rgba(234,246,253,.62);
+  --glass:rgba(255,255,255,.09);
+  --glass-strong:rgba(255,255,255,.14);
+  --stroke:rgba(255,255,255,.18);
+  --green:#3DDC84;
+  --amber:#FFC24B;
+  --red:#FF5D5D;
+  --radius:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:'Barlow',sans-serif;
+  color:var(--ink);
+  background:linear-gradient(160deg,#0B1D33 0%,#123A5C 45%,#1B5E8C 100%);
+  background-attachment:fixed;
+  min-height:100vh;
+  padding-bottom:40px;
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(600px 400px at 85% -10%,rgba(137,207,240,.22),transparent 60%),
+             radial-gradient(500px 500px at -10% 110%,rgba(137,207,240,.14),transparent 60%);
+}
+.wrap{max-width:860px;margin:0 auto;padding:14px;position:relative}
 
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--stroke);border-radius:var(--radius);
+  padding:14px 18px;margin-bottom:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.25);
+}
+header h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.45rem;letter-spacing:.04em}
+header h1 span{color:var(--baby)}
+#masterClock{
+  font-family:'Barlow Condensed',sans-serif;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  font-size:1.5rem;letter-spacing:.05em;color:var(--baby-soft);
+  margin-left:auto;
+}
+.pill{
+  font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;border:1px solid var(--stroke);
+  background:rgba(255,255,255,.06);white-space:nowrap;
+}
+.pill.ok{color:var(--green);border-color:rgba(61,220,132,.4)}
+.pill.warn{color:var(--amber);border-color:rgba(255,194,75,.45)}
+.pill.bad{color:var(--red);border-color:rgba(255,93,93,.45)}
+
+/* ---------- nav ---------- */
+nav{display:flex;gap:8px;overflow-x:auto;padding:2px;margin-bottom:14px;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{
+  flex:0 0 auto;font-family:'Barlow',sans-serif;font-weight:600;font-size:.9rem;
+  color:var(--ink-dim);background:var(--glass);border:1px solid var(--stroke);
+  border-radius:14px;padding:10px 18px;cursor:pointer;
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  transition:all .18s ease;
+}
+nav button.active{color:#0B1D33;background:var(--baby);border-color:var(--baby);box-shadow:0 4px 18px rgba(137,207,240,.4)}
+nav button:active{transform:scale(.96)}
+
+/* ---------- panels ---------- */
+.panel{
+  background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
+  border:1px solid var(--stroke);border-radius:var(--radius);
+  padding:18px;margin-bottom:14px;box-shadow:0 8px 32px rgba(0,0,0,.22);
+}
+.panel h2{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.2rem;letter-spacing:.05em;text-transform:uppercase;color:var(--baby-soft);margin-bottom:12px}
+.hint{font-size:.82rem;color:var(--ink-dim);line-height:1.45}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+label.fld{display:flex;flex-direction:column;gap:5px;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-dim)}
+input,select{
+  font-family:'Barlow',sans-serif;font-size:1rem;color:var(--ink);
+  background:rgba(255,255,255,.08);border:1px solid var(--stroke);border-radius:12px;
+  padding:10px 12px;outline:none;min-width:0;
+}
+input:focus,select:focus{border-color:var(--baby);box-shadow:0 0 0 3px rgba(137,207,240,.2)}
+select option{color:#0B1D33}
+input[type=number]{width:110px}
+
+.btn{
+  font-family:'Barlow',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;
+  border:none;border-radius:14px;padding:12px 20px;color:#0B1D33;background:var(--baby);
+  box-shadow:0 4px 18px rgba(137,207,240,.35);transition:all .15s ease;
+}
+.btn:active{transform:scale(.96)}
+.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--stroke);box-shadow:none}
+.btn.danger{background:rgba(255,93,93,.16);color:var(--red);border:1px solid rgba(255,93,93,.4);box-shadow:none}
+.btn.small{padding:7px 13px;font-size:.82rem;border-radius:11px}
+.chip{font-size:.82rem;font-weight:600;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--stroke);color:var(--ink-dim);cursor:pointer}
+.chip.on{background:var(--baby);color:#0B1D33;border-color:var(--baby)}
+
+/* ---------- boat cards (setup) ---------- */
+.boatCard{
+  background:rgba(255,255,255,.06);border:1px solid var(--stroke);border-radius:16px;
+  padding:14px;margin-bottom:12px;
+}
+.boatCard .head{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+.crewGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+
+/* ---------- timing buttons ---------- */
+.stampBtn{
+  width:100%;display:flex;align-items:center;gap:14px;text-align:left;
+  border-radius:18px;padding:16px 18px;margin-bottom:10px;cursor:pointer;
+  border:1px solid rgba(255,93,93,.45);background:rgba(255,93,93,.12);color:var(--ink);
+  font-family:'Barlow',sans-serif;position:relative;overflow:hidden;
+  transition:background .25s ease,border-color .25s ease;
+}
+.stampBtn .ident{
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.5rem;letter-spacing:.03em;
+  min-width:64px;
+}
+.stampBtn .meta{flex:1;min-width:0}
+.stampBtn .cat{font-weight:600;font-size:.9rem;color:var(--baby-soft)}
+.stampBtn .crew{font-size:.78rem;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stampBtn .time{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.35rem;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.stampBtn.done{border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.13)}
+.stampBtn.done .time{color:var(--green)}
+.stampBtn.waiting{opacity:.45;pointer-events:none;border-color:var(--stroke);background:rgba(255,255,255,.05)}
+.stampBtn:active{transform:scale(.985)}
+.stampBtn .ripple{
+  position:absolute;border-radius:50%;background:rgba(137,207,240,.45);
+  transform:scale(0);animation:rip .5s ease-out forwards;pointer-events:none;
+}
+@keyframes rip{to{transform:scale(3);opacity:0}}
+.undo{
+  flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid var(--stroke);color:var(--ink-dim);
+  border-radius:10px;font-size:.75rem;font-weight:700;padding:6px 10px;cursor:pointer;
+}
+.massBtn{
+  width:100%;padding:34px 20px;border-radius:24px;border:1px solid rgba(255,93,93,.5);
+  background:rgba(255,93,93,.15);color:var(--ink);cursor:pointer;margin-bottom:14px;
+  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:2rem;letter-spacing:.12em;text-transform:uppercase;
+  position:relative;overflow:hidden;transition:all .25s ease;
+}
+.massBtn.done{border-color:rgba(61,220,132,.55);background:rgba(61,220,132,.14);color:var(--green)}
+.massBtn:active{transform:scale(.98)}
+
+/* ---------- results ---------- */
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.75rem;color:var(--ink-dim);text-align:left;padding:8px 8px;border-bottom:1px solid var(--stroke)}
+td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.rank1 td:first-child{color:#FFD84B;font-weight:800}
+tr.rank2 td:first-child{color:#D7DEE6;font-weight:800}
+tr.rank3 td:first-child{color:#E8A46B;font-weight:800}
+.crewSmall{font-size:.75rem;color:var(--ink-dim)}
+.bigPct{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.15rem;color:var(--baby)}
+
+/* ---------- pieces & settings ---------- */
+.pieceRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
+.pieceRow .nm{font-weight:700}
+.pieceRow .sub{font-size:.78rem;color:var(--ink-dim)}
+.gmtGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gmtGrid label.fld input{width:100%}
+
+.toastWrap{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{
+  background:rgba(11,29,51,.92);border:1px solid var(--baby);color:var(--ink);
+  padding:10px 20px;border-radius:999px;font-size:.88rem;font-weight:600;
+  box-shadow:0 6px 24px rgba(0,0,0,.4);animation:fadeUp .25s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.hidden{display:none!important}
+body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.viewonly #viewFinish, body.viewonly #viewPieces, body.viewonly #viewSettings, body.viewonly .editOnly{display:none!important}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:520px){
+  header h1{font-size:1.15rem}
+  #masterClock{font-size:1.2rem}
+  .stampBtn .ident{font-size:1.25rem;min-width:52px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>EUBC <span>TIMING</span></h1>
+  <span id="syncPill" class="pill warn">Connecting…</span>
+  <div id="masterClock">--:--:--</div>
+</header>
+
+<nav id="nav">
+  <button data-v="Setup">Setup</button>
+  <button data-v="Start">Start</button>
+  <button data-v="Finish">Finish</button>
+  <button data-v="Results">Results</button>
+  <button data-v="Pieces">Pieces</button>
+  <button data-v="Settings">Settings</button>
+</nav>
+
+<div id="viewSetup" class="view"></div>
+<div id="viewStart" class="view hidden"></div>
+<div id="viewFinish" class="view hidden"></div>
+<div id="viewResults" class="view hidden"></div>
+<div id="viewPieces" class="view hidden"></div>
+<div id="viewSettings" class="view hidden"></div>
+
+</div>
+<div class="toastWrap" id="toasts"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+/* =====================================================
+   EUBC Timing — core: firebase, clock sync, offline queue
+   ===================================================== */
+const NODE = 'eubc-timing-v1';
+firebase.initializeApp({ databaseURL:'https://trailerplan-a3a9d-default-rtdb.europe-west1.firebasedatabase.app' });
+const rtdb = firebase.database();
+const root = rtdb.ref(NODE);
+
+const CATS = ['M1x','F1x','M2-','F2-','M2x','F2x','M4-','F4-','M4x','F4x','M4+','F4+','M8+','F8+'];
+const DEFAULT_GMTS = { // 2k Gold Medal Times in seconds (editable in Settings)
+  'M1x':390.74,'F1x':427.71,'M2-':368.50,'F2-':407.41,'M2x':359.72,'F2x':397.31,
+  'M4-':337.86,'F4-':374.36,'M4x':332.26,'F4x':366.84,'M4+':358.96,'F4+':393.38,
+  'M8+':318.68,'F8+':352.99
+};
+function catLabel(c){ return (c[0]==='M'?'Male ':'Female ')+c.slice(1); }
+function positionsFor(c){
+  const s=c.slice(1);
+  if(s==='1x') return ['Sculler'];
+  if(s==='2-'||s==='2x') return ['Stroke','Bow'];
+  if(s==='4-'||s==='4x') return ['Stroke','3','2','Bow'];
+  if(s==='4+') return ['Stroke','3','2','Bow','Cox'];
+  return ['Cox','Stroke','7','6','5','4','3','2','Bow']; // 8+
+}
+
+/* ---------- local mirror + persistence ---------- */
+const LS = { db:'eubcTimer.db', queue:'eubcTimer.queue', offset:'eubcTimer.offset', sort:'eubcTimer.sort' };
+let db = { settings:{ gmts:{...DEFAULT_GMTS} }, activePieceId:null, pieces:{} };
+try{ const c=JSON.parse(localStorage.getItem(LS.db)); if(c) db=Object.assign(db,c); }catch(e){}
+if(!db.settings) db.settings={gmts:{...DEFAULT_GMTS}};
+if(!db.settings.gmts) db.settings.gmts={...DEFAULT_GMTS};
+
+let queue = [];
+try{ queue = JSON.parse(localStorage.getItem(LS.queue)) || []; }catch(e){}
+
+function persistDb(){ try{ localStorage.setItem(LS.db, JSON.stringify(db)); }catch(e){} }
+function persistQueue(){ try{ localStorage.setItem(LS.queue, JSON.stringify(queue)); }catch(e){} }
+
+function applyPath(obj, path, val){
+  const segs = path.split('/');
+  let o = obj;
+  for(let i=0;i<segs.length-1;i++){
+    if(typeof o[segs[i]]!=='object' || o[segs[i]]===null) o[segs[i]]={};
+    o=o[segs[i]];
+  }
+  const last = segs[segs.length-1];
+  if(val===null) delete o[last]; else o[last]=val;
+}
+
+/* every write: local first, then queue -> firebase */
+function fbSet(path, val){
+  applyPath(db, path, val);
+  persistDb();
+  queue.push({ path, val });
+  persistQueue();
+  flushQueue();
+  updateSyncPill();
+  renderCurrent();
+}
+
+let connected=false, flushing=false;
+function flushQueue(){
+  if(!connected || flushing || !queue.length) return;
+  flushing=true;
+  const op = queue[0];
+  root.child(op.path).set(op.val===undefined?null:op.val)
+    .then(()=>{ queue.shift(); persistQueue(); flushing=false; updateSyncPill(); flushQueue(); })
+    .catch(()=>{ flushing=false; updateSyncPill(); });
+}
+
+/* ---------- server clock sync ---------- */
+let serverOffset = Number(localStorage.getItem(LS.offset)) || 0;
+rtdb.ref('.info/serverTimeOffset').on('value', s=>{
+  const v = s.val();
+  if(typeof v==='number'){ serverOffset=v; localStorage.setItem(LS.offset,String(v)); updateSyncPill(); }
+});
+rtdb.ref('.info/connected').on('value', s=>{
+  connected = s.val()===true;
+  updateSyncPill();
+  if(connected) flushQueue();
+});
+function nowMs(){ return Date.now() + serverOffset; }
+
+function updateSyncPill(){
+  const p = document.getElementById('syncPill');
+  if(connected && !queue.length){ p.className='pill ok'; p.textContent='Live · synced'; }
+  else if(connected){ p.className='pill warn'; p.textContent='Syncing · '+queue.length+' pending'; }
+  else { p.className='pill bad'; p.textContent='Offline · '+queue.length+' queued'; }
+}
+
+/* ---------- remote listeners (remote wins, then replay pending ops) ---------- */
+function overlayQueue(prefix){
+  queue.forEach(op=>{ if(op.path===prefix || op.path.startsWith(prefix+'/') ) applyPath(db, op.path, op.val); });
+}
+root.child('settings/gmts').on('value', s=>{
+  const v=s.val();
+  if(v){ db.settings.gmts = Object.assign({...DEFAULT_GMTS}, v); overlayQueue('settings/gmts'); persistDb(); renderCurrent(); }
+});
+let pieceSub=null;
+root.child('activePieceId').on('value', s=>{
+  const id=s.val();
+  if(id) { db.activePieceId=id; }
+  overlayQueue('activePieceId');
+  persistDb();
+  subscribeActivePiece();
+  renderCurrent();
+});
+function subscribeActivePiece(){
+  const id = db.activePieceId;
+  if(pieceSub){ pieceSub.ref.off('value', pieceSub.fn); pieceSub=null; }
+  if(!id) return;
+  const ref = root.child('pieces/'+id);
+  const fn = s=>{
+    const v=s.val();
+    if(v){ db.pieces[id]=v; overlayQueue('pieces/'+id); persistDb(); renderCurrent(); }
+  };
+  ref.on('value', fn);
+  pieceSub={ref,fn};
+}
+
+/* ---------- helpers ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtElapsed(ms){
+  if(ms==null || isNaN(ms) || ms<0) return '—';
+  const h = Math.round(ms/10); // hundredths
+  const m = Math.floor(h/6000), s = Math.floor((h%6000)/100), c = h%100;
+  return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');
+}
+function fmtGmtSec(sec){
+  if(sec==null||isNaN(sec)) return '';
+  const h=Math.round(sec*100);
+  const m=Math.floor(h/6000), s=Math.floor((h%6000)/100), c=h%100;
+  return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');
+}
+function parseTimeStr(str){
+  if(!str) return null;
+  const m = String(str).trim().match(/^(\d+):([0-5]?\d)(?:\.(\d{1,2}))?$/);
+  if(!m) return null;
+  return parseInt(m[1],10)*60 + parseInt(m[2],10) + (m[3]? parseInt(m[3].padEnd(2,'0'),10)/100 : 0);
+}
+function fmtWallClock(ms){
+  const d = new Date(ms);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0')+'.'+Math.floor(d.getMilliseconds()/100);
+}
+function toast(msg){
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>t.remove(), 2600);
+}
+function activePiece(){ return db.activePieceId ? db.pieces[db.activePieceId] : null; }
+function boatsInOrder(piece){
+  if(!piece||!piece.boats) return [];
+  const order = piece.order || Object.keys(piece.boats);
+  return order.filter(id=>piece.boats[id]).map(id=>({id, ...piece.boats[id]}));
+}
+function crewText(b){
+  const pos = positionsFor(b.category||'M1x');
+  const crew = b.crew||{};
+  return pos.map((p,i)=>{ const n=(crew[i]||'').trim(); return n? (pos.length>1? p+': '+n : n) : null; }).filter(Boolean).join(' · ');
+}
+function scaledGmtMs(cat, distance){
+  const g = (db.settings.gmts||{})[cat];
+  if(!g || !distance) return null;
+  return g*1000 * (distance/2000);
+}
+function gmtPct(b, piece){
+  if(b.startTs==null||b.finishTs==null) return null;
+  const el = b.finishTs-b.startTs;
+  const g = scaledGmtMs(b.category, piece.distance);
+  if(!g || el<=0) return null;
+  return g/el*100;
+}
+
+/* master clock */
+setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallClock(nowMs()); }, 90);
+
+/* =====================================================
+   Views
+   ===================================================== */
+const VIEWS=['Setup','Start','Finish','Results','Pieces','Settings'];
+let currentView='Setup';
+document.getElementById('nav').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  showView(b.dataset.v);
+});
+function showView(v){
+  currentView=v;
+  VIEWS.forEach(x=>{
+    document.getElementById('view'+x).classList.toggle('hidden', x!==v);
+  });
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
+  renderCurrent();
+}
+function renderCurrent(){
+  if(VIEWONLY){ renderResults(); return; }
+  ({Setup:renderSetup,Start:renderStart,Finish:renderFinish,Results:renderResults,Pieces:renderPieces,Settings:renderSettings})[currentView]();
+}
+
+/* =====================================================
+   SETUP — draft piece
+   ===================================================== */
+let draft = null;
+function newDraft(){
+  return { name:'', distance:2000, startMode:'staggered', boats:[], editingId:null };
+}
+function loadActiveIntoDraft(){
+  const p=activePiece(); if(!p) return;
+  draft = {
+    name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
+    editingId: db.activePieceId,
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), _id:b.id }))
+  };
+  renderSetup();
+}
+function renderSetup(){
+  if(!draft) draft=newDraft();
+  const el=document.getElementById('viewSetup');
+  const distChips=[250,500,1000,1500,2000,5000].map(d=>
+    `<button class="chip ${draft.distance===d?'on':''}" onclick="setDist(${d})">${d}m</button>`).join('');
+  el.innerHTML = `
+  <div class="panel">
+    <h2>${draft.editingId?'Edit piece':'New piece'}</h2>
+    <div class="row">
+      <label class="fld" style="flex:1;min-width:180px">Piece name
+        <input id="pName" value="${esc(draft.name)}" placeholder="e.g. Tues AM · Piece 1" oninput="draft.name=this.value">
+      </label>
+      <label class="fld">Distance (m)
+        <input id="pDist" type="number" min="50" step="50" value="${draft.distance}" oninput="draft.distance=Math.max(0,parseInt(this.value)||0);">
+      </label>
+    </div>
+    <div class="row">${distChips}</div>
+    <div class="row">
+      <label class="fld">Start type
+        <select onchange="draft.startMode=this.value">
+          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Staggered — tap each boat</option>
+          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Mass / flying — one start for all</option>
+        </select>
+      </label>
+      <button class="btn ghost" style="align-self:flex-end" onclick="addBoat()">+ Add boat</button>
+    </div>
+    <p class="hint">GMT% is scaled to the piece distance from the 2k Gold Medal Times in Settings.</p>
+  </div>
+  <div id="boatList">${draft.boats.map((b,i)=>boatCardHtml(b,i)).join('')||'<p class="hint" style="padding:0 6px 12px">No boats yet — add your first boat above.</p>'}</div>
+  <div class="panel">
+    <div class="row" style="margin:0">
+      <button class="btn" onclick="savePiece()">${draft.editingId?'Save changes':'Create piece & go to Start'}</button>
+      <button class="btn ghost" onclick="draft=newDraft();renderSetup()">Clear</button>
+      ${activePiece()&&!draft.editingId?'<button class="btn ghost" onclick="loadActiveIntoDraft()">Edit current piece</button>':''}
+    </div>
+  </div>`;
+}
+function setDist(d){ draft.distance=d; renderSetup(); }
+function addBoat(){
+  draft.boats.push({ ident:String(draft.boats.length+1), category:'M1x', crew:{} });
+  renderSetup();
+}
+function boatCardHtml(b,i){
+  const pos=positionsFor(b.category);
+  return `<div class="boatCard">
+    <div class="head">
+      <label class="fld">Identifier
+        <input style="width:90px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
+      </label>
+      <label class="fld">Category
+        <select onchange="draft.boats[${i}].category=this.value;renderSetup()">
+          ${CATS.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+        </select>
+      </label>
+      <button class="btn small danger" style="margin-left:auto" onclick="draft.boats.splice(${i},1);renderSetup()">Remove</button>
+    </div>
+    <div class="crewGrid">
+      ${pos.map((p,j)=>`<label class="fld">${p}
+        <input value="${esc(b.crew[j]||'')}" placeholder="Name" oninput="draft.boats[${i}].crew[${j}]=this.value">
+      </label>`).join('')}
+    </div>
+  </div>`;
+}
+function savePiece(){
+  if(!draft.boats.length){ toast('Add at least one boat'); return; }
+  if(!draft.distance){ toast('Set a distance'); return; }
+  const id = draft.editingId || ('p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  const existing = draft.editingId ? (db.pieces[id]||{}) : {};
+  const boats={}, order=[];
+  draft.boats.forEach((b,i)=>{
+    const bid = b._id || ('b'+i+'_'+Math.random().toString(36).slice(2,7));
+    const prev = (existing.boats||{})[bid]||{};
+    const crew={}; positionsFor(b.category).forEach((p,j)=>{ if((b.crew[j]||'').trim()) crew[j]=b.crew[j].trim(); });
+    boats[bid]={ ident:(b.ident||'').trim()||String(i+1), category:b.category, crew,
+                 startTs:prev.startTs!=null?prev.startTs:null, finishTs:prev.finishTs!=null?prev.finishTs:null };
+    order.push(bid);
+  });
+  const piece={ name:(draft.name||'').trim()||('Piece '+new Date().toLocaleDateString('en-GB')),
+    distance:draft.distance, startMode:draft.startMode,
+    createdAt: existing.createdAt || nowMs(), boats, order };
+  const wasEdit=!!draft.editingId;
+  fbSet('pieces/'+id, piece);
+  fbSet('activePieceId', id);
+  subscribeActivePiece();
+  draft=newDraft();
+  toast(wasEdit?'Piece updated':'Piece created');
+  showView('Start');
+}
+
+/* =====================================================
+   START
+   ===================================================== */
+function stamp(pieceId, boatId, field){
+  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, nowMs());
+}
+function unstamp(pieceId, boatId, field){
+  if(!confirm('Clear this time?')) return;
+  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, null);
+}
+function ripple(ev){
+  const btn=ev.currentTarget, r=btn.getBoundingClientRect();
+  const d=document.createElement('span'); d.className='ripple';
+  const size=Math.max(r.width,r.height);
+  d.style.width=d.style.height=size+'px';
+  d.style.left=((ev.clientX||r.width/2+r.left)-r.left-size/2)+'px';
+  d.style.top=((ev.clientY||r.height/2+r.top)-r.top-size/2)+'px';
+  btn.appendChild(d); setTimeout(()=>d.remove(),500);
+}
+function renderStart(){
+  const el=document.getElementById('viewStart');
+  const p=activePiece();
+  if(!p){ el.innerHTML='<div class="panel"><h2>Start</h2><p class="hint">No active piece. Create one in Setup.</p></div>'; return; }
+  const id=db.activePieceId, boats=boatsInOrder(p);
+  let inner='';
+  if(p.startMode==='mass'){
+    const allStarted = boats.every(b=>b.startTs!=null);
+    inner += `<button class="massBtn ${allStarted?'done':''}" onclick="ripple(event);${allStarted?'':`massStart('${id}')`}">
+      ${allStarted? 'Started · '+fmtWallClock(boats[0].startTs) : 'START ALL'}</button>`;
+    if(allStarted) inner+=`<div class="row editOnly"><button class="btn small danger" onclick="massUnstart('${id}')">Clear all starts</button></div>`;
+  }
+  inner += boats.map(b=>{
+    const done=b.startTs!=null;
+    return `<button class="stampBtn ${done?'done':''}" onclick="ripple(event);${done?'':`stamp('${id}','${b.id}','startTs')`}">
+      <span class="ident">${esc(b.ident)}</span>
+      <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+      <span class="time">${done? fmtWallClock(b.startTs):'TAP TO START'}</span>
+      ${done?`<span class="undo" onclick="event.stopPropagation();unstamp('${id}','${b.id}','startTs')">↺</span>`:''}
+    </button>`;
+  }).join('');
+  el.innerHTML = `<div class="panel"><h2>Start · ${esc(p.name)} · ${p.distance}m</h2>
+    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'One tap starts every boat on the same server-synced time.':'Tap each boat as it crosses the start.'}</p>
+    ${inner}</div>`;
+}
+function massStart(id){
+  const p=db.pieces[id]; if(!p) return;
+  const t=nowMs();
+  boatsInOrder(p).forEach(b=>{ if(b.startTs==null) fbSet('pieces/'+id+'/boats/'+b.id+'/startTs', t); });
+  toast('All boats started');
+}
+function massUnstart(id){
+  if(!confirm('Clear ALL start times?')) return;
+  const p=db.pieces[id];
+  boatsInOrder(p).forEach(b=>fbSet('pieces/'+id+'/boats/'+b.id+'/startTs', null));
+}
+
+/* =====================================================
+   FINISH
+   ===================================================== */
+let finishTick=null;
+function renderFinish(){
+  const el=document.getElementById('viewFinish');
+  const p=activePiece();
+  if(!p){ el.innerHTML='<div class="panel"><h2>Finish</h2><p class="hint">No active piece. Create one in Setup.</p></div>'; return; }
+  const id=db.activePieceId, boats=boatsInOrder(p);
+  const onWater = boats.filter(b=>b.startTs!=null && b.finishTs==null);
+  const finished = boats.filter(b=>b.finishTs!=null && b.startTs!=null);
+  const notStarted = boats.filter(b=>b.startTs==null);
+  const btn = b=>{
+    const running = b.startTs!=null && b.finishTs==null;
+    const done = b.finishTs!=null;
+    const cls = done?'done':(running?'':'waiting');
+    const timeHtml = done? fmtElapsed(b.finishTs-b.startTs)
+      : running? `<span data-live="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span>` : 'NOT STARTED';
+    return `<button class="stampBtn ${cls}" onclick="ripple(event);${running?`stamp('${id}','${b.id}','finishTs')`:''}">
+      <span class="ident">${esc(b.ident)}</span>
+      <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+      <span class="time">${timeHtml}</span>
+      ${done?`<span class="undo" onclick="event.stopPropagation();unstamp('${id}','${b.id}','finishTs')">↺</span>`:''}
+    </button>`;
+  };
+  el.innerHTML = `<div class="panel"><h2>Finish · ${esc(p.name)} · ${p.distance}m</h2>
+    <p class="hint" style="margin-bottom:12px">Tap the bow number as it crosses the line.</p>
+    ${onWater.map(btn).join('')}
+    ${finished.length?'<h2 style="margin-top:14px">Finished</h2>'+finished.map(btn).join(''):''}
+    ${notStarted.length?'<h2 style="margin-top:14px">Waiting to start</h2>'+notStarted.map(btn).join(''):''}
+  </div>`;
+  clearInterval(finishTick);
+  if(onWater.length && currentView==='Finish'){
+    finishTick=setInterval(()=>{
+      document.querySelectorAll('[data-live]').forEach(s=>{ s.textContent=fmtElapsed(nowMs()-Number(s.dataset.live)); });
+    },50);
+  }
+}
+
+/* =====================================================
+   RESULTS (+ view-only mode)
+   ===================================================== */
+let sortMode = localStorage.getItem(LS.sort)||'time';
+function setSort(m){ sortMode=m; localStorage.setItem(LS.sort,m); renderResults(); }
+function resultsData(piece){
+  const boats=boatsInOrder(piece);
+  const done=boats.filter(b=>b.startTs!=null&&b.finishTs!=null)
+    .map(b=>({...b, elapsed:b.finishTs-b.startTs, pct:gmtPct(b,piece)}));
+  done.sort((a,b)=> sortMode==='gmt'
+    ? ((b.pct??-1)-(a.pct??-1))
+    : (a.elapsed-b.elapsed));
+  const pending=boats.filter(b=>!(b.startTs!=null&&b.finishTs!=null));
+  return {done,pending};
+}
+function resultsTableHtml(piece){
+  const {done,pending}=resultsData(piece);
+  const rows=done.map((b,i)=>`<tr class="rank${i+1}">
+    <td>${i+1}</td>
+    <td><strong>${esc(b.ident)}</strong> · ${catLabel(b.category)}<div class="crewSmall">${esc(crewText(b))}</div></td>
+    <td class="num">${fmtElapsed(b.elapsed)}</td>
+    <td class="num"><span class="bigPct">${b.pct!=null?b.pct.toFixed(2)+'%':'—'}</span></td>
+  </tr>`).join('');
+  const pend=pending.length?`<p class="hint" style="margin-top:10px">Still out: ${pending.map(b=>esc(b.ident)).join(', ')}</p>`:'';
+  return `<table><thead><tr><th>#</th><th>Boat</th><th class="num">Time</th><th class="num">GMT%</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="4" class="hint">No finished boats yet.</td></tr>'}</tbody></table>${pend}`;
+}
+function renderResults(){
+  const el=document.getElementById('viewResults');
+  const p=activePiece();
+  if(VIEWONLY) el.classList.remove('hidden');
+  if(!p){ el.innerHTML='<div class="panel"><h2>Results</h2><p class="hint">No active piece yet.</p></div>'; return; }
+  const link = location.origin+location.pathname+'?view=results';
+  el.innerHTML=`<div class="panel">
+    <h2>Results · ${esc(p.name)} · ${p.distance}m</h2>
+    <div class="row">
+      <button class="chip ${sortMode==='time'?'on':''}" onclick="setSort('time')">Total time</button>
+      <button class="chip ${sortMode==='gmt'?'on':''}" onclick="setSort('gmt')">GMT%</button>
+      <span style="flex:1"></span>
+      <button class="btn small ghost editOnly" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}').then(()=>toast('View-only link copied'))">Copy view-only link</button>
+      <button class="btn small editOnly" onclick="exportPdf(db.activePieceId)">PDF</button>
+    </div>
+    ${resultsTableHtml(p)}
+    <p class="hint" style="margin-top:12px">GMT% = scaled Gold Medal Time ÷ time × 100 — higher is better. Updates live.</p>
+  </div>`;
+}
+
+/* =====================================================
+   PIECES (history) + PDF
+   ===================================================== */
+function renderPieces(){
+  const el=document.getElementById('viewPieces');
+  el.innerHTML='<div class="panel"><h2>Saved pieces</h2><p class="hint">Loading…</p></div>';
+  root.child('pieces').orderByChild('createdAt').limitToLast(100).once('value').then(s=>{
+    const v=s.val()||{};
+    Object.keys(v).forEach(k=>{ db.pieces[k]=Object.assign(db.pieces[k]||{}, v[k]); });
+    overlayQueue('pieces'); persistDb();
+    drawPieces(el);
+  }).catch(()=>drawPieces(el));
+  drawPieces(el);
+}
+function drawPieces(el){
+  const ids=Object.keys(db.pieces).sort((a,b)=>(db.pieces[b].createdAt||0)-(db.pieces[a].createdAt||0));
+  const rows=ids.map(id=>{
+    const p=db.pieces[id];
+    const n=boatsInOrder(p).length;
+    const active=id===db.activePieceId;
+    return `<div class="pieceRow">
+      <div style="flex:1;min-width:160px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}</div>
+      <div class="sub">${new Date(p.createdAt||0).toLocaleString('en-GB')} · ${p.distance}m · ${n} boat${n===1?'':'s'} · ${p.startMode==='mass'?'mass start':'staggered'}</div></div>
+      <button class="btn small ghost" onclick="openPiece('${id}')">Open</button>
+      <button class="btn small ghost" onclick="exportPdf('${id}')">PDF</button>
+      <button class="btn small danger" onclick="deletePiece('${id}')">Delete</button>
+    </div>`;
+  }).join('');
+  el.innerHTML=`<div class="panel"><h2>Saved pieces</h2>${rows||'<p class="hint">Nothing saved yet.</p>'}</div>`;
+}
+function openPiece(id){
+  fbSet('activePieceId', id);
+  subscribeActivePiece();
+  showView('Results');
+}
+function deletePiece(id){
+  if(!confirm('Delete this piece and its times?')) return;
+  fbSet('pieces/'+id, null);
+  if(db.activePieceId===id){ fbSet('activePieceId', null); db.activePieceId=null; }
+  renderPieces();
+}
+function exportPdf(id){
+  const p=db.pieces[id]; if(!p){ toast('Piece not found'); return; }
+  const prevSort=sortMode;
+  const {done,pending}=resultsData(p);
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF();
+  doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(18,58,92);
+  doc.text('EUBC Timing — '+(p.name||'Piece'), 14, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.text([ new Date(p.createdAt||0).toLocaleString('en-GB'),
+    'Distance: '+p.distance+'m · Start: '+(p.startMode==='mass'?'mass/flying':'staggered'),
+    'Ranked by '+(prevSort==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k Gold Medal Times' ], 14, 25);
+  doc.autoTable({
+    startY:38,
+    head:[['#','Boat','Category','Crew','Time','GMT%']],
+    body:done.map((b,i)=>[i+1, b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
+    styles:{font:'helvetica',fontSize:9,cellPadding:2.5},
+    headStyles:{fillColor:[137,207,240],textColor:[11,29,51],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[240,248,253]},
+    columnStyles:{0:{cellWidth:8},4:{halign:'right'},5:{halign:'right'}}
+  });
+  if(pending.length){
+    doc.setFontSize(9); doc.setTextColor(120);
+    doc.text('No time recorded: '+pending.map(b=>b.ident+' ('+catLabel(b.category)+')').join(', '), 14, doc.lastAutoTable.finalY+8, {maxWidth:180});
+  }
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Generated '+new Date().toLocaleString('en-GB')+' · Edinburgh University Boat Club', 14, 290);
+  doc.save((p.name||'piece').replace(/[^\w\-]+/g,'_')+'_results.pdf');
+}
+
+/* =====================================================
+   SETTINGS — GMTs
+   ===================================================== */
+function renderSettings(){
+  const el=document.getElementById('viewSettings');
+  const g=db.settings.gmts||{};
+  el.innerHTML=`<div class="panel">
+    <h2>Gold Medal Times (2k)</h2>
+    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
+    <div class="gmtGrid">
+      ${CATS.map(c=>`<label class="fld">${catLabel(c)}
+        <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00">
+      </label>`).join('')}
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn" onclick="saveGmts()">Save GMTs</button>
+      <button class="btn ghost" onclick="if(confirm('Reset all GMTs to World Best defaults?')){fbSet('settings/gmts',{...DEFAULT_GMTS});toast('GMTs reset');}">Reset to defaults</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Timing sync</h2>
+    <p class="hint">All timestamps use Firebase server time. Current device offset: <strong>${serverOffset>=0?'+':''}${Math.round(serverOffset)}ms</strong>.
+    Once calibrated, this device keeps stamping accurately even if it drops offline — taps are queued locally and upload automatically when the connection returns.</p>
+  </div>`;
+}
+function saveGmts(){
+  const out={};
+  let bad=null;
+  CATS.forEach(c=>{
+    const inp=document.getElementById('gmt_'+c.replace(/[^\w]/g,'_'));
+    const v=parseTimeStr(inp.value);
+    if(v==null){ bad=bad||catLabel(c); out[c]=(db.settings.gmts||{})[c]||DEFAULT_GMTS[c]; }
+    else out[c]=v;
+  });
+  if(bad){ toast('Invalid time for '+bad+' — use m:ss.00'); return; }
+  fbSet('settings/gmts', out);
+  toast('GMTs saved');
+}
+
+/* =====================================================
+   Boot
+   ===================================================== */
+const VIEWONLY = new URLSearchParams(location.search).get('view')==='results';
+if(VIEWONLY){
+  document.body.classList.add('viewonly');
+  document.getElementById('viewResults').classList.remove('hidden');
+  renderResults();
+} else {
+  showView(activePiece()?'Start':'Setup');
+}
+updateSyncPill();
+window.addEventListener('online', flushQueue);
+</script>
+</body>
+</html>
