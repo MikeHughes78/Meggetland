@@ -293,7 +293,7 @@ const NODE = 'eubc-timing-v1';
    the app still runs fully from localStorage and syncs when it next loads online. */
 let rtdb=null, root=null;
 try{
-  firebase.initializeApp({ databaseURL:'https://trailerplan-a3a9d-default-rtdb.europe-west1.firebasedatabase.app' });
+  firebase.initializeApp({ databaseURL:'https://racetimer-40043-default-rtdb.europe-west1.firebasedatabase.app' });
   rtdb = firebase.database();
   root = rtdb.ref(NODE);
 }catch(e){ console.warn('Firebase unavailable — running offline', e); }
