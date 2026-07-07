@@ -709,20 +709,30 @@ function renderStart(){
   const id=db.activePieceId, boats=boatsInOrder(p);
   let inner='';
   if(p.startMode==='mass'){
-    const allStarted = boats.every(b=>b.startTs!=null);
-    inner += allStarted
-      ? `<button class="massBtn done" data-bid="__mass" onpointerdown="lpMassClear(event,'${id}')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false"><span class="runTag"><span class="runDot"></span>RUNNING</span> · <span data-runlive="${boats[0].startTs}">${fmtElapsed(nowMs()-boats[0].startTs)}</span><span class="sub">Hold to clear all starts</span></button>`
-      : `<button class="massBtn" data-bid="__mass" onpointerdown="massStart(event,'${id}')" oncontextmenu="return false">Start all<span class="sub">One tap — same synced time for every boat</span></button>`;
+    const allStarted = boats.length>0 && boats.every(b=>b.startTs!=null);
+    const anyRunning = boats.some(b=>b.startTs!=null && b.finishTs==null);
+    if(!allStarted){
+      inner += `<button class="massBtn" data-bid="__mass" onpointerdown="massStart(event,'${id}')" oncontextmenu="return false">Start all<span class="sub">One tap — same synced time for every boat</span></button>`;
+    } else if(anyRunning){
+      inner += `<button class="massBtn done" data-bid="__mass" onpointerdown="lpMassClear(event,'${id}')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false"><span class="runTag"><span class="runDot"></span>RUNNING</span> · <span data-runlive="${boats[0].startTs}">${fmtElapsed(nowMs()-boats[0].startTs)}</span><span class="sub">Hold to clear all starts</span></button>`;
+    } else {
+      inner += `<div class="massBtn done" style="cursor:default"><span class="runTag" style="color:var(--green-deep)">✓ ALL FINISHED</span><span class="sub">See Results for times</span></div>`;
+    }
   }
   inner += boats.map(b=>{
-    const done=b.startTs!=null;
-    return done
-      ? `<button class="stampBtn running" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','startTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
+    const running = b.startTs!=null && b.finishTs==null;
+    const finished = b.startTs!=null && b.finishTs!=null;
+    if(finished) return `<button class="stampBtn done" data-bid="${b.id}">
+          <span class="ident">${esc(b.ident)}</span>
+          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="time">${fmtElapsed(b.finishTs-b.startTs)}<span class="sub">Finished</span></span>
+        </button>`;
+    if(running) return `<button class="stampBtn running" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','startTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
           <span class="ident">${esc(b.ident)}</span>
           <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
           <span class="time"><span class="runTag"><span class="runDot"></span>RUNNING</span><br><span data-runlive="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span><span class="sub">Hold to clear</span></span>
-        </button>`
-      : `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','startTs')" oncontextmenu="return false">
+        </button>`;
+    return `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','startTs')" oncontextmenu="return false">
           <span class="ident">${esc(b.ident)}</span>
           <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
           <span class="time">Tap to start</span>
@@ -732,7 +742,7 @@ function renderStart(){
     <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start — one tap starts every boat on the same server-synced time.':'Time trial — tap each boat the instant it crosses the start.'}</p>
     ${inner}</div>`;
   clearInterval(startTick);
-  if(boats.some(b=>b.startTs!=null) && currentView==='Start'){
+  if(boats.some(b=>b.startTs!=null && b.finishTs==null) && currentView==='Start'){
     startTick=setInterval(()=>{
       document.querySelectorAll('#viewStart [data-runlive]').forEach(s=>{ s.textContent=fmtElapsed(nowMs()-Number(s.dataset.runlive)); });
     },50);
