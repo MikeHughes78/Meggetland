@@ -739,7 +739,7 @@ function renderStart(){
         </button>`;
   }).join('');
   el.innerHTML = `<div class="panel"><h2>Start · ${esc(p.name)} · ${p.distance}m</h2>
-    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start — one tap starts every boat on the same server-synced time.':'Time trial — tap each boat the instant it crosses the start.'}</p>
+    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start':'Time trial'}</p>
     ${inner}</div>`;
   clearInterval(startTick);
   if(boats.some(b=>b.startTs!=null && b.finishTs==null) && currentView==='Start'){
@@ -948,7 +948,7 @@ function exportPdf(id){
   doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(102,112,124);
   doc.text([ new Date(p.createdAt||0).toLocaleString('en-GB'),
     'Distance: '+p.distance+'m · Start: '+(p.startMode==='mass'?'regatta start':'time trial'),
-    'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k gold medal times' ], 14, 25);
+    'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · ' ], 14, 25);
   doc.autoTable({
     startY:38,
     head:[['#','Boat','Category','Crew','Time','GMT%']],
@@ -975,7 +975,7 @@ function renderSettings(){
   const g=db.settings.gmts||{};
   el.innerHTML=`<div class="panel">
     <h2>Gold medal times (2k)</h2>
-    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
+    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00</p>
     <div class="gmtGrid">
       ${CATS.map(c=>`<label class="fld">${catLabel(c)}
         <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00" inputmode="decimal">
