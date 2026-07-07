@@ -2,197 +2,224 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>EUBC Timing</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
+/* ============ EUBC design system — quiet macOS-style chrome ============ */
+/* Corporate face: Swiss 721. Drop licensed woff2 files into a /fonts folder
+   next to this file and uncomment to activate; Helvetica Neue is the native
+   fallback on every Mac and is the same design lineage.
+@font-face{font-family:'Swiss 721';src:url('fonts/Swiss721-Roman.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Swiss 721';src:url('fonts/Swiss721-Medium.woff2') format('woff2');font-weight:500}
+@font-face{font-family:'Swiss 721';src:url('fonts/Swiss721-Bold.woff2') format('woff2');font-weight:600}
+*/
 :root{
-  --baby:#89CFF0;
-  --baby-soft:#B7E3FA;
-  --baby-deep:#4FA8D8;
-  --ink:#EAF6FD;
-  --ink-dim:rgba(234,246,253,.62);
-  --glass:rgba(255,255,255,.09);
-  --glass-strong:rgba(255,255,255,.14);
-  --stroke:rgba(255,255,255,.18);
-  --green:#3DDC84;
-  --amber:#FFC24B;
-  --red:#FF5D5D;
-  --radius:20px;
+  --canvas:#f2f3f5;
+  --panel:#ffffff;
+  --hair:#dfe3e8;
+  --hair-soft:#eceff2;
+  --text:#1d2530;
+  --sub:#66707c;
+  --navy:#0E2841;
+  --blade:#6bb7e0;
+  --blade-deep:#1a6a9a;
+  --blade-tint:#eef6fb;
+  --green:#2fa35c;
+  --green-deep:#1f7d44;
+  --green-bg:#ecf8f0;
+  --green-hair:#b9e2c6;
+  --red:#d0453a;
+  --red-bg:#fdf3f2;
+  --red-hair:#eec4bf;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button,input,select{touch-action:manipulation;font-family:inherit}
+html{background:var(--canvas)}
 body{
-  font-family:'Barlow',sans-serif;
-  color:var(--ink);
-  background:linear-gradient(160deg,#0B1D33 0%,#123A5C 45%,#1B5E8C 100%);
-  background-attachment:fixed;
-  min-height:100vh;
-  padding-bottom:40px;
+  font-family:'Swiss 721','Helvetica Neue',Helvetica,Arial,sans-serif;
+  background:var(--canvas);color:var(--text);
+  font-size:13px;line-height:1.45;min-height:100vh;
+  padding-bottom:calc(74px + env(safe-area-inset-bottom));
+  -webkit-font-smoothing:antialiased;
 }
-body::before{
-  content:'';position:fixed;inset:0;pointer-events:none;
-  background:radial-gradient(600px 400px at 85% -10%,rgba(137,207,240,.22),transparent 60%),
-             radial-gradient(500px 500px at -10% 110%,rgba(137,207,240,.14),transparent 60%);
-}
-.wrap{max-width:860px;margin:0 auto;padding:14px;position:relative}
+.wrap{max-width:820px;margin:0 auto;padding:12px}
 
-/* ---------- header ---------- */
-header{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
-  border:1px solid var(--stroke);border-radius:var(--radius);
-  padding:14px 18px;margin-bottom:12px;
-  box-shadow:0 8px 32px rgba(0,0,0,.25);
+/* ============ header ============ */
+header.bar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--panel);border:1px solid var(--hair);border-radius:12px;
+  padding:10px 14px;margin-bottom:12px;
+  box-shadow:0 1px 2px rgba(16,24,40,.04);
 }
-header h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.45rem;letter-spacing:.04em}
-header h1 span{color:var(--baby)}
+.logo{height:30px;width:auto;display:block}
+header.bar h1{font-size:1.02rem;font-weight:600;color:var(--navy);letter-spacing:-.01em}
+header.bar h1 span{font-weight:500;color:var(--blade-deep)}
 #masterClock{
-  font-family:'Barlow Condensed',sans-serif;font-weight:600;
-  font-variant-numeric:tabular-nums;
-  font-size:1.5rem;letter-spacing:.05em;color:var(--baby-soft);
-  margin-left:auto;
+  font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums;
+  font-size:1.1rem;letter-spacing:-.01em;color:var(--navy);margin-left:auto;
 }
 .pill{
-  font-size:.72rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  padding:5px 12px;border-radius:999px;border:1px solid var(--stroke);
-  background:rgba(255,255,255,.06);white-space:nowrap;
+  font-size:.68rem;font-weight:600;padding:3px 10px;border-radius:999px;
+  border:1px solid var(--hair);background:var(--hair-soft);color:var(--sub);white-space:nowrap;
 }
-.pill.ok{color:var(--green);border-color:rgba(61,220,132,.4)}
-.pill.warn{color:var(--amber);border-color:rgba(255,194,75,.45)}
-.pill.bad{color:var(--red);border-color:rgba(255,93,93,.45)}
+.pill.ok{color:var(--green-deep);border-color:var(--green-hair);background:var(--green-bg)}
+.pill.warn{color:#9a6b12;border-color:#ecd9ae;background:#fbf4e3}
+.pill.bad{color:var(--red);border-color:var(--red-hair);background:var(--red-bg)}
 
-/* ---------- nav ---------- */
-nav{display:flex;gap:8px;overflow-x:auto;padding:2px;margin-bottom:14px;scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
+/* ============ nav — bottom bar on mobile, segmented on desktop ============ */
+nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:50;
+  display:flex;justify-content:space-around;
+  background:rgba(255,255,255,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--hair);
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+}
 nav button{
-  flex:0 0 auto;font-family:'Barlow',sans-serif;font-weight:600;font-size:.9rem;
-  color:var(--ink-dim);background:var(--glass);border:1px solid var(--stroke);
-  border-radius:14px;padding:10px 18px;cursor:pointer;
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-  transition:all .18s ease;
+  flex:1;max-width:104px;background:none;border:none;cursor:pointer;
+  font-size:.72rem;font-weight:500;color:var(--sub);
+  padding:8px 2px;border-radius:9px;transition:color .12s ease,background .12s ease;
 }
-nav button.active{color:#0B1D33;background:var(--baby);border-color:var(--baby);box-shadow:0 4px 18px rgba(137,207,240,.4)}
-nav button:active{transform:scale(.96)}
+nav button.active{color:var(--navy);font-weight:600;background:var(--hair-soft)}
+nav button:active{opacity:.6}
+@media(min-width:700px){
+  body{padding-bottom:32px}
+  nav{position:static;background:#e9ecef;border:none;border-radius:10px;
+    display:inline-flex;justify-content:flex-start;padding:3px;margin-bottom:14px;backdrop-filter:none}
+  nav button{flex:0 0 auto;max-width:none;font-size:.82rem;padding:7px 16px;border-radius:8px}
+  nav button.active{background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.1);border:1px solid var(--hair)}
+}
 
-/* ---------- panels ---------- */
+/* ============ panels ============ */
 .panel{
-  background:var(--glass);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);
-  border:1px solid var(--stroke);border-radius:var(--radius);
-  padding:18px;margin-bottom:14px;box-shadow:0 8px 32px rgba(0,0,0,.22);
+  background:var(--panel);border:1px solid var(--hair);border-radius:12px;
+  padding:16px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.04);
 }
-.panel h2{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.2rem;letter-spacing:.05em;text-transform:uppercase;color:var(--baby-soft);margin-bottom:12px}
-.hint{font-size:.82rem;color:var(--ink-dim);line-height:1.45}
+.panel h2{font-size:.95rem;font-weight:600;color:var(--navy);letter-spacing:-.01em;margin-bottom:10px}
+.hint{font-size:.8rem;color:var(--sub);line-height:1.45}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-label.fld{display:flex;flex-direction:column;gap:5px;font-size:.78rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-dim)}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:.72rem;font-weight:500;color:var(--sub)}
 input,select{
-  font-family:'Barlow',sans-serif;font-size:1rem;color:var(--ink);
-  background:rgba(255,255,255,.08);border:1px solid var(--stroke);border-radius:12px;
-  padding:10px 12px;outline:none;min-width:0;
+  font-size:.95rem;color:var(--text);background:#fff;
+  border:1px solid var(--hair);border-radius:8px;padding:9px 10px;outline:none;min-width:0;
 }
-input:focus,select:focus{border-color:var(--baby);box-shadow:0 0 0 3px rgba(137,207,240,.2)}
-select option{color:#0B1D33}
-input[type=number]{width:110px}
+input:focus,select:focus{border-color:var(--blade);box-shadow:0 0 0 3px rgba(107,183,224,.18)}
+input[type=number]{width:104px}
 
 .btn{
-  font-family:'Barlow',sans-serif;font-weight:700;font-size:.95rem;cursor:pointer;
-  border:none;border-radius:14px;padding:12px 20px;color:#0B1D33;background:var(--baby);
-  box-shadow:0 4px 18px rgba(137,207,240,.35);transition:all .15s ease;
+  font-weight:600;font-size:.85rem;cursor:pointer;
+  border:1px solid var(--navy);border-radius:9px;padding:10px 16px;
+  color:#fff;background:var(--navy);transition:opacity .12s ease,transform .1s ease;
 }
-.btn:active{transform:scale(.96)}
-.btn.ghost{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--stroke);box-shadow:none}
-.btn.danger{background:rgba(255,93,93,.16);color:var(--red);border:1px solid rgba(255,93,93,.4);box-shadow:none}
-.btn.small{padding:7px 13px;font-size:.82rem;border-radius:11px}
-.chip{font-size:.82rem;font-weight:600;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--stroke);color:var(--ink-dim);cursor:pointer}
-.chip.on{background:var(--baby);color:#0B1D33;border-color:var(--baby)}
+.btn:active{transform:scale(.97);opacity:.9}
+.btn.ghost{background:#fff;color:var(--text);border-color:var(--hair)}
+.btn.danger{background:#fff;color:var(--red);border-color:var(--red-hair)}
+.btn.small{padding:7px 12px;font-size:.78rem;border-radius:8px}
 
-/* ---------- boat cards (setup) ---------- */
-.boatCard{
-  background:rgba(255,255,255,.06);border:1px solid var(--stroke);border-radius:16px;
-  padding:14px;margin-bottom:12px;
-}
+/* segmented control */
+.seg{display:inline-flex;background:#e9ecef;border-radius:9px;padding:2px}
+.seg button{border:none;background:none;cursor:pointer;font-size:.8rem;font-weight:500;color:var(--sub);padding:6px 14px;border-radius:7px}
+.seg button.on{background:#fff;color:var(--navy);font-weight:600;box-shadow:0 1px 2px rgba(16,24,40,.1)}
+.chip{font-size:.78rem;font-weight:500;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--hair);color:var(--sub);cursor:pointer}
+.chip.on{background:var(--blade-tint);color:var(--blade-deep);border-color:var(--blade);font-weight:600}
+
+/* ============ boat cards (setup) ============ */
+.boatCard{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:12px;margin-bottom:10px}
 .boatCard .head{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
-.crewGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.crewGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px}
 
-/* ---------- timing buttons ---------- */
+/* ============ timing buttons ============ */
 .stampBtn{
-  width:100%;display:flex;align-items:center;gap:14px;text-align:left;
-  border-radius:18px;padding:16px 18px;margin-bottom:10px;cursor:pointer;
-  border:1px solid rgba(255,93,93,.45);background:rgba(255,93,93,.12);color:var(--ink);
-  font-family:'Barlow',sans-serif;position:relative;overflow:hidden;
-  transition:background .25s ease,border-color .25s ease;
+  width:100%;display:flex;align-items:center;gap:12px;text-align:left;
+  border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;min-height:74px;
+  border:1px solid var(--red-hair);background:var(--red-bg);color:var(--text);
+  position:relative;overflow:hidden;
+  transition:background .15s ease,border-color .15s ease;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
 .stampBtn .ident{
-  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.5rem;letter-spacing:.03em;
-  min-width:64px;
+  font-family:var(--mono);font-weight:600;font-size:1.3rem;min-width:52px;color:var(--red);
+  font-variant-numeric:tabular-nums;
 }
 .stampBtn .meta{flex:1;min-width:0}
-.stampBtn .cat{font-weight:600;font-size:.9rem;color:var(--baby-soft)}
-.stampBtn .crew{font-size:.78rem;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stampBtn .time{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.35rem;font-variant-numeric:tabular-nums;letter-spacing:.04em}
-.stampBtn.done{border-color:rgba(61,220,132,.5);background:rgba(61,220,132,.13)}
-.stampBtn.done .time{color:var(--green)}
-.stampBtn.waiting{opacity:.45;pointer-events:none;border-color:var(--stroke);background:rgba(255,255,255,.05)}
-.stampBtn:active{transform:scale(.985)}
-.stampBtn .ripple{
-  position:absolute;border-radius:50%;background:rgba(137,207,240,.45);
-  transform:scale(0);animation:rip .5s ease-out forwards;pointer-events:none;
+.stampBtn .cat{font-weight:600;font-size:.9rem;color:var(--navy)}
+.stampBtn .crew{font-size:.74rem;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stampBtn .time{font-family:var(--mono);font-weight:600;font-size:1.05rem;font-variant-numeric:tabular-nums;color:var(--red);text-align:right;line-height:1.25}
+.stampBtn .sub{display:block;font-family:'Swiss 721','Helvetica Neue',Helvetica,sans-serif;font-size:.62rem;font-weight:500;color:var(--sub);margin-top:2px}
+.stampBtn:active{transform:scale(.99)}
+.stampBtn.done{border-color:var(--green-hair);background:var(--green-bg)}
+.stampBtn.done .ident{color:var(--green-deep)}
+.stampBtn.done .time{color:var(--green-deep)}
+.stampBtn.waiting{opacity:.5;pointer-events:none;border-color:var(--hair);background:#fff}
+.stampBtn.flash{animation:stampFlash .5s ease-out}
+@keyframes stampFlash{
+  0%{background:#8fe0ac;border-color:var(--green);transform:scale(1.015)}
+  100%{background:var(--green-bg);border-color:var(--green-hair);transform:scale(1)}
 }
-@keyframes rip{to{transform:scale(3);opacity:0}}
-.undo{
-  flex:0 0 auto;background:rgba(255,255,255,.1);border:1px solid var(--stroke);color:var(--ink-dim);
-  border-radius:10px;font-size:.75rem;font-weight:700;padding:6px 10px;cursor:pointer;
-}
+.stampBtn.holding{animation:holdShrink .6s ease-in forwards}
+@keyframes holdShrink{0%{transform:scale(1)}100%{transform:scale(.965);background:var(--red-bg);border-color:var(--red)}}
 .massBtn{
-  width:100%;padding:34px 20px;border-radius:24px;border:1px solid rgba(255,93,93,.5);
-  background:rgba(255,93,93,.15);color:var(--ink);cursor:pointer;margin-bottom:14px;
-  font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:2rem;letter-spacing:.12em;text-transform:uppercase;
-  position:relative;overflow:hidden;transition:all .25s ease;
+  width:100%;padding:26px 20px;border-radius:14px;margin-bottom:12px;cursor:pointer;
+  border:1px solid var(--red-hair);background:var(--red-bg);color:var(--red);
+  font-weight:600;font-size:1.25rem;position:relative;overflow:hidden;
+  transition:background .15s ease,border-color .15s ease;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
 }
-.massBtn.done{border-color:rgba(61,220,132,.55);background:rgba(61,220,132,.14);color:var(--green)}
-.massBtn:active{transform:scale(.98)}
+.massBtn .sub{display:block;font-size:.68rem;font-weight:500;color:var(--sub);margin-top:4px}
+.massBtn.done{border-color:var(--green-hair);background:var(--green-bg);color:var(--green-deep);font-size:1.05rem}
+.massBtn.flash{animation:stampFlash .5s ease-out}
+.massBtn.holding{animation:holdShrink .6s ease-in forwards}
+.massBtn:active{transform:scale(.99)}
 
-/* ---------- results ---------- */
-table{width:100%;border-collapse:collapse;font-size:.92rem}
-th{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:.75rem;color:var(--ink-dim);text-align:left;padding:8px 8px;border-bottom:1px solid var(--stroke)}
-td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);vertical-align:top}
+/* ============ results ============ */
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{font-weight:600;font-size:.7rem;color:var(--sub);text-align:left;padding:8px 6px;border-bottom:1px solid var(--hair)}
+td{padding:9px 6px;border-bottom:1px solid var(--hair-soft);vertical-align:top}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-tr.rank1 td:first-child{color:#FFD84B;font-weight:800}
-tr.rank2 td:first-child{color:#D7DEE6;font-weight:800}
-tr.rank3 td:first-child{color:#E8A46B;font-weight:800}
-.crewSmall{font-size:.75rem;color:var(--ink-dim)}
-.bigPct{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.15rem;color:var(--baby)}
+td.num{font-family:var(--mono);font-size:.83rem}
+tr.rank1 td:first-child{color:#b3830a;font-weight:700}
+tr.rank2 td:first-child{color:#7d8894;font-weight:700}
+tr.rank3 td:first-child{color:#a5643a;font-weight:700}
+.crewSmall{font-size:.72rem;color:var(--sub)}
+.bigPct{font-family:var(--mono);font-weight:600;color:var(--blade-deep)}
 
-/* ---------- pieces & settings ---------- */
-.pieceRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
-.pieceRow .nm{font-weight:700}
-.pieceRow .sub{font-size:.78rem;color:var(--ink-dim)}
-.gmtGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.gmtGrid label.fld input{width:100%}
+/* ============ pieces & settings ============ */
+.pieceRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 2px;border-bottom:1px solid var(--hair-soft)}
+.pieceRow .nm{font-weight:600;color:var(--navy)}
+.pieceRow .sub{font-size:.75rem;color:var(--sub)}
+.gmtGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:10px}
+.gmtGrid label.fld input{width:100%;font-family:var(--mono);font-size:.88rem}
 
-.toastWrap{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toastWrap{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center;width:max-content;max-width:92vw}
+@media(min-width:700px){.toastWrap{bottom:24px}}
 .toast{
-  background:rgba(11,29,51,.92);border:1px solid var(--baby);color:var(--ink);
-  padding:10px 20px;border-radius:999px;font-size:.88rem;font-weight:600;
-  box-shadow:0 6px 24px rgba(0,0,0,.4);animation:fadeUp .25s ease;
+  background:var(--navy);color:#fff;padding:9px 18px;border-radius:999px;
+  font-size:.82rem;font-weight:500;box-shadow:0 4px 16px rgba(14,40,65,.3);
+  animation:fadeUp .22s ease;
 }
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .hidden{display:none!important}
+body.viewonly{padding-bottom:20px}
 body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.viewonly #viewFinish, body.viewonly #viewPieces, body.viewonly #viewSettings, body.viewonly .editOnly{display:none!important}
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-@media (max-width:520px){
-  header h1{font-size:1.15rem}
-  #masterClock{font-size:1.2rem}
-  .stampBtn .ident{font-size:1.25rem;min-width:52px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:420px){
+  header.bar{padding:9px 12px}
+  header.bar h1{font-size:.92rem}
+  #masterClock{font-size:.98rem}
+  .logo{height:26px}
+  .panel{padding:13px}
+  .stampBtn .ident{font-size:1.15rem;min-width:44px}
+  .stampBtn .time{font-size:.95rem}
+  th,td{padding-left:4px;padding-right:4px}
 }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<header>
-  <h1>EUBC <span>TIMING</span></h1>
+<header class="bar">
+  <img src="eubc-logo.png" class="logo" alt="" onerror="this.style.display='none'">
+  <h1>EUBC <span>Timing</span></h1>
   <span id="syncPill" class="pill warn">Connecting…</span>
   <div id="masterClock">--:--:--</div>
 </header>
@@ -216,8 +243,8 @@ body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.view
 </div>
 <div class="toastWrap" id="toasts"></div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -225,9 +252,14 @@ body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.view
    EUBC Timing — core: firebase, clock sync, offline queue
    ===================================================== */
 const NODE = 'eubc-timing-v1';
-firebase.initializeApp({ databaseURL:'https://trailerplan-a3a9d-default-rtdb.europe-west1.firebasedatabase.app' });
-const rtdb = firebase.database();
-const root = rtdb.ref(NODE);
+/* Guarded init: if the Firebase SDK fails to load (opened with no signal),
+   the app still runs fully from localStorage and syncs when it next loads online. */
+let rtdb=null, root=null;
+try{
+  firebase.initializeApp({ databaseURL:'https://trailerplan-a3a9d-default-rtdb.europe-west1.firebasedatabase.app' });
+  rtdb = firebase.database();
+  root = rtdb.ref(NODE);
+}catch(e){ console.warn('Firebase unavailable — running offline', e); }
 
 const CATS = ['M1x','F1x','M2-','F2-','M2x','F2x','M4-','F4-','M4x','F4x','M4+','F4+','M8+','F8+'];
 const DEFAULT_GMTS = { // 2k Gold Medal Times in seconds (editable in Settings)
@@ -282,7 +314,7 @@ function fbSet(path, val){
 
 let connected=false, flushing=false;
 function flushQueue(){
-  if(!connected || flushing || !queue.length) return;
+  if(!root || !connected || flushing || !queue.length) return;
   flushing=true;
   const op = queue[0];
   root.child(op.path).set(op.val===undefined?null:op.val)
@@ -292,11 +324,11 @@ function flushQueue(){
 
 /* ---------- server clock sync ---------- */
 let serverOffset = Number(localStorage.getItem(LS.offset)) || 0;
-rtdb.ref('.info/serverTimeOffset').on('value', s=>{
+if(rtdb) rtdb.ref('.info/serverTimeOffset').on('value', s=>{
   const v = s.val();
   if(typeof v==='number'){ serverOffset=v; localStorage.setItem(LS.offset,String(v)); updateSyncPill(); }
 });
-rtdb.ref('.info/connected').on('value', s=>{
+if(rtdb) rtdb.ref('.info/connected').on('value', s=>{
   connected = s.val()===true;
   updateSyncPill();
   if(connected) flushQueue();
@@ -314,12 +346,12 @@ function updateSyncPill(){
 function overlayQueue(prefix){
   queue.forEach(op=>{ if(op.path===prefix || op.path.startsWith(prefix+'/') ) applyPath(db, op.path, op.val); });
 }
-root.child('settings/gmts').on('value', s=>{
+if(root) root.child('settings/gmts').on('value', s=>{
   const v=s.val();
   if(v){ db.settings.gmts = Object.assign({...DEFAULT_GMTS}, v); overlayQueue('settings/gmts'); persistDb(); renderCurrent(); }
 });
 let pieceSub=null;
-root.child('activePieceId').on('value', s=>{
+if(root) root.child('activePieceId').on('value', s=>{
   const id=s.val();
   if(id) { db.activePieceId=id; }
   overlayQueue('activePieceId');
@@ -328,6 +360,7 @@ root.child('activePieceId').on('value', s=>{
   renderCurrent();
 });
 function subscribeActivePiece(){
+  if(!root) return;
   const id = db.activePieceId;
   if(pieceSub){ pieceSub.ref.off('value', pieceSub.fn); pieceSub=null; }
   if(!id) return;
@@ -340,11 +373,39 @@ function subscribeActivePiece(){
   pieceSub={ref,fn};
 }
 
+/* ---------- audio: stopwatch beep, zero-lag ---------- */
+let audioCtx=null;
+function initAudio(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){}
+}
+document.addEventListener('pointerdown', initAudio, {once:false, passive:true});
+function beep(freq, dur, vol){
+  try{
+    if(!audioCtx) initAudio();
+    if(!audioCtx) return;
+    const t0=audioCtx.currentTime;
+    const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+    o.type='square';
+    o.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(vol, t0);
+    g.gain.setValueAtTime(vol, t0+dur*0.7);
+    g.gain.exponentialRampToValueAtTime(0.001, t0+dur);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(t0); o.stop(t0+dur);
+  }catch(e){}
+}
+function stampBeep(){ beep(1760, 0.08, 0.14); }   // sharp stopwatch blip
+function clearBeep(){ beep(520, 0.1, 0.1); }      // low blip on clear
+function buzz(ms){ if(navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
+
 /* ---------- helpers ---------- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtElapsed(ms){
   if(ms==null || isNaN(ms) || ms<0) return '—';
-  const h = Math.round(ms/10); // hundredths
+  const h = Math.round(ms/10);
   const m = Math.floor(h/6000), s = Math.floor((h%6000)/100), c = h%100;
   return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');
 }
@@ -395,7 +456,8 @@ function gmtPct(b, piece){
 
 /* master clock */
 setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallClock(nowMs()); }, 90);
-
+</script>
+<script>
 /* =====================================================
    Views
    ===================================================== */
@@ -408,10 +470,13 @@ document.getElementById('nav').addEventListener('click', e=>{
 function showView(v){
   currentView=v;
   VIEWS.forEach(x=>{
-    document.getElementById('view'+x).classList.toggle('hidden', x!==v);
+    const el=document.getElementById('view'+x);
+    el.classList.toggle('hidden', x!==v);
+    if(x!==v) el.innerHTML='';
   });
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.v===v));
   renderCurrent();
+  window.scrollTo({top:0});
 }
 function renderCurrent(){
   if(VIEWONLY){ renderResults(); return; }
@@ -419,7 +484,7 @@ function renderCurrent(){
 }
 
 /* =====================================================
-   SETUP — draft piece
+   Setup — draft piece
    ===================================================== */
 let draft = null;
 function newDraft(){
@@ -443,7 +508,7 @@ function renderSetup(){
   <div class="panel">
     <h2>${draft.editingId?'Edit piece':'New piece'}</h2>
     <div class="row">
-      <label class="fld" style="flex:1;min-width:180px">Piece name
+      <label class="fld" style="flex:1;min-width:170px">Piece name
         <input id="pName" value="${esc(draft.name)}" placeholder="e.g. Tues AM · Piece 1" oninput="draft.name=this.value">
       </label>
       <label class="fld">Distance (m)
@@ -452,7 +517,7 @@ function renderSetup(){
     </div>
     <div class="row">${distChips}</div>
     <div class="row">
-      <label class="fld">Start type
+      <label class="fld" style="flex:1">Start type
         <select onchange="draft.startMode=this.value">
           <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Staggered — tap each boat</option>
           <option value="mass" ${draft.startMode==='mass'?'selected':''}>Mass / flying — one start for all</option>
@@ -460,9 +525,9 @@ function renderSetup(){
       </label>
       <button class="btn ghost" style="align-self:flex-end" onclick="addBoat()">+ Add boat</button>
     </div>
-    <p class="hint">GMT% is scaled to the piece distance from the 2k Gold Medal Times in Settings.</p>
+    <p class="hint">GMT% is scaled to the piece distance from the 2k gold medal times in Settings.</p>
   </div>
-  <div id="boatList">${draft.boats.map((b,i)=>boatCardHtml(b,i)).join('')||'<p class="hint" style="padding:0 6px 12px">No boats yet — add your first boat above.</p>'}</div>
+  <div id="boatList">${draft.boats.map((b,i)=>boatCardHtml(b,i)).join('')||'<p class="hint" style="padding:0 4px 12px">No boats yet — add your first boat above.</p>'}</div>
   <div class="panel">
     <div class="row" style="margin:0">
       <button class="btn" onclick="savePiece()">${draft.editingId?'Save changes':'Create piece & go to Start'}</button>
@@ -481,14 +546,14 @@ function boatCardHtml(b,i){
   return `<div class="boatCard">
     <div class="head">
       <label class="fld">Identifier
-        <input style="width:90px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
+        <input style="width:84px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
       </label>
-      <label class="fld">Category
+      <label class="fld" style="flex:1;min-width:150px">Category
         <select onchange="draft.boats[${i}].category=this.value;renderSetup()">
           ${CATS.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
         </select>
       </label>
-      <button class="btn small danger" style="margin-left:auto" onclick="draft.boats.splice(${i},1);renderSetup()">Remove</button>
+      <button class="btn small danger" onclick="draft.boats.splice(${i},1);renderSetup()">Remove</button>
     </div>
     <div class="crewGrid">
       ${pos.map((p,j)=>`<label class="fld">${p}
@@ -524,24 +589,34 @@ function savePiece(){
 }
 
 /* =====================================================
-   START
+   Stamp on pointerdown (fastest possible), hold to clear
    ===================================================== */
-function stamp(pieceId, boatId, field){
-  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, nowMs());
+function stampDown(ev, pieceId, boatId, field){
+  const t = nowMs();               // capture the instant of touch, before anything else
+  stampBeep(); buzz(15);
+  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, t);
+  const btn=document.querySelector(`.stampBtn[data-bid="${boatId}"]`);
+  if(btn) btn.classList.add('flash');
 }
-function unstamp(pieceId, boatId, field){
-  if(!confirm('Clear this time?')) return;
-  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, null);
+let lpTimer=null;
+function lpStart(ev, pieceId, boatId, field){
+  const btn=ev.currentTarget;
+  btn.classList.add('holding');
+  lpTimer=setTimeout(()=>{
+    btn.classList.remove('holding');
+    fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+field, null);
+    clearBeep(); buzz(30);
+    toast((field==='startTs'?'Start':'Finish')+' time cleared');
+  },600);
 }
-function ripple(ev){
-  const btn=ev.currentTarget, r=btn.getBoundingClientRect();
-  const d=document.createElement('span'); d.className='ripple';
-  const size=Math.max(r.width,r.height);
-  d.style.width=d.style.height=size+'px';
-  d.style.left=((ev.clientX||r.width/2+r.left)-r.left-size/2)+'px';
-  d.style.top=((ev.clientY||r.height/2+r.top)-r.top-size/2)+'px';
-  btn.appendChild(d); setTimeout(()=>d.remove(),500);
+function lpEnd(ev){
+  clearTimeout(lpTimer);
+  ev.currentTarget.classList.remove('holding');
 }
+
+/* =====================================================
+   Start
+   ===================================================== */
 function renderStart(){
   const el=document.getElementById('viewStart');
   const p=activePiece();
@@ -550,37 +625,51 @@ function renderStart(){
   let inner='';
   if(p.startMode==='mass'){
     const allStarted = boats.every(b=>b.startTs!=null);
-    inner += `<button class="massBtn ${allStarted?'done':''}" onclick="ripple(event);${allStarted?'':`massStart('${id}')`}">
-      ${allStarted? 'Started · '+fmtWallClock(boats[0].startTs) : 'START ALL'}</button>`;
-    if(allStarted) inner+=`<div class="row editOnly"><button class="btn small danger" onclick="massUnstart('${id}')">Clear all starts</button></div>`;
+    inner += allStarted
+      ? `<button class="massBtn done" data-bid="__mass" onpointerdown="lpMassClear(event,'${id}')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">✓ Started · ${fmtWallClock(boats[0].startTs)}<span class="sub">Hold to clear all starts</span></button>`
+      : `<button class="massBtn" data-bid="__mass" onpointerdown="massStart(event,'${id}')" oncontextmenu="return false">Start all<span class="sub">One tap — same synced time for every boat</span></button>`;
   }
   inner += boats.map(b=>{
     const done=b.startTs!=null;
-    return `<button class="stampBtn ${done?'done':''}" onclick="ripple(event);${done?'':`stamp('${id}','${b.id}','startTs')`}">
-      <span class="ident">${esc(b.ident)}</span>
-      <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
-      <span class="time">${done? fmtWallClock(b.startTs):'TAP TO START'}</span>
-      ${done?`<span class="undo" onclick="event.stopPropagation();unstamp('${id}','${b.id}','startTs')">↺</span>`:''}
-    </button>`;
+    return done
+      ? `<button class="stampBtn done" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','startTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
+          <span class="ident">${esc(b.ident)}</span>
+          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="time">${fmtWallClock(b.startTs)}<span class="sub">Hold to clear</span></span>
+        </button>`
+      : `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','startTs')" oncontextmenu="return false">
+          <span class="ident">${esc(b.ident)}</span>
+          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="time">Tap to start</span>
+        </button>`;
   }).join('');
   el.innerHTML = `<div class="panel"><h2>Start · ${esc(p.name)} · ${p.distance}m</h2>
-    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'One tap starts every boat on the same server-synced time.':'Tap each boat as it crosses the start.'}</p>
+    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'One tap starts every boat on the same server-synced time.':'Tap each boat the instant it crosses the start.'}</p>
     ${inner}</div>`;
 }
-function massStart(id){
+function massStart(ev,id){
+  const t = nowMs();
   const p=db.pieces[id]; if(!p) return;
-  const t=nowMs();
+  stampBeep(); buzz(20);
   boatsInOrder(p).forEach(b=>{ if(b.startTs==null) fbSet('pieces/'+id+'/boats/'+b.id+'/startTs', t); });
+  const btn=document.querySelector(`.massBtn[data-bid="__mass"]`);
+  if(btn) btn.classList.add('flash');
   toast('All boats started');
 }
-function massUnstart(id){
-  if(!confirm('Clear ALL start times?')) return;
-  const p=db.pieces[id];
-  boatsInOrder(p).forEach(b=>fbSet('pieces/'+id+'/boats/'+b.id+'/startTs', null));
+function lpMassClear(ev,id){
+  const btn=ev.currentTarget;
+  btn.classList.add('holding');
+  lpTimer=setTimeout(()=>{
+    btn.classList.remove('holding');
+    const p=db.pieces[id];
+    boatsInOrder(p).forEach(b=>fbSet('pieces/'+id+'/boats/'+b.id+'/startTs', null));
+    clearBeep(); buzz(30);
+    toast('All start times cleared');
+  },600);
 }
 
 /* =====================================================
-   FINISH
+   Finish
    ===================================================== */
 let finishTick=null;
 function renderFinish(){
@@ -594,19 +683,25 @@ function renderFinish(){
   const btn = b=>{
     const running = b.startTs!=null && b.finishTs==null;
     const done = b.finishTs!=null;
-    const cls = done?'done':(running?'':'waiting');
-    const timeHtml = done? fmtElapsed(b.finishTs-b.startTs)
-      : running? `<span data-live="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span>` : 'NOT STARTED';
-    return `<button class="stampBtn ${cls}" onclick="ripple(event);${running?`stamp('${id}','${b.id}','finishTs')`:''}">
-      <span class="ident">${esc(b.ident)}</span>
-      <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
-      <span class="time">${timeHtml}</span>
-      ${done?`<span class="undo" onclick="event.stopPropagation();unstamp('${id}','${b.id}','finishTs')">↺</span>`:''}
-    </button>`;
+    if(done) return `<button class="stampBtn done" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','finishTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
+        <span class="ident">${esc(b.ident)}</span>
+        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="time">${fmtElapsed(b.finishTs-b.startTs)}<span class="sub">Hold to clear</span></span>
+      </button>`;
+    if(running) return `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','finishTs')" oncontextmenu="return false">
+        <span class="ident">${esc(b.ident)}</span>
+        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="time"><span data-live="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span><span class="sub">Tap at the line</span></span>
+      </button>`;
+    return `<button class="stampBtn waiting" data-bid="${b.id}">
+        <span class="ident">${esc(b.ident)}</span>
+        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="time">Not started</span>
+      </button>`;
   };
   el.innerHTML = `<div class="panel"><h2>Finish · ${esc(p.name)} · ${p.distance}m</h2>
-    <p class="hint" style="margin-bottom:12px">Tap the bow number as it crosses the line.</p>
-    ${onWater.map(btn).join('')}
+    <p class="hint" style="margin-bottom:12px">Tap the bow number the instant it crosses the line.</p>
+    ${onWater.map(btn).join('')||(finished.length?'':'<p class="hint">No boats on the water yet.</p>')}
     ${finished.length?'<h2 style="margin-top:14px">Finished</h2>'+finished.map(btn).join(''):''}
     ${notStarted.length?'<h2 style="margin-top:14px">Waiting to start</h2>'+notStarted.map(btn).join(''):''}
   </div>`;
@@ -619,7 +714,7 @@ function renderFinish(){
 }
 
 /* =====================================================
-   RESULTS (+ view-only mode)
+   Results (+ view-only mode)
    ===================================================== */
 let sortMode = localStorage.getItem(LS.sort)||'time';
 function setSort(m){ sortMode=m; localStorage.setItem(LS.sort,m); renderResults(); }
@@ -654,30 +749,31 @@ function renderResults(){
   el.innerHTML=`<div class="panel">
     <h2>Results · ${esc(p.name)} · ${p.distance}m</h2>
     <div class="row">
-      <button class="chip ${sortMode==='time'?'on':''}" onclick="setSort('time')">Total time</button>
-      <button class="chip ${sortMode==='gmt'?'on':''}" onclick="setSort('gmt')">GMT%</button>
+      <div class="seg">
+        <button class="${sortMode==='time'?'on':''}" onclick="setSort('time')">Total time</button>
+        <button class="${sortMode==='gmt'?'on':''}" onclick="setSort('gmt')">GMT%</button>
+      </div>
       <span style="flex:1"></span>
-      <button class="btn small ghost editOnly" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}').then(()=>toast('View-only link copied'))">Copy view-only link</button>
+      <button class="btn small ghost editOnly" onclick="navigator.clipboard&&navigator.clipboard.writeText('${link}').then(()=>toast('View-only link copied'))">Copy link</button>
       <button class="btn small editOnly" onclick="exportPdf(db.activePieceId)">PDF</button>
     </div>
     ${resultsTableHtml(p)}
-    <p class="hint" style="margin-top:12px">GMT% = scaled Gold Medal Time ÷ time × 100 — higher is better. Updates live.</p>
+    <p class="hint" style="margin-top:12px">GMT% = scaled gold medal time ÷ time × 100 — higher is better. Updates live.</p>
   </div>`;
 }
 
 /* =====================================================
-   PIECES (history) + PDF
+   Pieces (history) + PDF
    ===================================================== */
 function renderPieces(){
   const el=document.getElementById('viewPieces');
-  el.innerHTML='<div class="panel"><h2>Saved pieces</h2><p class="hint">Loading…</p></div>';
-  root.child('pieces').orderByChild('createdAt').limitToLast(100).once('value').then(s=>{
+  drawPieces(el);
+  if(root) root.child('pieces').orderByChild('createdAt').limitToLast(100).once('value').then(s=>{
     const v=s.val()||{};
     Object.keys(v).forEach(k=>{ db.pieces[k]=Object.assign(db.pieces[k]||{}, v[k]); });
     overlayQueue('pieces'); persistDb();
-    drawPieces(el);
-  }).catch(()=>drawPieces(el));
-  drawPieces(el);
+    if(currentView==='Pieces') drawPieces(el);
+  }).catch(()=>{});
 }
 function drawPieces(el){
   const ids=Object.keys(db.pieces).sort((a,b)=>(db.pieces[b].createdAt||0)-(db.pieces[a].createdAt||0));
@@ -686,7 +782,7 @@ function drawPieces(el){
     const n=boatsInOrder(p).length;
     const active=id===db.activePieceId;
     return `<div class="pieceRow">
-      <div style="flex:1;min-width:160px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}</div>
+      <div style="flex:1;min-width:150px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}</div>
       <div class="sub">${new Date(p.createdAt||0).toLocaleString('en-GB')} · ${p.distance}m · ${n} boat${n===1?'':'s'} · ${p.startMode==='mass'?'mass start':'staggered'}</div></div>
       <button class="btn small ghost" onclick="openPiece('${id}')">Open</button>
       <button class="btn small ghost" onclick="exportPdf('${id}')">PDF</button>
@@ -708,23 +804,22 @@ function deletePiece(id){
 }
 function exportPdf(id){
   const p=db.pieces[id]; if(!p){ toast('Piece not found'); return; }
-  const prevSort=sortMode;
   const {done,pending}=resultsData(p);
   const { jsPDF } = window.jspdf;
   const doc=new jsPDF();
-  doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.setTextColor(18,58,92);
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(14,40,65);
   doc.text('EUBC Timing — '+(p.name||'Piece'), 14, 18);
-  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(90);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(102,112,124);
   doc.text([ new Date(p.createdAt||0).toLocaleString('en-GB'),
     'Distance: '+p.distance+'m · Start: '+(p.startMode==='mass'?'mass/flying':'staggered'),
-    'Ranked by '+(prevSort==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k Gold Medal Times' ], 14, 25);
+    'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k gold medal times' ], 14, 25);
   doc.autoTable({
     startY:38,
     head:[['#','Boat','Category','Crew','Time','GMT%']],
     body:done.map((b,i)=>[i+1, b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
     styles:{font:'helvetica',fontSize:9,cellPadding:2.5},
-    headStyles:{fillColor:[137,207,240],textColor:[11,29,51],fontStyle:'bold'},
-    alternateRowStyles:{fillColor:[240,248,253]},
+    headStyles:{fillColor:[14,40,65],textColor:[255,255,255],fontStyle:'bold'},
+    alternateRowStyles:{fillColor:[242,243,245]},
     columnStyles:{0:{cellWidth:8},4:{halign:'right'},5:{halign:'right'}}
   });
   if(pending.length){
@@ -737,28 +832,28 @@ function exportPdf(id){
 }
 
 /* =====================================================
-   SETTINGS — GMTs
+   Settings — GMTs
    ===================================================== */
 function renderSettings(){
   const el=document.getElementById('viewSettings');
   const g=db.settings.gmts||{};
   el.innerHTML=`<div class="panel">
-    <h2>Gold Medal Times (2k)</h2>
+    <h2>Gold medal times (2k)</h2>
     <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
     <div class="gmtGrid">
       ${CATS.map(c=>`<label class="fld">${catLabel(c)}
-        <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00">
+        <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00" inputmode="decimal">
       </label>`).join('')}
     </div>
     <div class="row" style="margin-top:14px">
       <button class="btn" onclick="saveGmts()">Save GMTs</button>
-      <button class="btn ghost" onclick="if(confirm('Reset all GMTs to World Best defaults?')){fbSet('settings/gmts',{...DEFAULT_GMTS});toast('GMTs reset');}">Reset to defaults</button>
+      <button class="btn ghost" onclick="if(confirm('Reset all GMTs to world best defaults?')){fbSet('settings/gmts',{...DEFAULT_GMTS});toast('GMTs reset');}">Reset to defaults</button>
     </div>
   </div>
   <div class="panel">
     <h2>Timing sync</h2>
-    <p class="hint">All timestamps use Firebase server time. Current device offset: <strong>${serverOffset>=0?'+':''}${Math.round(serverOffset)}ms</strong>.
-    Once calibrated, this device keeps stamping accurately even if it drops offline — taps are queued locally and upload automatically when the connection returns.</p>
+    <p class="hint">All timestamps use Firebase server time — times are stamped the instant a button is touched (pointer-down, not release). Current device offset: <strong>${serverOffset>=0?'+':''}${Math.round(serverOffset)}ms</strong>.
+    Once calibrated, this device keeps stamping accurately even if it drops offline — taps queue locally and upload automatically when the connection returns.</p>
   </div>`;
 }
 function saveGmts(){
