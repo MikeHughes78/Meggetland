@@ -547,6 +547,11 @@ function renderHome(){
         <div class="tx"><div class="tt">Open existing piece</div><div class="ds">Saved pieces, results and PDFs</div></div>
         <div class="chev">›</div>
       </div>
+      <div class="homeBtn" onclick="showView('Settings')">
+        <div class="ic">⚙</div>
+        <div class="tx"><div class="tt">Settings</div><div class="ds">Gold medal times and timing sync</div></div>
+        <div class="chev">›</div>
+      </div>
     </div>
     ${resume}
   </div>`;
@@ -592,8 +597,8 @@ function renderSetup(){
     <div class="row">
       <label class="fld" style="flex:1">Start type
         <select onchange="draft.startMode=this.value">
-          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial</option>
-          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start</option>
+          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial — one after the other</option>
+          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start — all boats together</option>
         </select>
       </label>
       <button class="btn ghost" style="align-self:flex-end" onclick="addBoat()">+ Add boat</button>
