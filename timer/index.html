@@ -603,10 +603,12 @@ function renderSetup(){
   <div id="boatList">${draft.boats.map((b,i)=>boatCardHtml(b,i)).join('')||'<p class="hint" style="padding:0 4px 12px">No boats yet — add your first boat above.</p>'}</div>
   <div class="panel">
     <div class="row" style="margin:0">
-      <button class="btn" onclick="savePiece()">${draft.editingId?'Save changes':'Create piece & go to Start'}</button>
+      <button class="btn" onclick="savePiece('now')">Save and run now</button>
+      <button class="btn ghost" onclick="savePiece('later')">Save for later</button>
       <button class="btn ghost" onclick="draft=newDraft();renderSetup()">Clear</button>
       ${activePiece()&&!draft.editingId?'<button class="btn ghost" onclick="loadActiveIntoDraft()">Edit current piece</button>':''}
     </div>
+    <p class="hint" style="margin-top:10px">Run now makes this the active piece and opens Start. Save for later files it in Pieces without changing what's currently active.</p>
   </div>`;
 }
 function setDist(d){ draft.distance=d; renderSetup(); }
@@ -635,7 +637,7 @@ function boatCardHtml(b,i){
     </div>
   </div>`;
 }
-function savePiece(){
+function savePiece(mode){
   if(!draft.boats.length){ toast('Add at least one boat'); return; }
   if(!draft.distance){ toast('Set a distance'); return; }
   const id = draft.editingId || ('p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
@@ -654,11 +656,16 @@ function savePiece(){
     createdAt: existing.createdAt || nowMs(), boats, order };
   const wasEdit=!!draft.editingId;
   fbSet('pieces/'+id, piece);
-  fbSet('activePieceId', id);
-  subscribeActivePiece();
   draft=newDraft();
-  toast(wasEdit?'Piece updated':'Piece created');
-  showView('Start');
+  if(mode==='now'){
+    fbSet('activePieceId', id);
+    subscribeActivePiece();
+    toast(wasEdit?'Piece updated — now active':'Piece created — now active');
+    showView('Start');
+  } else {
+    toast(wasEdit?'Saved for later':'Saved for later');
+    showView('Pieces');
+  }
 }
 
 /* =====================================================
@@ -854,21 +861,56 @@ function renderPieces(){
     if(currentView==='Pieces') drawPieces(el);
   }).catch(()=>{});
 }
+function pieceStatus(p){
+  const boats=boatsInOrder(p);
+  if(!boats.length) return {label:'Empty', run:false, complete:false};
+  const started=boats.filter(b=>b.startTs!=null).length;
+  const finished=boats.filter(b=>b.startTs!=null&&b.finishTs!=null).length;
+  if(started===0) return {label:'Not run yet', run:true, complete:false};
+  if(finished>=boats.length) return {label:'Complete', run:false, complete:true};
+  return {label:'In progress', run:false, complete:false};
+}
 function drawPieces(el){
   const ids=Object.keys(db.pieces).sort((a,b)=>(db.pieces[b].createdAt||0)-(db.pieces[a].createdAt||0));
   const rows=ids.map(id=>{
     const p=db.pieces[id];
     const n=boatsInOrder(p).length;
     const active=id===db.activePieceId;
+    const st=pieceStatus(p);
+    const stPill = st.label==='Not run yet' ? `<span class="pill" style="margin-left:6px">Not run yet</span>`
+      : st.complete ? `<span class="pill ok" style="margin-left:6px">Complete</span>`
+      : st.label==='In progress' ? `<span class="pill warn" style="margin-left:6px">In progress</span>` : '';
+    // primary action: Run for unrun pieces, Results for anything with times
+    const primary = st.run
+      ? `<button class="btn small" onclick="runPiece('${id}')">Run</button>`
+      : `<button class="btn small ghost" onclick="openPiece('${id}')">Results</button>`;
+    const resume = (!st.run && !st.complete) ? `<button class="btn small ghost" onclick="runPiece('${id}')">Continue</button>` : '';
     return `<div class="pieceRow">
-      <div style="flex:1;min-width:150px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}</div>
+      <div style="flex:1;min-width:150px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}${(active&&stPill)?' ':''}${stPill}</div>
       <div class="sub">${new Date(p.createdAt||0).toLocaleString('en-GB')} · ${p.distance}m · ${n} boat${n===1?'':'s'} · ${p.startMode==='mass'?'regatta start':'time trial'}</div></div>
-      <button class="btn small ghost" onclick="openPiece('${id}')">Open</button>
+      ${primary}
+      ${resume}
+      <button class="btn small ghost" onclick="editPiece('${id}')">Edit</button>
       <button class="btn small ghost" onclick="exportPdf('${id}')">PDF</button>
       <button class="btn small danger" onclick="deletePiece('${id}')">Delete</button>
     </div>`;
   }).join('');
-  el.innerHTML=`<div class="panel"><h2>Saved pieces</h2>${rows||'<p class="hint">Nothing saved yet.</p>'}</div>`;
+  el.innerHTML=`<div class="panel"><h2>Saved pieces</h2>${rows||'<p class="hint">Nothing saved yet — create one from Setup.</p>'}</div>`;
+}
+function runPiece(id){
+  fbSet('activePieceId', id);
+  subscribeActivePiece();
+  toast('Now active');
+  showView('Start');
+}
+function editPiece(id){
+  const p=db.pieces[id]; if(!p) return;
+  draft = {
+    name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
+    editingId: id,
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), _id:b.id }))
+  };
+  showView('Setup');
 }
 function openPiece(id){
   fbSet('activePieceId', id);
