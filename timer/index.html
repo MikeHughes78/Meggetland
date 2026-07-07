@@ -839,7 +839,7 @@ function renderSettings(){
   const g=db.settings.gmts||{};
   el.innerHTML=`<div class="panel">
     <h2>Gold medal times (2k)</h2>
-    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
+    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00.</p>
     <div class="gmtGrid">
       ${CATS.map(c=>`<label class="fld">${catLabel(c)}
         <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00" inputmode="decimal">
