@@ -1,1 +1,1546 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>EUBC Training · 2026–27</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --baby:#7FC4EE;
+  --baby-deep:#3E9BD6;
+  --ink:#0E2A3C;
+  --ink-soft:#4A6474;
+  --glass:rgba(255,255,255,.62);
+  --glass-strong:rgba(255,255,255,.82);
+  --hairline:rgba(255,255,255,.75);
+  --shadow:0 18px 44px rgba(24,66,97,.16), 0 2px 8px rgba(24,66,97,.08);
+  --radius:22px;
+  --z-ut2:#4DA3E0; --z-ut1:#38B6A5; --z-at:#63B75D; --z-tr:#E8B33C;
+  --z-an:#E8823C; --z-max:#E05252; --z-test:#9A6FD6; --z-snc:#7A8CA0;
+  --water:#3E9BD6; --land:#5E7A8E; --off:#B8C7D2;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:'Barlow',-apple-system,sans-serif;
+  color:var(--ink);
+  min-height:100vh;
+  background:
+    radial-gradient(1100px 700px at 12% -10%, rgba(127,196,238,.55), transparent 60%),
+    radial-gradient(900px 620px at 105% 8%, rgba(62,155,214,.34), transparent 55%),
+    radial-gradient(800px 700px at 55% 115%, rgba(160,214,244,.5), transparent 60%),
+    linear-gradient(178deg,#EAF5FC 0%, #F4FAFE 45%, #E4F1FA 100%);
+  background-attachment:fixed;
+}
+.condensed,h1,h2,h3,.btn,.tab,.chip,.wk-num{font-family:'Barlow',sans-serif}
+.tt{color:var(--baby-deep)}
+h1 .tt,h2 .tt{font-weight:800}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;color:var(--ink)}
+::selection{background:rgba(127,196,238,.45)}
 
+/* ---------- glass primitives ---------- */
+.glass{
+  background:var(--glass);
+  backdrop-filter:blur(22px) saturate(1.5);
+  -webkit-backdrop-filter:blur(22px) saturate(1.5);
+  border:1px solid var(--hairline);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:9px 16px;border-radius:14px;font-weight:600;font-size:14px;
+  background:rgba(255,255,255,.55);border:1px solid var(--hairline);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  color:var(--ink);transition:transform .15s ease, box-shadow .15s ease, background .15s ease;
+  box-shadow:0 2px 8px rgba(24,66,97,.08);
+  white-space:nowrap;
+}
+.btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.78);box-shadow:0 6px 16px rgba(24,66,97,.14)}
+.btn:active{transform:translateY(0)}
+.btn.primary{background:linear-gradient(150deg,var(--baby) 0%,var(--baby-deep) 100%);color:#fff;border-color:rgba(255,255,255,.5)}
+.btn.primary:hover{background:linear-gradient(150deg,#8FCDF2 0%,#4AA6DE 100%)}
+.btn.danger{color:#C23A3A}
+.btn.small{padding:6px 11px;font-size:13px;border-radius:11px}
+.btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--baby-deep);outline-offset:2px}
+.icon{width:16px;height:16px;flex:none}
+
+/* ---------- login ---------- */
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:min(420px,100%);padding:40px 36px;text-align:center}
+.crest{width:64px;height:64px;margin:0 auto 14px;border-radius:20px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(150deg,var(--baby),var(--baby-deep));box-shadow:0 10px 24px rgba(62,155,214,.4)}
+.crest svg{width:36px;height:36px}
+.login-card h1{font-size:26px;font-weight:800;letter-spacing:.2px}
+.login-card .sub{color:var(--ink-soft);font-size:14px;margin:4px 0 24px}
+.role-switch{display:flex;gap:6px;padding:5px;border-radius:16px;background:rgba(255,255,255,.5);border:1px solid var(--hairline);margin-bottom:18px}
+.role-switch button{flex:1;padding:9px;border-radius:12px;font-weight:600;color:var(--ink-soft);transition:all .15s}
+.role-switch button.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(24,66,97,.12)}
+.field{margin-bottom:12px;text-align:left}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.field input,.field select,.field textarea{
+  width:100%;padding:11px 14px;border-radius:13px;border:1px solid rgba(24,66,97,.14);
+  background:rgba(255,255,255,.72);transition:border .15s, box-shadow .15s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--baby-deep);box-shadow:0 0 0 3px rgba(127,196,238,.35);outline:none}
+.login-err{color:#C23A3A;font-size:13px;font-weight:600;min-height:18px;margin:6px 0 10px}
+.login-card .primary{width:100%;justify-content:center;padding:12px;font-size:15px}
+.login-note{font-size:12px;color:var(--ink-soft);margin-top:18px;line-height:1.5}
+
+/* ---------- app shell ---------- */
+#app{display:none;max-width:1440px;margin:0 auto;padding:18px 18px 60px}
+header.bar{
+  position:sticky;top:12px;z-index:40;
+  display:flex;align-items:center;gap:14px;padding:12px 18px;margin-bottom:16px;flex-wrap:wrap;
+}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .crest{width:40px;height:40px;border-radius:13px;margin:0}
+.brand .crest svg{width:23px;height:23px}
+.brand h1{font-size:19px;font-weight:800;line-height:1.05}
+.brand .season{font-size:11px;color:var(--ink-soft);font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.tabs{display:flex;gap:5px;padding:5px;border-radius:15px;background:rgba(255,255,255,.45);border:1px solid var(--hairline)}
+.tab{padding:8px 18px;border-radius:11px;font-weight:600;font-size:14px;color:var(--ink-soft);transition:all .15s}
+.tab.on{background:#fff;color:var(--ink);box-shadow:0 2px 8px rgba(24,66,97,.14)}
+.bar .spacer{flex:1}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:11px;
+  background:rgba(255,255,255,.55);border:1px solid var(--hairline);color:var(--ink-soft)}
+.badge .dot{width:7px;height:7px;border-radius:50%;background:#63B75D}
+.badge.local .dot{background:#E8B33C}
+
+/* ---------- season ribbon ---------- */
+.ribbon-wrap{padding:14px 16px 10px;margin-bottom:16px;overflow:hidden}
+.ribbon-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+.ribbon-head h3{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.ribbon-scroll{overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.ribbon{display:flex;gap:3px;min-width:max-content;align-items:flex-end}
+.wk{width:24px;flex:none;display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:8px;padding:4px 2px;transition:background .15s}
+.wk:hover{background:rgba(255,255,255,.65)}
+.wk .bar-col{width:12px;height:38px;border-radius:5px;background:rgba(14,42,60,.07);display:flex;flex-direction:column-reverse;overflow:hidden}
+.wk .wk-ev{height:8px;display:flex;gap:2px;align-items:center;justify-content:center}
+.wk .ev-dot{width:6px;height:6px;border-radius:50%;box-shadow:0 0 0 1.5px rgba(255,255,255,.85)}
+.event{border-radius:14px;padding:8px 10px 8px 12px;position:relative;overflow:hidden;font-size:12.5px;
+  background:linear-gradient(150deg, color-mix(in srgb, var(--ec) 16%, #fff) , rgba(255,255,255,.85));
+  border:1px solid color-mix(in srgb, var(--ec) 35%, #fff);box-shadow:0 3px 10px rgba(24,66,97,.1)}
+.event::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ec)}
+.event .e-kind{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--ec)}
+.event .e-name{font-weight:700;font-size:13.5px;line-height:1.25}
+.event .e-sub{font-size:11.5px;color:var(--ink-soft);margin-top:2px}
+.event.clickable:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(24,66,97,.16);cursor:pointer;transition:all .12s}
+.wk .seg{width:100%}
+.wk .wk-num{font-size:9.5px;font-weight:700;color:var(--ink-soft)}
+.wk.now{background:rgba(255,255,255,.85);box-shadow:0 2px 8px rgba(24,66,97,.14)}
+.wk.sel .wk-num{color:var(--baby-deep)}
+.wk.sel .bar-col{outline:2px solid var(--baby-deep);outline-offset:1px}
+.wk.locked .bar-col,.wk.locked .wk-num{opacity:.35}
+.months-row{display:flex;min-width:max-content;margin-top:2px}
+.m-lab{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--ink-soft);text-transform:uppercase;border-left:1px solid rgba(14,42,60,.14);padding-left:5px}
+
+/* ---------- week header + stats ---------- */
+.week-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.week-title h2{font-size:24px;font-weight:800}
+.week-title .dates{color:var(--ink-soft);font-size:14px;font-weight:500}
+.navbtns{display:flex;gap:6px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+.stat{padding:16px 18px}
+.stat .lab{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px}
+.stat .val{font-family:'Barlow';font-size:26px;font-weight:800;line-height:1}
+.stat .val small{font-size:14px;font-weight:600;color:var(--ink-soft)}
+.zonebar{display:flex;height:14px;border-radius:8px;overflow:hidden;margin:10px 0 8px;background:rgba(14,42,60,.06)}
+.zonebar div{transition:width .3s ease}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+
+/* ---------- day grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(7,minmax(150px,1fr));gap:10px;overflow-x:auto;padding-bottom:8px;scrollbar-width:thin}
+.day{padding:10px;min-height:160px;display:flex;flex-direction:column;gap:8px;border-radius:18px}
+.day.today{border-color:var(--baby-deep);box-shadow:0 0 0 2px rgba(62,155,214,.35), var(--shadow)}
+.day-head{display:flex;align-items:baseline;justify-content:space-between}
+.day-head .dname{font-family:'Barlow';font-weight:700;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+.day-head .dnum{font-family:'Barlow';font-weight:800;font-size:16px}
+.sess{border-radius:14px;padding:9px 10px 9px 12px;background:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.9);
+  box-shadow:0 3px 10px rgba(24,66,97,.09);position:relative;overflow:hidden;transition:transform .12s, box-shadow .12s}
+.sess::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--zc,#999)}
+.sess.clickable:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(24,66,97,.16);cursor:pointer}
+.sess .s-time{font-family:'Barlow';font-weight:700;font-size:11.5px;color:var(--baby-deep);letter-spacing:.03em;margin-bottom:2px;display:flex;gap:5px;align-items:baseline}
+.sess .s-time .loc{color:var(--ink-soft);font-weight:600;font-family:'Barlow';font-size:11px;letter-spacing:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess .s-name{font-weight:700;font-size:13.5px;line-height:1.25}
+.sess .s-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;align-items:center}
+.chip{font-size:10.5px;font-weight:700;padding:2.5px 7px;border-radius:8px;letter-spacing:.04em;color:#fff;background:var(--zc,#888)}
+.chip.type{background:rgba(14,42,60,.08);color:var(--ink-soft)}
+.sess .s-vol{font-family:'Barlow';font-weight:700;font-size:12.5px;color:var(--ink-soft);margin-left:auto}
+.sess .s-notes{font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.35}
+.sess.off{opacity:.75}
+.addbtn{margin-top:auto;border:1.5px dashed rgba(62,155,214,.5);border-radius:12px;padding:7px;color:var(--baby-deep);
+  font-weight:700;font-size:13px;transition:all .15s;background:rgba(255,255,255,.3)}
+.addbtn:hover{background:rgba(127,196,238,.22);border-style:solid}
+.empty-day{font-size:12px;color:rgba(74,100,116,.6);text-align:center;padding:14px 4px;font-weight:500}
+.locked-note{padding:34px;text-align:center;color:var(--ink-soft);font-weight:600}
+.locked-note .big{font-size:38px;margin-bottom:8px}
+
+/* ---------- overview ---------- */
+.ov-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:20px}
+.ov-m{padding:16px 18px}
+.ov-m h4{font-size:15px;font-weight:800;margin-bottom:2px}
+.ov-m .tot{font-family:'Barlow';font-size:22px;font-weight:800;margin:4px 0 8px}
+.ov-m .tot small{font-size:13px;color:var(--ink-soft);font-weight:600}
+table.weeks{width:100%;border-collapse:collapse}
+table.weeks th{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:1px solid rgba(14,42,60,.1)}
+table.weeks td{padding:10px 12px;border-bottom:1px solid rgba(14,42,60,.06);font-size:14px;vertical-align:middle}
+table.weeks tr.clickable:hover{background:rgba(255,255,255,.55);cursor:pointer}
+table.weeks .mini{height:10px;border-radius:6px;overflow:hidden;display:flex;background:rgba(14,42,60,.06);min-width:140px}
+td.num,th.num{text-align:right;font-family:'Barlow';font-weight:700}
+
+/* ---------- analytics ---------- */
+.an-head{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.chart-card{padding:18px 18px 12px;margin-bottom:16px}
+.chart-card h3{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:10px}
+.blk-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:12px;margin-bottom:16px}
+.blk-card{padding:15px 17px;border-top:4px solid var(--bc,#4DA3E0)}
+.blk-card h4{font-size:15px;font-weight:800}
+.blk-card .rng{font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+.blk-card .tot{font-size:21px;font-weight:800;line-height:1;margin:4px 0 2px}
+.blk-card .tot small{font-size:12px;font-weight:600;color:var(--ink-soft)}
+.blk-card .mix,.blk-card .dlt{font-size:12px;font-weight:600;color:var(--ink-soft);margin-top:6px;line-height:1.5}
+.ramp{padding:2px 9px;border-radius:8px;font-weight:700;font-size:12px;white-space:nowrap}
+.ramp.ok{background:rgba(99,183,93,.18);color:#3d7a39}
+.ramp.warn{background:rgba(232,179,60,.22);color:#8a6a1d}
+.ramp.hot{background:rgba(224,82,82,.16);color:#a83232}
+.ramp.na{background:rgba(14,42,60,.06);color:var(--ink-soft)}
+.spark{display:block;margin-top:8px}
+svg .wkbar{cursor:pointer}
+svg .wkbar:hover rect{opacity:.82}
+
+/* ---------- modals ---------- */
+.overlay{position:fixed;inset:0;background:rgba(14,42,60,.32);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  z-index:100;display:none;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow-y:auto}
+.overlay.open{display:flex}
+.modal{width:min(560px,100%);padding:26px 26px 22px;position:relative;animation:pop .22s ease}
+.modal.wide{width:min(760px,100%)}
+@keyframes pop{from{transform:translateY(14px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.modal h3{font-size:20px;font-weight:800;margin-bottom:16px;padding-right:36px}
+.x{position:absolute;top:16px;right:16px;width:32px;height:32px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  background:rgba(14,42,60,.06);font-size:16px;font-weight:700;color:var(--ink-soft)}
+.x:hover{background:rgba(14,42,60,.12)}
+.frow{display:flex;gap:10px}.frow .field{flex:1}
+.seg-ctrl{display:flex;gap:5px;padding:4px;border-radius:13px;background:rgba(14,42,60,.06)}
+.seg-ctrl button{flex:1;padding:8px;border-radius:10px;font-weight:600;font-size:13.5px;color:var(--ink-soft);transition:all .13s}
+.seg-ctrl button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(24,66,97,.13)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.modal-actions .left{margin-right:auto}
+.lib-list{max-height:46vh;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-top:12px;padding:2px}
+.lib-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.9);box-shadow:0 2px 8px rgba(24,66,97,.07)}
+.lib-item .grow{flex:1;min-width:0}
+.lib-item:hover{background:rgba(255,255,255,.95)}
+.lib-group{font-family:'Barlow';font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);display:flex;align-items:center;gap:8px;margin:8px 4px 0}
+.lib-group span{font-size:10.5px;font-weight:700;background:rgba(14,42,60,.08);border-radius:8px;padding:1px 7px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.fchip{font-size:12px;font-weight:700;padding:5px 12px;border-radius:10px;background:rgba(255,255,255,.5);border:1px solid var(--hairline);color:var(--ink-soft)}
+.fchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.splits-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hint{font-size:12px;color:var(--ink-soft);line-height:1.5;margin-top:6px}
+.checkline{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;margin:10px 0}
+.checkline input{width:17px;height:17px;accent-color:var(--baby-deep)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);z-index:200;padding:12px 22px;border-radius:15px;
+  font-weight:600;font-size:14px;transition:transform .3s cubic-bezier(.3,1.4,.5,1);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ---------- print ---------- */
+#printRoot{display:none}
+@media print{
+  body{background:#fff}
+  #app,#login,.overlay,.toast{display:none !important}
+  #printRoot{display:block;font-family:'Barlow',sans-serif;color:#111}
+  .p-week{page-break-after:always;padding:6px 0}
+  .p-week:last-child{page-break-after:auto}
+  .p-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2.5px solid #3E9BD6;padding-bottom:6px;margin-bottom:10px}
+  .p-head h2{font-family:'Barlow';font-size:19px}
+  .p-head .p-squad{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#3E9BD6}
+  table.p-tbl{width:100%;border-collapse:collapse;font-size:11px}
+  table.p-tbl th{background:#EAF5FC;text-align:left;padding:5px 7px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;border:1px solid #cfe3f0}
+  table.p-tbl td{padding:5px 7px;border:1px solid #dde9f2;vertical-align:top}
+  .p-day{width:11%;font-weight:700;white-space:nowrap}
+  .p-zone{display:inline-block;padding:1px 6px;border-radius:6px;color:#fff;font-weight:700;font-size:9.5px;margin-right:4px}
+  .p-tot{margin-top:8px;font-size:11px;display:flex;gap:18px;flex-wrap:wrap}
+  .p-tot b{font-family:'Barlow'}
+  .p-foot{margin-top:4px;font-size:9px;color:#889}
+}
+
+/* ---------- responsive ---------- */
+@media(max-width:760px){
+  header.bar{position:static}
+  .week-title h2{font-size:20px}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+
+<!-- ======================= LOGIN ======================= -->
+<div id="login">
+  <div class="glass login-card">
+    <div class="crest" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 17c3.5 1.8 6.5 1.8 9 0s5.5-1.8 9 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4v9" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4c2.8 0 4.4 1.5 4.4 3.4 0 1.6-1.7 2.6-4.4 2.6-2.7 0-4.4-1-4.4-2.6C7.6 5.5 9.2 4 12 4Z" fill="#fff"/></svg>
+    </div>
+    <h1><span class="tt">EUBC</span> Training</h1>
+    <div class="sub">Season 2026–27 · 31 Aug 2026 → 31 Jul 2027</div>
+    <div class="role-switch" role="tablist">
+      <button id="roleAthlete" class="on" onclick="setLoginRole('athlete')">Athlete</button>
+      <button id="roleCoach" onclick="setLoginRole('coach')">Coach</button>
+    </div>
+    <div class="field" id="emailField">
+      <label for="loginEmail">University email</label>
+      <input id="loginEmail" type="email" placeholder="s1234567@ed.ac.uk" autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="loginPin">PIN</label>
+      <input id="loginPin" type="password" inputmode="numeric" placeholder="••••" maxlength="6">
+    </div>
+    <div class="login-err" id="loginErr"></div>
+    <button class="btn primary" onclick="doLogin()">Enter</button>
+    <div class="login-note">Athletes sign in with an @ed.ac.uk address and the squad PIN.<br>Coaches use the coach PIN.</div>
+  </div>
+</div>
+
+<!-- ======================= APP ======================= -->
+<div id="app">
+  <header class="bar glass">
+    <div class="brand">
+      <div class="crest" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 17c3.5 1.8 6.5 1.8 9 0s5.5-1.8 9 0" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4v9" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/><path d="M12 4c2.8 0 4.4 1.5 4.4 3.4 0 1.6-1.7 2.6-4.4 2.6-2.7 0-4.4-1-4.4-2.6C7.6 5.5 9.2 4 12 4Z" fill="#fff"/></svg>
+      </div>
+      <div><h1><span class="tt">EUBC</span> Training</h1><div class="season">2026–27</div></div>
+    </div>
+    <div class="tabs" id="squadTabs">
+      <button class="tab on" data-squad="men">Men</button>
+      <button class="tab" data-squad="women">Women</button>
+      <button class="tab" data-squad="beginner">Beginners</button>
+    </div>
+    <div class="tabs" id="viewTabs">
+      <button class="tab on" data-view="week">Week</button>
+      <button class="tab" data-view="overview">Season</button>
+      <button class="tab" data-view="analytics" id="tabAnalytics">Analytics</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="badge" id="connBadge"><span class="dot"></span><span id="connTxt">Syncing…</span></span>
+    <span class="badge" id="roleBadge"></span>
+    <button class="btn" id="btnEvents" onclick="openEvents()">Events</button>
+    <button class="btn" id="btnLibrary" onclick="openLibrary()">Session library</button>
+    <button class="btn" id="btnSettings" onclick="openSettings()">Settings</button>
+    <button class="btn" onclick="openPdf()"><svg class="icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>PDF</button>
+    <button class="btn" onclick="logout()">Sign out</button>
+  </header>
+
+  <section class="glass ribbon-wrap">
+    <div class="ribbon-head">
+      <h3 id="ribbonTitle">Season · volume by week</h3>
+      <div class="legend" id="ribbonLegend"></div>
+    </div>
+    <div class="ribbon-scroll">
+      <div class="ribbon" id="ribbon"></div>
+      <div class="months-row" id="monthsRow"></div>
+    </div>
+  </section>
+
+  <main id="main"></main>
+</div>
+
+<!-- ======================= MODALS ======================= -->
+<div class="overlay" id="ovSession"><div class="glass modal" id="mdSession"></div></div>
+<div class="overlay" id="ovLibrary"><div class="glass modal wide" id="mdLibrary"></div></div>
+<div class="overlay" id="ovSettings"><div class="glass modal" id="mdSettings"></div></div>
+<div class="overlay" id="ovEvents"><div class="glass modal wide" id="mdEvents"></div></div>
+<div class="overlay" id="ovBlocks"><div class="glass modal wide" id="mdBlocks"></div></div>
+<div class="overlay" id="ovPdf"><div class="glass modal" id="mdPdf"></div></div>
+<div class="glass toast" id="toast"></div>
+<div id="printRoot"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* =====================================================================
+   EUBC TRAINING MANAGEMENT — BETA
+   ---------------------------------------------------------------------
+   SETUP (one line): paste your new Firebase project's Realtime Database
+   URL below, e.g. "https://eubc-training-default-rtdb.europe-west1.firebasedatabase.app"
+   Until then the app runs in Local-only mode (banner top right).
+===================================================================== */
+const FIREBASE_CONFIG = {
+  databaseURL: https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app/
+};
+const DB_NODE = "eubc-training-v1";
+const PIN_ATHLETE = "2026";
+const PIN_COACH   = "202026";
+
+const SEASON_START = new Date(2026, 7, 31);   // Mon 31 Aug 2026
+const N_WEEKS = 48;                            // → Sun 1 Aug 2027
+const SQUADS = { men:"Men", women:"Women", beginner:"Beginners" };
+const TYPES  = ["Water","Erg","Land","Off"];
+const TYPE_LABEL = { Water:"Water", Erg:"Erg", Land:"Other land", Off:"Off / rest" };
+const CATS = [ {id:"erg",label:"Erg"}, {id:"water",label:"Water"}, {id:"other",label:"Other land"} ];
+const catOf = s => s.type==="Erg" ? "erg" : s.type==="Water" ? "water" : "other";
+const ZONES  = ["UT2","UT1","AT","TR","AN","Max","Test","S&C"];
+const ZKEY   = z => z==="S&C" ? "snc" : z.toLowerCase();
+const ZCOLOR = { UT2:"#4DA3E0", UT1:"#38B6A5", AT:"#63B75D", TR:"#E8B33C", AN:"#E8823C", Max:"#E05252", Test:"#9A6FD6", "S&C":"#7A8CA0" };
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const EV_KINDS = [ {id:"race",label:"Race",color:"#E05252"}, {id:"test",label:"Erg test",color:"#9A6FD6"}, {id:"other",label:"Event",color:"#7A8CA0"} ];
+const evKind = k => EV_KINDS.find(x=>x.id===k) || EV_KINDS[2];
+
+/* Default distance→time conversion: seconds per 500m by zone */
+const DEFAULT_SPLITS = { UT2:125, UT1:120, AT:115, TR:110, AN:105, Max:100, Test:110, "S&C":120 };
+
+const SEED_LIBRARY = [
+  {name:"Steady state 60′", type:"Water", zone:"UT2", mode:"duration", minutes:60, notes:"Continuous paddling, rate 18–20"},
+  {name:"Steady state 90′", type:"Water", zone:"UT2", mode:"duration", minutes:90, notes:"Rate 18–20, technical focus"},
+  {name:"16km UT2 row", type:"Water", zone:"UT2", mode:"distance", km:16, notes:""},
+  {name:"3 × 20′ UT1", type:"Erg", zone:"UT1", mode:"duration", minutes:60, notes:"3′ rest, rate 22"},
+  {name:"4 × 10′ AT", type:"Erg", zone:"AT", mode:"duration", minutes:40, notes:"3′ rest, rate 26–28"},
+  {name:"6 × 500m TR", type:"Erg", zone:"TR", mode:"distance", km:3, notes:"2′ rest"},
+  {name:"2k test", type:"Erg", zone:"Test", mode:"distance", km:2, notes:"Full test protocol"},
+  {name:"5k test", type:"Erg", zone:"Test", mode:"distance", km:5, notes:"Segmented test"},
+  {name:"Strength & conditioning", type:"Land", zone:"S&C", mode:"duration", minutes:60, notes:"Gym programme"},
+  {name:"Rest day", type:"Off", zone:"", mode:"duration", minutes:0, notes:""}
+];
+
+/* ---------------- state ---------------- */
+let db = null, dbRef = null, localMode = false;
+let state = null;                 // {library, plans, settings}
+let auth = null;                  // {role, email}
+let curSquad = "men", curView = "week", curWeek = 0;
+let suppressSync = false;
+
+/* ---------------- date helpers ---------------- */
+const iso = d => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const fromIso = s => { const p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); };
+const addDays = (d,n) => { const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+const weekStart = i => addDays(SEASON_START, i*7);
+const weekOfDate = d => Math.floor((d - SEASON_START) / 604800000);
+const fmtDate = d => d.getDate()+" "+MONTHS[d.getMonth()];
+const fmtDateY = d => d.getDate()+" "+MONTHS[d.getMonth()]+" "+d.getFullYear();
+function weekLabel(i){
+  const a = weekStart(i), b = addDays(a,6);
+  return fmtDate(a)+" – "+(a.getMonth()===b.getMonth()? b.getDate()+" "+MONTHS[b.getMonth()] : fmtDate(b))+" "+b.getFullYear();
+}
+
+/* ---------------- volume helpers ---------------- */
+function sessMinutes(s, splits){
+  if(s.type==="Off") return 0;
+  if(s.mode==="distance"){
+    const sp = (splits && splits[s.zone]) || DEFAULT_SPLITS[s.zone] || 120;
+    return Math.round((+s.km || 0) * 2 * sp / 60);
+  }
+  return Math.round(+s.minutes || 0);
+}
+function fmtMin(m){
+  if(!m) return "0′";
+  if(m < 60) return m+"′";
+  const h = Math.floor(m/60), r = m%60;
+  return r ? h+"h "+r+"′" : h+"h";
+}
+function volLabel(s, splits){
+  if(s.type==="Off") return "—";
+  if(s.mode==="distance") return (+s.km)+" km ≈ "+fmtMin(sessMinutes(s,splits));
+  return fmtMin(+s.minutes||0);
+}
+function daySessions(squad, dIso){
+  const day = state.plans?.[squad]?.[dIso];
+  if(!day) return [];
+  return Object.entries(day).map(([id,s])=>({id,...s}))
+    .sort((a,b)=> (a.time||"99:99").localeCompare(b.time||"99:99") || (a.order||0)-(b.order||0));
+}
+function weekTotals(squad, wi){
+  const zones = {}; let total=0, water=0, land=0, erg=0, count=0;
+  for(let d=0; d<7; d++){
+    for(const s of daySessions(squad, iso(addDays(weekStart(wi), d)))){
+      const m = sessMinutes(s, state.settings.splits);
+      if(s.type==="Off") continue;
+      total += m; count++;
+      if(s.type==="Water") water+=m; else { land+=m; if(s.type==="Erg") erg+=m; }
+      if(s.zone) zones[s.zone] = (zones[s.zone]||0) + m;
+    }
+  }
+  return { total, water, land, erg, count, zones };
+}
+function rangeTotals(squad, fromD, toD){ // inclusive dates
+  const zones={}; let total=0, water=0, land=0, erg=0, count=0;
+  for(let d=new Date(fromD); d<=toD; d=addDays(d,1)){
+    for(const s of daySessions(squad, iso(d))){
+      const m = sessMinutes(s, state.settings.splits);
+      if(s.type==="Off") continue;
+      total+=m; count++;
+      if(s.type==="Water") water+=m; else { land+=m; if(s.type==="Erg") erg+=m; }
+      if(s.zone) zones[s.zone]=(zones[s.zone]||0)+m;
+    }
+  }
+  return {total, water, land, erg, count, zones};
+}
+
+/* ---------------- visibility (publish horizon) ---------------- */
+function horizonIso(squad){ return state.settings?.horizon?.[squad] || iso(addDays(SEASON_START,27)); }
+function weekVisible(squad, wi){
+  if(auth.role==="coach") return true;
+  return iso(weekStart(wi)) <= horizonIso(squad);
+}
+function lastVisibleWeek(squad){
+  if(auth.role==="coach") return N_WEEKS-1;
+  const h = fromIso(horizonIso(squad));
+  return Math.max(0, Math.min(N_WEEKS-1, weekOfDate(h)));
+}
+
+/* ---------------- firebase / persistence ---------------- */
+function initData(){
+  const cached = localStorage.getItem("eubc-tp-state");
+  if(cached){ try{ state = normalise(JSON.parse(cached)); }catch(e){} }
+  try{
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    dbRef = db.ref(DB_NODE);
+    const timeout = setTimeout(()=> setLocalMode("Connection timed out"), 6000);
+    dbRef.on("value", snap=>{
+      clearTimeout(timeout);
+      if(suppressSync) return;
+      const v = snap.val();
+      if(v){ state = normalise(v); }
+      else { state = freshState(); pushAll(); }
+      localStorage.setItem("eubc-tp-state", JSON.stringify(state));
+      setConn(true);
+      if(auth) renderAll();
+    }, err=>{ clearTimeout(timeout); setLocalMode(err.message); });
+  }catch(e){ setLocalMode(e.message); }
+  if(!state) state = freshState();
+}
+function normalise(v){
+  v.library = v.library || {};
+  v.plans = v.plans || {}; for(const s in SQUADS) v.plans[s] = v.plans[s] || {};
+  v.events = v.events || {};
+  v.blocks = v.blocks || {};
+  v.settings = v.settings || {};
+  v.settings.splits = Object.assign({}, DEFAULT_SPLITS, v.settings.splits||{});
+  v.settings.horizon = v.settings.horizon || {};
+  for(const s in SQUADS) v.settings.horizon[s] = v.settings.horizon[s] || iso(addDays(SEASON_START,27));
+  return v;
+}
+function eventsOn(dIso, squad){
+  return Object.entries(state.events||{}).map(([id,e])=>({id,...e}))
+    .filter(e=> e.date===dIso && (e.squad==="all" || e.squad===squad))
+    .sort((a,b)=>(a.time||"99:99").localeCompare(b.time||"99:99"));
+}
+function eventsInWeek(wi, squad){
+  const a = iso(weekStart(wi)), b = iso(addDays(weekStart(wi),6));
+  return Object.entries(state.events||{}).map(([id,e])=>({id,...e}))
+    .filter(e=> e.date>=a && e.date<=b && (e.squad==="all" || e.squad===squad))
+    .sort((x,y)=> x.date.localeCompare(y.date) || (x.time||"99:99").localeCompare(y.time||"99:99"));
+}
+function freshState(){
+  const lib = {};
+  SEED_LIBRARY.forEach((s,i)=> lib["seed"+i] = s);
+  return normalise({ library: lib });
+}
+function setConn(ok){
+  const b = document.getElementById("connBadge");
+  b.classList.toggle("local", !ok);
+  document.getElementById("connTxt").textContent = ok ? "Live sync" : "Local only";
+}
+function setLocalMode(msg){
+  if(localMode) return;
+  localMode = true; setConn(false);
+  console.warn("Firebase unavailable — local mode:", msg);
+  if(!state) state = freshState();
+  if(auth) renderAll();
+}
+function persist(path, value){
+  localStorage.setItem("eubc-tp-state", JSON.stringify(state));
+  if(dbRef && !localMode){
+    suppressSync = true;
+    const r = path ? dbRef.child(path) : dbRef;
+    r.set(value===undefined?null:value).catch(e=>setLocalMode(e.message))
+      .finally(()=> setTimeout(()=>{ suppressSync=false; }, 400));
+  }
+}
+function pushAll(){ persist(null, state); }
+
+/* ---------------- auth ---------------- */
+let loginRole = "athlete";
+function setLoginRole(r){
+  loginRole = r;
+  document.getElementById("roleAthlete").classList.toggle("on", r==="athlete");
+  document.getElementById("roleCoach").classList.toggle("on", r==="coach");
+  document.getElementById("emailField").style.display = r==="athlete" ? "" : "none";
+  document.getElementById("loginErr").textContent = "";
+}
+function doLogin(){
+  const err = document.getElementById("loginErr");
+  const pin = document.getElementById("loginPin").value.trim();
+  if(loginRole==="athlete"){
+    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+    if(!/^[a-z0-9._%+-]+@ed\.ac\.uk$/.test(email)){ err.textContent="Enter a valid @ed.ac.uk email address."; return; }
+    if(pin!==PIN_ATHLETE){ err.textContent="Incorrect PIN."; return; }
+    auth = {role:"athlete", email};
+  }else{
+    if(pin!==PIN_COACH){ err.textContent="Incorrect coach PIN."; return; }
+    auth = {role:"coach", email:""};
+  }
+  localStorage.setItem("eubc-tp-auth", JSON.stringify(auth));
+  enterApp();
+}
+function logout(){
+  localStorage.removeItem("eubc-tp-auth");
+  location.reload();
+}
+function enterApp(){
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").style.display="block";
+  const isCoach = auth.role==="coach";
+  document.getElementById("btnLibrary").style.display = isCoach?"":"none";
+  document.getElementById("btnSettings").style.display = isCoach?"":"none";
+  document.getElementById("tabAnalytics").style.display = isCoach?"":"none";
+  if(!isCoach && curView==="analytics") curView="week";
+  document.getElementById("roleBadge").textContent = isCoach ? "Coach" : (auth.email.split("@")[0]);
+  const today = new Date();
+  curWeek = Math.max(0, Math.min(N_WEEKS-1, weekOfDate(today)));
+  if(!weekVisible(curSquad, curWeek)) curWeek = lastVisibleWeek(curSquad);
+  renderAll();
+}
+
+/* ---------------- render: shell ---------------- */
+document.getElementById("squadTabs").addEventListener("click", e=>{
+  const b = e.target.closest("[data-squad]"); if(!b) return;
+  curSquad = b.dataset.squad;
+  document.querySelectorAll("#squadTabs .tab").forEach(t=>t.classList.toggle("on", t===b));
+  if(!weekVisible(curSquad, curWeek)) curWeek = lastVisibleWeek(curSquad);
+  renderAll();
+});
+document.getElementById("viewTabs").addEventListener("click", e=>{
+  const b = e.target.closest("[data-view]"); if(!b) return;
+  curView = b.dataset.view;
+  document.querySelectorAll("#viewTabs .tab").forEach(t=>t.classList.toggle("on", t===b));
+  renderAll();
+});
+
+function renderAll(){
+  if(!state || !auth) return;
+  renderRibbon();
+  if(curView==="week") renderWeek();
+  else if(curView==="analytics" && auth.role==="coach") renderAnalytics();
+  else renderOverview();
+}
+
+/* ---------------- render: ribbon ---------------- */
+function renderRibbon(){
+  const rb = document.getElementById("ribbon");
+  const todayW = weekOfDate(new Date());
+  let html = "";
+  let maxTot = 1;
+  const totals = [];
+  for(let i=0;i<N_WEEKS;i++){ totals[i] = weekTotals(curSquad,i); maxTot = Math.max(maxTot, totals[i].total); }
+  for(let i=0;i<N_WEEKS;i++){
+    const vis = weekVisible(curSquad,i);
+    const t = totals[i];
+    const evs = eventsInWeek(i, curSquad);
+    let segs = "";
+    if(vis && t.total>0){
+      for(const z of ZONES){
+        if(!t.zones[z]) continue;
+        const h = Math.max(2, Math.round(t.zones[z]/maxTot*38));
+        segs += '<div class="seg" style="height:'+h+'px;background:'+ZCOLOR[z]+'"></div>';
+      }
+    }
+    const dots = evs.slice(0,3).map(e=>'<span class="ev-dot" style="background:'+evKind(e.kind).color+'"></span>').join("");
+    const evTitle = evs.length ? "\n"+evs.map(e=>evKind(e.kind).label+": "+e.name+" ("+fmtDate(fromIso(e.date))+")").join("\n") : "";
+    html += '<button class="wk'+(i===todayW?" now":"")+(i===curWeek?" sel":"")+(!vis?" locked":"")+'" data-w="'+i+'" title="W'+(i+1)+' · '+weekLabel(i)+(vis?"":" (not yet published)")+escAttr(evTitle)+'">'
+          + '<div class="wk-ev">'+dots+'</div>'
+          + '<div class="bar-col">'+segs+'</div><span class="wk-num">'+(i+1)+'</span></button>';
+  }
+  rb.innerHTML = html;
+  rb.onclick = e=>{
+    const b = e.target.closest(".wk"); if(!b) return;
+    const w = +b.dataset.w;
+    if(!weekVisible(curSquad,w)){ toast("That week hasn't been published yet"); return; }
+    curWeek = w; curView="week";
+    document.querySelectorAll("#viewTabs .tab").forEach(t=>t.classList.toggle("on", t.dataset.view==="week"));
+    renderAll();
+    document.getElementById("main").scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  // month labels: width proportional to weeks whose Monday falls in each month
+  const mr = document.getElementById("monthsRow");
+  let mh = "", cur = null, count = 0;
+  const flush = ()=>{ if(cur!==null) mh += '<div class="m-lab" style="width:'+(count*27)+'px">'+cur+'</div>'; };
+  for(let i=0;i<N_WEEKS;i++){
+    const m = MONTHS[weekStart(i).getMonth()];
+    if(m!==cur){ flush(); cur=m; count=1; } else count++;
+  }
+  flush();
+  mr.innerHTML = mh;
+  document.getElementById("ribbonLegend").innerHTML =
+    ZONES.map(z=>'<span><i style="background:'+ZCOLOR[z]+'"></i>'+z+'</span>').join("");
+}
+
+/* ---------------- render: week view ---------------- */
+function zoneBarHtml(zones, total, h){
+  if(!total) return '<div class="zonebar" style="height:'+(h||14)+'px"></div>';
+  let s = '<div class="zonebar" style="height:'+(h||14)+'px">';
+  for(const z of ZONES){
+    if(!zones[z]) continue;
+    s += '<div style="width:'+(zones[z]/total*100)+'%;background:'+ZCOLOR[z]+'" title="'+z+' '+Math.round(zones[z]/total*100)+'%"></div>';
+  }
+  return s+"</div>";
+}
+function zonePctLegend(zones,total){
+  if(!total) return '<span style="color:var(--ink-soft)">No sessions yet</span>';
+  return ZONES.filter(z=>zones[z]).map(z=>
+    '<span><i style="background:'+ZCOLOR[z]+'"></i>'+z+' '+Math.round(zones[z]/total*100)+'%</span>').join("");
+}
+
+function renderWeek(){
+  const main = document.getElementById("main");
+  const isCoach = auth.role==="coach";
+  if(!weekVisible(curSquad, curWeek)){
+    main.innerHTML = '<div class="glass locked-note"><div class="big">🔒</div>This part of the programme hasn\'t been published yet.<br>Programme visible to '+fmtDateY(fromIso(horizonIso(curSquad)))+'.</div>';
+    return;
+  }
+  const t = weekTotals(curSquad, curWeek);
+  const todayIso = iso(new Date());
+  const prevOk = curWeek>0 && weekVisible(curSquad,curWeek-1);
+  const nextOk = curWeek<N_WEEKS-1 && weekVisible(curSquad,curWeek+1);
+
+  const blk = blockOfWeek(curWeek);
+  let html = '<div class="week-top">'
+    + '<div class="week-title"><h2>Week '+(curWeek+1)+' <span style="color:var(--ink-soft);font-weight:600">of '+N_WEEKS+'</span></h2>'
+    + '<div class="dates">'+weekLabel(curWeek)+' · '+SQUADS[curSquad]
+    + (blk?' · <span style="font-weight:700;color:'+blk.color+'">'+esc(blk.name)+'</span>':"")+'</div></div>'
+    + '<div class="navbtns">'
+    + '<button class="btn small" onclick="navWeek(-1)" '+(prevOk?"":"disabled style='opacity:.4'")+'>← Prev</button>'
+    + '<button class="btn small" onclick="goToday()">Today</button>'
+    + '<button class="btn small" onclick="navWeek(1)" '+(nextOk?"":"disabled style='opacity:.4'")+'>Next →</button>'
+    + '</div><div class="spacer"></div>'
+    + (isCoach ? '<button class="btn small" onclick="copyPrevWeek()">Copy previous week</button>' : "")
+    + '</div>';
+
+  html += '<div class="grid">';
+  for(let d=0; d<7; d++){
+    const date = addDays(weekStart(curWeek), d);
+    const dIso = iso(date);
+    const sess = daySessions(curSquad, dIso);
+    html += '<div class="glass day'+(dIso===todayIso?" today":"")+'">'
+      + '<div class="day-head"><span class="dname">'+DAYS[d]+'</span><span class="dnum">'+fmtDate(date)+'</span></div>';
+    const evs = eventsOn(dIso, curSquad);
+    for(const ev of evs){
+      const k = evKind(ev.kind);
+      html += '<div class="event'+(isCoach?" clickable":"")+'" style="--ec:'+k.color+'" '
+        + (isCoach ? 'onclick="openEvents(\''+ev.id+'\')"' : "") + '>'
+        + '<div class="e-kind">'+k.label+(ev.squad!=="all"?' · '+SQUADS[ev.squad]:"")+'</div>'
+        + '<div class="e-name">'+esc(ev.name)+'</div>'
+        + ((ev.time||ev.location)?'<div class="e-sub">'+(ev.time?esc(ev.time):"")+(ev.time&&ev.location?" · ":"")+(ev.location?esc(ev.location):"")+'</div>':"")
+        + (ev.notes?'<div class="e-sub">'+esc(ev.notes)+'</div>':"")
+        + '</div>';
+    }
+    if(!sess.length && !evs.length && !isCoach) html += '<div class="empty-day">—</div>';
+    for(const s of sess){
+      const zc = s.type==="Off" ? "var(--off)" : (ZCOLOR[s.zone]||"#999");
+      html += '<div class="sess'+(isCoach?" clickable":"")+(s.type==="Off"?" off":"")+'" style="--zc:'+zc+'" '
+        + (isCoach ? 'onclick="openSession(\''+dIso+'\',\''+s.id+'\')"' : "") + '>'
+        + (s.time||s.location ? '<div class="s-time">'+(s.time?esc(s.time):"")+(s.location?'<span class="loc">'+esc(s.location)+'</span>':"")+'</div>' : "")
+        + '<div class="s-name">'+esc(s.name)+'</div>'
+        + '<div class="s-meta">'
+        + (s.zone ? '<span class="chip" style="--zc:'+zc+'">'+esc(s.zone)+'</span>' : "")
+        + '<span class="chip type">'+s.type+'</span>'
+        + '<span class="s-vol">'+volLabel(s, state.settings.splits)+'</span></div>'
+        + (s.notes ? '<div class="s-notes">'+esc(s.notes)+'</div>' : "")
+        + '</div>';
+    }
+    if(isCoach) html += '<button class="addbtn" onclick="openSession(\''+dIso+'\')">+ Add session</button>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  const wtAll=[]; for(let i=0;i<N_WEEKS;i++) wtAll[i]= i===curWeek ? t : weekTotals(curSquad,i);
+  const ramp = t.total ? rampPct(wtAll, curWeek) : null;
+  const s0 = Math.max(0, curWeek-5);
+  const sparkVals = []; for(let i=s0;i<=curWeek;i++) sparkVals.push(wtAll[i].total);
+  const sMax = Math.max(1,...sparkVals);
+  const spark = '<svg class="spark" viewBox="0 0 132 34" width="132" height="34">'
+    + sparkVals.map((v,j)=>{
+        const bh = Math.max(2, v/sMax*30), x = j*(132/sparkVals.length)+2, bw2 = 132/sparkVals.length-4;
+        const cur = (s0+j)===curWeek;
+        return '<rect x="'+x+'" y="'+(32-bh)+'" width="'+bw2+'" height="'+bh+'" rx="2" fill="'+(cur?"var(--baby-deep)":"rgba(14,42,60,.18)")+'"><title>W'+(s0+j+1)+' · '+fmtMin(v)+'</title></rect>';
+      }).join("") + '</svg>';
+
+  html += '<div class="stats" style="margin-top:16px;margin-bottom:0">'
+    + '<div class="glass stat"><div class="lab">Weekly volume</div><div class="val">'+fmtMin(t.total)+'</div>'+spark+'</div>'
+    + '<div class="glass stat"><div class="lab">Ramp vs 4-wk avg</div><div class="val">'+rampBadge(ramp)+'</div>'
+    + '<div style="font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-top:8px">'+(ramp===null?"Not enough prior weeks":(ramp>15?"Sharp increase — check load":ramp>8?"Building — keep an eye on it":"Within normal range"))+'</div></div>'
+    + '<div class="glass stat"><div class="lab">Sessions</div><div class="val">'+t.count+'</div></div>'
+    + '<div class="glass stat"><div class="lab">Water / Land</div><div class="val">'+fmtMin(t.water)+' <small>/</small> '+fmtMin(t.land)+'</div></div>'
+    + '<div class="glass stat" style="grid-column:span 2;min-width:260px"><div class="lab">Zone distribution</div>'
+    + zoneBarHtml(t.zones,t.total) + '<div class="legend">'+zonePctLegend(t.zones,t.total)+'</div></div>'
+    + '</div>';
+  main.innerHTML = html;
+}
+function navWeek(dir){
+  const w = curWeek+dir;
+  if(w<0||w>=N_WEEKS||!weekVisible(curSquad,w)) return;
+  curWeek = w; renderAll();
+}
+function goToday(){
+  const w = Math.max(0, Math.min(N_WEEKS-1, weekOfDate(new Date())));
+  curWeek = weekVisible(curSquad,w) ? w : lastVisibleWeek(curSquad);
+  renderAll();
+}
+function copyPrevWeek(){
+  if(curWeek===0){ toast("This is the first week"); return; }
+  const src = weekStart(curWeek-1), dst = weekStart(curWeek);
+  let n=0;
+  for(let d=0; d<7; d++){
+    const from = daySessions(curSquad, iso(addDays(src,d)));
+    if(!from.length) continue;
+    const dIso = iso(addDays(dst,d));
+    const day = state.plans[curSquad][dIso] || {};
+    from.forEach((s,i)=>{
+      const id = "s"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+      const copy = {...s}; delete copy.id; copy.order = Object.keys(day).length + i;
+      day[id]=copy; n++;
+    });
+    state.plans[curSquad][dIso]=day;
+    persist("plans/"+curSquad+"/"+dIso, day);
+  }
+  toast(n? "Copied "+n+" sessions from week "+curWeek : "Previous week is empty");
+  renderAll();
+}
+
+/* ---------------- render: overview ---------------- */
+function renderOverview(){
+  const main = document.getElementById("main");
+  const lastVis = lastVisibleWeek(curSquad);
+  // month cards (day-level aggregation, season months Sep→Jul)
+  const monthsSeq = [];
+  let mCur = new Date(SEASON_START.getFullYear(), SEASON_START.getMonth(), 1);
+  const seasonEnd = addDays(weekStart(N_WEEKS-1),6);
+  while(mCur <= seasonEnd){ monthsSeq.push(new Date(mCur)); mCur = new Date(mCur.getFullYear(), mCur.getMonth()+1, 1); }
+  const horizon = auth.role==="coach" ? seasonEnd : addDays(fromIso(horizonIso(curSquad)),6);
+
+  let html = '<div class="week-top"><div class="week-title"><h2>Season overview</h2>'
+    + '<div class="dates">'+SQUADS[curSquad]+' · monthly and weekly totals'
+    + (auth.role==="athlete" ? ' · published to '+fmtDateY(fromIso(horizonIso(curSquad))) : "")
+    + '</div></div></div>';
+
+  html += '<div class="ov-months">';
+  for(const m of monthsSeq){
+    const mEnd = new Date(m.getFullYear(), m.getMonth()+1, 0);
+    const from = m < SEASON_START ? SEASON_START : m;
+    const to = mEnd > seasonEnd ? seasonEnd : mEnd;
+    const clipped = to > horizon ? horizon : to;
+    const t = clipped >= from ? rangeTotals(curSquad, from, clipped) : {total:0,water:0,land:0,count:0,zones:{}};
+    html += '<div class="glass ov-m"><h4>'+MONTHS[m.getMonth()]+' '+m.getFullYear()+'</h4>'
+      + '<div class="tot">'+fmtMin(t.total)+' <small>· '+t.count+' sessions</small></div>'
+      + zoneBarHtml(t.zones,t.total,10)
+      + '<div class="legend" style="font-size:11px">'+zonePctLegend(t.zones,t.total)+'</div></div>';
+  }
+  html += '</div>';
+
+  html += '<div class="glass" style="padding:6px 4px;overflow-x:auto"><table class="weeks"><thead><tr>'
+    + '<th>Week</th><th>Dates</th><th class="num">Volume</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Land</th><th>Zones</th></tr></thead><tbody>';
+  for(let i=0;i<=lastVis;i++){
+    const t = weekTotals(curSquad,i);
+    const evs = eventsInWeek(i, curSquad);
+    const evHtml = evs.map(e=>'<div style="font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-top:2px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+evKind(e.kind).color+';margin-right:5px"></span>'+esc(e.name)+' · '+fmtDate(fromIso(e.date))+'</div>').join("");
+    html += '<tr class="clickable" onclick="jumpWeek('+i+')"><td class="num">W'+(i+1)+'</td><td>'+weekLabel(i)+evHtml+'</td>'
+      + '<td class="num">'+fmtMin(t.total)+'</td><td class="num">'+t.count+'</td>'
+      + '<td class="num">'+fmtMin(t.water)+'</td><td class="num">'+fmtMin(t.land)+'</td>'
+      + '<td><div class="mini">'+ZONES.filter(z=>t.zones[z]).map(z=>'<div style="width:'+(t.zones[z]/t.total*100)+'%;background:'+ZCOLOR[z]+'"></div>').join("")+'</div></td></tr>';
+  }
+  html += '</tbody></table></div>';
+  main.innerHTML = html;
+}
+function jumpWeek(i){
+  curWeek=i; curView="week";
+  document.querySelectorAll("#viewTabs .tab").forEach(t=>t.classList.toggle("on", t.dataset.view==="week"));
+  renderAll(); window.scrollTo({top:0,behavior:"smooth"});
+}
+
+/* ---- shared library list: grouped by Erg / Water / Other land ---- */
+let pickCat = "all", libCat = "all";
+function catChips(which, cur){
+  const set = which==="pick" ? "setPickCat" : "setLibCat";
+  return '<div class="filters">'
+    + '<button class="fchip'+(cur==="all"?" on":"")+'" onclick="'+set+'(\'all\')">All</button>'
+    + CATS.map(c=>'<button class="fchip'+(cur===c.id?" on":"")+'" onclick="'+set+'(\''+c.id+'\')">'+c.label+'</button>').join("")
+    + '</div>';
+}
+function setPickCat(c){ pickCat=c; renderSessionModal2(); syncChips("pickChips", c); }
+function setLibCat(c){ libCat=c; renderLibrary(); }
+function syncChips(id, cur){
+  const w = document.getElementById(id); if(!w) return;
+  w.querySelectorAll(".fchip").forEach((b,i)=> b.classList.toggle("on", (i===0&&cur==="all") || b.textContent===(CATS.find(x=>x.id===cur)||{}).label));
+}
+function groupedLibHtml(q, cat, itemHtml){
+  const all = Object.entries(state.library).map(([id,s])=>({id,...s}))
+    .filter(s=>!q || (s.name+" "+s.zone+" "+s.type+" "+(s.location||"")).toLowerCase().includes(q))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  const groups = cat==="all" ? CATS : CATS.filter(c=>c.id===cat);
+  let html = "", any = false;
+  for(const g of groups){
+    const items = all.filter(s=>catOf(s)===g.id);
+    if(!items.length) continue;
+    any = true;
+    if(cat==="all") html += '<div class="lib-group">'+g.label+'<span>'+items.length+'</span></div>';
+    html += items.map(itemHtml).join("");
+  }
+  return any ? html : '<div class="empty-day">No stock sessions here yet.</div>';
+}
+
+/* ---------------- session modal (coach) ---------------- */
+let sessCtx = null; // {dIso, sid|null, mode, fromLib}
+function openSession(dIso, sid){
+  if(auth.role!=="coach") return;
+  const existing = sid ? state.plans[curSquad]?.[dIso]?.[sid] : null;
+  sessCtx = { dIso, sid: sid||null, tab: existing||!Object.keys(state.library).length ? "new" : "lib",
+              form: existing ? {...existing} : {name:"",type:"Water",zone:"UT2",mode:"duration",minutes:60,km:10,notes:"",time:"",location:""} };
+  renderSessionModal();
+  show("ovSession");
+}
+function renderSessionModal(){
+  const c = sessCtx, f = c.form;
+  const d = fromIso(c.dIso);
+  const editing = !!c.sid;
+  let html = '<button class="x" onclick="hide(\'ovSession\')">✕</button>'
+    + '<h3>'+(editing?"Edit session":"Add session")+' · '+DAYS[(d.getDay()+6)%7]+' '+fmtDateY(d)+'</h3>';
+
+  if(!editing){
+    html += '<div class="seg-ctrl" style="margin-bottom:14px">'
+      + '<button class="'+(c.tab==="lib"?"on":"")+'" onclick="sessTab(\'lib\')">From library</button>'
+      + '<button class="'+(c.tab==="new"?"on":"")+'" onclick="sessTab(\'new\')">New session</button></div>';
+  }
+
+  if(c.tab==="lib" && !editing){
+    html += '<div class="field" style="margin-bottom:4px"><input id="libSearch" placeholder="Search stock sessions…" oninput="renderSessionModal2()"></div>'
+      + '<div id="pickChips">'+catChips("pick", pickCat)+'</div>'
+      + '<div class="lib-list" id="libPickList"></div>';
+    document.getElementById("mdSession").innerHTML = html;
+    renderSessionModal2();
+    return;
+  }
+
+  html += '<div class="field"><label>Session name</label><input id="sfName" value="'+escAttr(f.name)+'" placeholder="e.g. 3 × 20′ UT1"></div>'
+    + '<div class="frow">'
+    + '<div class="field" style="flex:0 0 140px"><label>Time</label><input id="sfTime" type="time" value="'+escAttr(f.time||"")+'"></div>'
+    + '<div class="field"><label>Location <span style="text-transform:none;font-weight:500">(optional)</span></label><input id="sfLoc" value="'+escAttr(f.location||"")+'" placeholder="e.g. Boathouse, Meggetland gym"></div>'
+    + '</div>'
+    + '<div class="frow">'
+    + '<div class="field"><label>Type</label><select id="sfType" onchange="sessTypeChanged()">'+TYPES.map(t=>'<option value="'+t+'"'+(f.type===t?" selected":"")+'>'+TYPE_LABEL[t]+'</option>').join("")+'</select></div>'
+    + '<div class="field"><label>Training zone</label><select id="sfZone" '+(f.type==="Off"?"disabled":"")+'>'+ZONES.map(z=>'<option'+(f.zone===z?" selected":"")+'>'+z+'</option>').join("")+'</select></div>'
+    + '</div>'
+    + '<div class="field"><label>Volume</label><div class="seg-ctrl" style="margin-bottom:8px">'
+    + '<button class="'+(f.mode==="duration"?"on":"")+'" onclick="sessMode(\'duration\')" '+(f.type==="Off"?"disabled":"")+'>Duration</button>'
+    + '<button class="'+(f.mode==="distance"?"on":"")+'" onclick="sessMode(\'distance\')" '+(f.type==="Off"?"disabled":"")+'>Distance</button></div>'
+    + (f.mode==="duration"
+        ? '<input id="sfVol" type="number" min="0" step="5" value="'+(+f.minutes||0)+'" '+(f.type==="Off"?"disabled":"")+'><div class="hint">Minutes</div>'
+        : '<input id="sfVol" type="number" min="0" step="0.5" value="'+(+f.km||0)+'"><div class="hint">Kilometres — converted to time using the zone split in Settings ('+splitLabel(f.zone)+' /500m → '+fmtMin(sessMinutes({...f,km:+f.km||0},state.settings.splits))+')</div>')
+    + '</div>'
+    + '<div class="field"><label>Notes <span style="text-transform:none;font-weight:500">(optional)</span></label><textarea id="sfNotes" rows="2" placeholder="Rate, rest, focus…">'+esc(f.notes||"")+'</textarea></div>';
+  if(!editing) html += '<label class="checkline"><input type="checkbox" id="sfSave" checked> Also save to the session library</label>';
+  if(editing) html += '<div class="field"><label>Move to date</label><input id="sfDate" type="date" value="'+c.dIso+'" min="'+iso(SEASON_START)+'" max="'+iso(addDays(weekStart(N_WEEKS-1),6))+'"></div>';
+
+  html += '<div class="modal-actions">'
+    + (editing ? '<button class="btn danger left" onclick="deleteSession()">Delete</button><button class="btn" onclick="duplicateSession()">Duplicate</button>' : "")
+    + '<button class="btn" onclick="hide(\'ovSession\')">Cancel</button>'
+    + '<button class="btn primary" onclick="saveSession()">'+(editing?"Save changes":"Add to "+DAYS[(d.getDay()+6)%7])+'</button></div>';
+  document.getElementById("mdSession").innerHTML = html;
+}
+function splitLabel(z){
+  const s = state.settings.splits[z]||120;
+  return Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+}
+function renderSessionModal2(){
+  const q = (document.getElementById("libSearch")?.value||"").toLowerCase();
+  document.getElementById("libPickList").innerHTML = groupedLibHtml(q, pickCat, s=>{
+    const zc = s.type==="Off"?"var(--off)":(ZCOLOR[s.zone]||"#999");
+    return '<div class="lib-item"><div class="grow"><div style="font-weight:700;font-size:14px">'+esc(s.name)+'</div>'
+      + '<div class="s-meta" style="margin-top:3px">'+(s.zone?'<span class="chip" style="--zc:'+zc+'">'+esc(s.zone)+'</span>':"")
+      + '<span class="chip type">'+TYPE_LABEL[s.type]+'</span><span style="font-size:12px;color:var(--ink-soft);font-weight:600">'+volLabel(s,state.settings.splits)
+      + (s.time?' · '+esc(s.time):"")+(s.location?' · '+esc(s.location):"")+'</span></div></div>'
+      + '<button class="btn small primary" onclick="addFromLib(\''+s.id+'\')">Add</button>'
+      + '<button class="btn small danger" title="Delete from library" onclick="deleteLibItem(\''+s.id+'\',true)">✕</button></div>';
+  });
+}
+function sessTab(t){ sessCtx.tab=t; captureForm(); renderSessionModal(); }
+function sessMode(m){ captureForm(); sessCtx.form.mode=m; renderSessionModal(); }
+function sessTypeChanged(){
+  captureForm();
+  if(sessCtx.form.type==="Off"){ sessCtx.form.mode="duration"; sessCtx.form.minutes=0; sessCtx.form.zone=""; }
+  else if(!sessCtx.form.zone) sessCtx.form.zone="UT2";
+  renderSessionModal();
+}
+function captureForm(){
+  const f = sessCtx.form;
+  const g = id=>document.getElementById(id);
+  if(g("sfName")) f.name = g("sfName").value;
+  if(g("sfType")) f.type = g("sfType").value;
+  if(g("sfZone") && f.type!=="Off") f.zone = g("sfZone").value;
+  if(g("sfVol")){ if(f.mode==="duration") f.minutes=+g("sfVol").value||0; else f.km=+g("sfVol").value||0; }
+  if(g("sfNotes")) f.notes = g("sfNotes").value;
+  if(g("sfTime")) f.time = g("sfTime").value;
+  if(g("sfLoc")) f.location = g("sfLoc").value;
+}
+function addFromLib(libId){
+  const s = state.library[libId]; if(!s) return;
+  writeSession(sessCtx.dIso, null, {...s, libId});
+  hide("ovSession"); toast("Session added"); renderAll();
+}
+function saveSession(){
+  captureForm();
+  const f = sessCtx.form;
+  if(!f.name.trim()){ toast("Give the session a name"); return; }
+  if(f.type!=="Off" && f.mode==="duration" && !(+f.minutes>0)){ toast("Enter a duration"); return; }
+  if(f.mode==="distance" && !(+f.km>0)){ toast("Enter a distance"); return; }
+  const clean = {name:f.name.trim(), type:f.type, zone:f.type==="Off"?"":f.zone, mode:f.mode,
+                 minutes:+f.minutes||0, km:+f.km||0, notes:(f.notes||"").trim(),
+                 time:f.time||"", location:(f.location||"").trim()};
+  let target = sessCtx.dIso;
+  if(sessCtx.sid){
+    const nd = document.getElementById("sfDate")?.value;
+    if(nd && nd!==sessCtx.dIso){ removeSession(sessCtx.dIso, sessCtx.sid); target = nd; sessCtx.sid=null; }
+  }
+  writeSession(target, sessCtx.sid, clean);
+  if(!sessCtx.sid && document.getElementById("sfSave")?.checked){
+    const id = "lib"+Date.now().toString(36);
+    state.library = state.library || {}; state.library[id]=clean; persist("library/"+id, clean);
+  }
+  hide("ovSession"); toast("Saved"); renderAll();
+}
+function writeSession(dIso, sid, data){
+  state.plans = state.plans || {}; state.plans[curSquad] = state.plans[curSquad] || {};
+  const day = state.plans[curSquad][dIso] || {};
+  const id = sid || ("s"+Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+  data.order = sid && day[sid] ? (day[sid].order||0) : Object.keys(day).length;
+  day[id]=data;
+  state.plans[curSquad][dIso]=day;
+  persist("plans/"+curSquad+"/"+dIso, day);
+}
+function removeSession(dIso, sid){
+  const day = state.plans[curSquad][dIso]; if(!day) return;
+  delete day[sid];
+  if(!Object.keys(day).length) delete state.plans[curSquad][dIso];
+  persist("plans/"+curSquad+"/"+dIso, state.plans[curSquad][dIso]||null);
+}
+function deleteSession(){
+  removeSession(sessCtx.dIso, sessCtx.sid);
+  hide("ovSession"); toast("Session deleted"); renderAll();
+}
+function duplicateSession(){
+  captureForm();
+  const f = sessCtx.form;
+  writeSession(sessCtx.dIso, null, {name:f.name,type:f.type,zone:f.type==="Off"?"":f.zone,mode:f.mode,minutes:+f.minutes||0,km:+f.km||0,notes:f.notes||"",time:f.time||"",location:f.location||""});
+  hide("ovSession"); toast("Duplicated"); renderAll();
+}
+
+/* ---------------- library manager ---------------- */
+let libEditId = null;
+function openLibrary(){ libEditId=null; renderLibrary(); show("ovLibrary"); }
+function renderLibrary(){
+  let html = '<button class="x" onclick="hide(\'ovLibrary\')">✕</button><h3>Session library</h3>'
+    + '<div class="hint" style="margin-top:-8px">Stock sessions the whole coaching team can drop into any squad\'s week.</div>';
+  if(libEditId!==null){
+    const f = libEditId==="new" ? {name:"",type:"Water",zone:"UT2",mode:"duration",minutes:60,km:10,notes:"",time:"",location:""} : {...state.library[libEditId]};
+    html += '<div style="margin-top:14px">'
+      + '<div class="field"><label>Name</label><input id="lfName" value="'+escAttr(f.name)+'"></div>'
+      + '<div class="frow"><div class="field" style="flex:0 0 140px"><label>Default time</label><input id="lfTime" type="time" value="'+escAttr(f.time||"")+'"></div>'
+      + '<div class="field"><label>Default location</label><input id="lfLoc" value="'+escAttr(f.location||"")+'" placeholder="Optional"></div></div>'
+      + '<div class="frow"><div class="field"><label>Type</label><select id="lfType">'+TYPES.map(t=>'<option value="'+t+'"'+(f.type===t?" selected":"")+'>'+TYPE_LABEL[t]+'</option>').join("")+'</select></div>'
+      + '<div class="field"><label>Zone</label><select id="lfZone">'+ZONES.map(z=>'<option'+(f.zone===z?" selected":"")+'>'+z+'</option>').join("")+'</select></div></div>'
+      + '<div class="frow"><div class="field"><label>Volume type</label><select id="lfMode"><option value="duration"'+(f.mode==="duration"?" selected":"")+'>Duration (min)</option><option value="distance"'+(f.mode==="distance"?" selected":"")+'>Distance (km)</option></select></div>'
+      + '<div class="field"><label>Amount</label><input id="lfVol" type="number" min="0" step="0.5" value="'+(f.mode==="distance"?(+f.km||0):(+f.minutes||0))+'"></div></div>'
+      + '<div class="field"><label>Notes</label><textarea id="lfNotes" rows="2">'+esc(f.notes||"")+'</textarea></div>'
+      + '<div class="modal-actions"><button class="btn" onclick="libEditId=null;renderLibrary()">Cancel</button>'
+      + '<button class="btn primary" onclick="saveLibItem()">Save</button></div></div>';
+  }else{
+    html += catChips("lib", libCat)
+      + '<div class="lib-list">'
+      + groupedLibHtml("", libCat, s=>{
+          const zc = s.type==="Off"?"var(--off)":(ZCOLOR[s.zone]||"#999");
+          return '<div class="lib-item"><div class="grow"><div style="font-weight:700;font-size:14px">'+esc(s.name)+'</div>'
+            + '<div class="s-meta" style="margin-top:3px">'+(s.zone?'<span class="chip" style="--zc:'+zc+'">'+esc(s.zone)+'</span>':"")
+            + '<span class="chip type">'+TYPE_LABEL[s.type]+'</span><span style="font-size:12px;color:var(--ink-soft);font-weight:600">'+volLabel(s,state.settings.splits)
+            + (s.time?' · '+esc(s.time):"")+(s.location?' · '+esc(s.location):"")+'</span></div></div>'
+            + '<button class="btn small" onclick="libEditId=\''+s.id+'\';renderLibrary()">Edit</button>'
+            + '<button class="btn small danger" onclick="deleteLibItem(\''+s.id+'\')">Delete</button></div>';
+        })
+      + '</div>'
+      + '<div class="modal-actions"><button class="btn primary" onclick="libEditId=\'new\';renderLibrary()">+ New stock session</button></div>';
+  }
+  document.getElementById("mdLibrary").innerHTML = html;
+}
+function saveLibItem(){
+  const g = id=>document.getElementById(id);
+  const mode = g("lfMode").value;
+  const item = {name:g("lfName").value.trim(), type:g("lfType").value,
+    zone:g("lfType").value==="Off"?"":g("lfZone").value, mode,
+    minutes: mode==="duration" ? +g("lfVol").value||0 : 0,
+    km: mode==="distance" ? +g("lfVol").value||0 : 0,
+    notes:g("lfNotes").value.trim(),
+    time:g("lfTime").value||"", location:g("lfLoc").value.trim()};
+  if(!item.name){ toast("Give the session a name"); return; }
+  const id = libEditId==="new" ? "lib"+Date.now().toString(36) : libEditId;
+  state.library = state.library || {}; state.library[id]=item; persist("library/"+id, item);
+  libEditId=null; renderLibrary(); toast("Library updated"); renderAll();
+}
+function deleteLibItem(id, fromPicker){
+  if(!confirm("Delete this stock session from the library? Sessions already placed on the programme are unaffected.")) return;
+  delete state.library[id]; persist("library/"+id, null);
+  if(fromPicker) renderSessionModal2(); else renderLibrary();
+  toast("Deleted from library");
+}
+
+/* ---------------- events ---------------- */
+let evEditId = null;
+function openEvents(editId){
+  evEditId = editId || null;
+  renderEvents();
+  show("ovEvents");
+}
+function renderEvents(){
+  const isCoach = auth.role==="coach";
+  let html = '<button class="x" onclick="hide(\'ovEvents\')">✕</button><h3>Season events</h3>'
+    + '<div class="hint" style="margin-top:-8px">Races, erg tests and other key dates. These appear on the day, on the season ribbon, and in the PDF.</div>';
+  if(isCoach && evEditId!==null){
+    const f = evEditId==="new" ? {name:"",date:iso(weekStart(curWeek)),kind:"race",squad:"all",time:"",location:"",notes:""} : {...state.events[evEditId]};
+    html += '<div style="margin-top:14px">'
+      + '<div class="field"><label>Event name</label><input id="efName" value="'+escAttr(f.name)+'" placeholder="e.g. BUCS Indoor Championships"></div>'
+      + '<div class="frow">'
+      + '<div class="field"><label>Date</label><input id="efDate" type="date" value="'+escAttr(f.date)+'" min="'+iso(SEASON_START)+'" max="'+iso(addDays(weekStart(N_WEEKS-1),6))+'"></div>'
+      + '<div class="field" style="flex:0 0 130px"><label>Time</label><input id="efTime" type="time" value="'+escAttr(f.time||"")+'"></div>'
+      + '</div><div class="frow">'
+      + '<div class="field"><label>Kind</label><select id="efKind">'+EV_KINDS.map(k=>'<option value="'+k.id+'"'+(f.kind===k.id?" selected":"")+'>'+k.label+'</option>').join("")+'</select></div>'
+      + '<div class="field"><label>Squad</label><select id="efSquad"><option value="all"'+(f.squad==="all"?" selected":"")+'>All squads</option>'
+      + Object.keys(SQUADS).map(s=>'<option value="'+s+'"'+(f.squad===s?" selected":"")+'>'+SQUADS[s]+'</option>').join("")+'</select></div>'
+      + '</div>'
+      + '<div class="field"><label>Location <span style="text-transform:none;font-weight:500">(optional)</span></label><input id="efLoc" value="'+escAttr(f.location||"")+'"></div>'
+      + '<div class="field"><label>Notes <span style="text-transform:none;font-weight:500">(optional)</span></label><textarea id="efNotes" rows="2">'+esc(f.notes||"")+'</textarea></div>'
+      + '<div class="modal-actions">'
+      + (evEditId!=="new" ? '<button class="btn danger left" onclick="deleteEvent(\''+evEditId+'\')">Delete</button>' : "")
+      + '<button class="btn" onclick="evEditId=null;renderEvents()">Cancel</button>'
+      + '<button class="btn primary" onclick="saveEvent()">Save event</button></div></div>';
+  }else{
+    const list = Object.entries(state.events||{}).map(([id,e])=>({id,...e}))
+      .filter(e=> e.squad==="all" || e.squad===curSquad || isCoach)
+      .sort((a,b)=> a.date.localeCompare(b.date) || (a.time||"99:99").localeCompare(b.time||"99:99"));
+    const todayIso2 = iso(new Date());
+    html += '<div class="lib-list">'
+      + (list.length ? list.map(e=>{
+          const k = evKind(e.kind), d = fromIso(e.date), past = e.date < todayIso2;
+          return '<div class="lib-item"'+(past?' style="opacity:.55"':"")+'><div style="flex:0 0 96px;font-weight:800">'+DAYS[(d.getDay()+6)%7]+' '+fmtDate(d)+'<div style="font-weight:600;font-size:11px;color:var(--ink-soft)">W'+(Math.max(0,weekOfDate(d))+1)+(e.time?' · '+esc(e.time):"")+'</div></div>'
+            + '<div class="grow"><div style="font-weight:700;font-size:14px">'+esc(e.name)+'</div>'
+            + '<div class="s-meta" style="margin-top:3px"><span class="chip" style="--zc:'+k.color+'">'+k.label+'</span>'
+            + '<span class="chip type">'+(e.squad==="all"?"All squads":SQUADS[e.squad])+'</span>'
+            + (e.location?'<span style="font-size:12px;color:var(--ink-soft);font-weight:600">'+esc(e.location)+'</span>':"")+'</div></div>'
+            + (isCoach ? '<button class="btn small" onclick="evEditId=\''+e.id+'\';renderEvents()">Edit</button>' : "")
+            + '</div>';
+        }).join("") : '<div class="empty-day">No events yet'+(isCoach?' — add races and erg tests below.':'.')+'</div>')
+      + '</div>';
+    if(isCoach) html += '<div class="modal-actions"><button class="btn primary" onclick="evEditId=\'new\';renderEvents()">+ New event</button></div>';
+  }
+  document.getElementById("mdEvents").innerHTML = html;
+}
+function saveEvent(){
+  const g = id=>document.getElementById(id);
+  const ev = {name:g("efName").value.trim(), date:g("efDate").value, kind:g("efKind").value,
+    squad:g("efSquad").value, time:g("efTime").value||"", location:g("efLoc").value.trim(), notes:g("efNotes").value.trim()};
+  if(!ev.name){ toast("Give the event a name"); return; }
+  if(!ev.date){ toast("Pick a date"); return; }
+  const id = evEditId==="new" ? "ev"+Date.now().toString(36) : evEditId;
+  state.events = state.events || {};
+  state.events[id]=ev; persist("events/"+id, ev);
+  evEditId=null; renderEvents(); toast("Event saved"); renderAll();
+}
+function deleteEvent(id){
+  if(!confirm("Delete this event?")) return;
+  delete state.events[id]; persist("events/"+id, null);
+  evEditId=null; renderEvents(); toast("Event deleted"); renderAll();
+}
+
+/* ---------------- blocks (meso cycles) ---------------- */
+const BLOCK_COLORS = ["#4DA3E0","#38B6A5","#E8B33C","#9A6FD6","#E8823C","#63B75D","#E05252","#7A8CA0"];
+function blockList(){
+  return Object.entries(state.blocks||{}).map(([id,b])=>({id,...b}))
+    .sort((a,b)=>a.from-b.from).map((b,i)=>({...b, color:BLOCK_COLORS[i%BLOCK_COLORS.length]}));
+}
+function blockOfWeek(w){ return blockList().find(b=> w>=b.from && w<=b.to) || null; }
+let blkEditId = null;
+function openBlocks(id){ blkEditId = id||null; renderBlocks(); show("ovBlocks"); }
+function renderBlocks(){
+  let html = '<button class="x" onclick="hide(\'ovBlocks\')">✕</button><h3>Training blocks</h3>'
+    + '<div class="hint" style="margin-top:-8px">Meso cycles — named week ranges (e.g. General Prep, Race Specific, Taper). They band the season chart and drive block comparisons.</div>';
+  if(blkEditId!==null){
+    const f = blkEditId==="new" ? {name:"",from:curWeek,to:Math.min(curWeek+3,N_WEEKS-1),focus:"",target:""} : {...state.blocks[blkEditId]};
+    html += '<div style="margin-top:14px">'
+      + '<div class="field"><label>Block name</label><input id="bfName" value="'+escAttr(f.name)+'" placeholder="e.g. General Prep 1"></div>'
+      + '<div class="frow">'
+      + '<div class="field"><label>From week</label><input id="bfFrom" type="number" min="1" max="'+N_WEEKS+'" value="'+((+f.from||0)+1)+'"></div>'
+      + '<div class="field"><label>To week</label><input id="bfTo" type="number" min="1" max="'+N_WEEKS+'" value="'+((+f.to||0)+1)+'"></div>'
+      + '<div class="field"><label>Target <span style="text-transform:none;font-weight:500">(min/week, optional)</span></label><input id="bfTarget" type="number" min="0" step="30" value="'+(f.target||"")+'"></div>'
+      + '</div>'
+      + '<div class="field"><label>Focus <span style="text-transform:none;font-weight:500">(optional)</span></label><input id="bfFocus" value="'+escAttr(f.focus||"")+'" placeholder="e.g. Aerobic base, technical consolidation"></div>'
+      + '<div class="modal-actions">'
+      + (blkEditId!=="new" ? '<button class="btn danger left" onclick="deleteBlock(\''+blkEditId+'\')">Delete</button>' : "")
+      + '<button class="btn" onclick="blkEditId=null;renderBlocks()">Cancel</button>'
+      + '<button class="btn primary" onclick="saveBlock()">Save block</button></div></div>';
+  }else{
+    const list = blockList();
+    html += '<div class="lib-list">'
+      + (list.length ? list.map(b=>
+          '<div class="lib-item" style="border-left:4px solid '+b.color+'"><div class="grow">'
+          + '<div style="font-weight:800;font-size:14px">'+esc(b.name)+'</div>'
+          + '<div style="font-size:12px;font-weight:600;color:var(--ink-soft)">W'+(b.from+1)+'–W'+(b.to+1)+' · '+fmtDate(weekStart(b.from))+' – '+fmtDate(addDays(weekStart(b.to),6))
+          + (b.target?' · target '+fmtMin(+b.target)+'/wk':"")+(b.focus?' · '+esc(b.focus):"")+'</div></div>'
+          + '<button class="btn small" onclick="blkEditId=\''+b.id+'\';renderBlocks()">Edit</button></div>'
+        ).join("") : '<div class="empty-day">No blocks defined yet.</div>')
+      + '</div>'
+      + '<div class="modal-actions"><button class="btn primary" onclick="blkEditId=\'new\';renderBlocks()">+ New block</button></div>';
+  }
+  document.getElementById("mdBlocks").innerHTML = html;
+}
+function saveBlock(){
+  const g = id=>document.getElementById(id);
+  const from = Math.max(1, Math.min(N_WEEKS, +g("bfFrom").value||1)) - 1;
+  const to   = Math.max(1, Math.min(N_WEEKS, +g("bfTo").value||1)) - 1;
+  const b = {name:g("bfName").value.trim(), from:Math.min(from,to), to:Math.max(from,to),
+             focus:g("bfFocus").value.trim(), target:+g("bfTarget").value||0};
+  if(!b.name){ toast("Give the block a name"); return; }
+  state.blocks = state.blocks || {};
+  const id = blkEditId==="new" ? "blk"+Date.now().toString(36) : blkEditId;
+  state.blocks[id]=b; persist("blocks/"+id, b);
+  blkEditId=null; renderBlocks(); toast("Block saved"); renderAll();
+}
+function deleteBlock(id){
+  if(!confirm("Delete this block? Sessions are unaffected.")) return;
+  delete state.blocks[id]; persist("blocks/"+id, null);
+  blkEditId=null; renderBlocks(); toast("Block deleted"); renderAll();
+}
+
+/* ---------------- analytics (coach) ---------------- */
+let anMode = "abs", anZones = "grouped";
+const ZGROUPS = [
+  {label:"Low (UT2·UT1)", zones:["UT2","UT1"], color:"#4DA3E0"},
+  {label:"Threshold (AT·TR)", zones:["AT","TR"], color:"#E8B33C"},
+  {label:"High (AN·Max·Test)", zones:["AN","Max","Test"], color:"#E05252"},
+  {label:"S&C", zones:["S&C"], color:"#7A8CA0"}
+];
+function stacksOf(zonesMap){
+  if(anZones==="full") return ZONES.map(z=>({label:z,color:ZCOLOR[z],val:zonesMap[z]||0})).filter(s=>s.val);
+  return ZGROUPS.map(g=>({label:g.label,color:g.color,val:g.zones.reduce((a,z)=>a+(zonesMap[z]||0),0)})).filter(s=>s.val);
+}
+function rampPct(totals, wi){
+  const prev=[]; for(let k=Math.max(0,wi-4); k<wi; k++) prev.push(totals[k].total);
+  const withData = prev.filter(v=>v>0);
+  if(!withData.length) return null;
+  const avg = prev.reduce((a,b)=>a+b,0)/prev.length;
+  if(!avg) return null;
+  return (totals[wi].total-avg)/avg*100;
+}
+function rampBadge(r){
+  if(r===null) return '<span class="ramp na">—</span>';
+  const cls = r>15 ? "hot" : r>8 ? "warn" : "ok";
+  return '<span class="ramp '+cls+'">'+(r>0?"+":"")+Math.round(r)+'%</span>';
+}
+function seasonChartSvg(totals){
+  const W=1240, H=340, pl=50, pr=12, pt=42, pb=28, pw=W-pl-pr, ph=H-pt-pb, bw=pw/N_WEEKS;
+  const maxT = Math.max(60, ...totals.map(t=>t.total));
+  const y = v => pt + ph*(1 - v/maxT);
+  let s = '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block" font-family="Barlow,sans-serif">';
+  // block bands
+  blockList().forEach(b=>{
+    const x = pl + b.from*bw, w = (b.to-b.from+1)*bw;
+    s += '<rect x="'+x+'" y="'+pt+'" width="'+w+'" height="'+ph+'" fill="'+b.color+'" opacity="0.09"/>'
+       + '<rect x="'+x+'" y="'+(pt-4)+'" width="'+w+'" height="4" rx="2" fill="'+b.color+'" opacity="0.7"/>'
+       + '<text x="'+(x+4)+'" y="'+(pt+14)+'" font-size="10.5" font-weight="700" fill="'+b.color+'">'+esc(b.name)+'</text>';
+  });
+  // gridlines + y labels
+  [0,.5,1].forEach(f=>{
+    const yy = y(maxT*f);
+    s += '<line x1="'+pl+'" y1="'+yy+'" x2="'+(W-pr)+'" y2="'+yy+'" stroke="#0E2A3C" stroke-opacity="0.08"/>'
+       + '<text x="'+(pl-6)+'" y="'+(yy+3.5)+'" font-size="10" text-anchor="end" fill="#4A6474" font-weight="600">'
+       + (anMode==="pct" ? Math.round(f*100)+"%" : fmtMin(Math.round(maxT*f))) + '</text>';
+  });
+  // bars
+  for(let i=0;i<N_WEEKS;i++){
+    const t = totals[i];
+    const stacks = stacksOf(t.zones);
+    if(!t.total || !stacks.length) continue;
+    const x = pl + i*bw + 1.2, w = Math.max(2, bw-2.4);
+    let acc = 0;
+    let g = '<g class="wkbar" onclick="jumpWeek('+i+')"><title>W'+(i+1)+' · '+fmtMin(t.total)+'\n'
+          + stacks.map(st=>st.label+" "+Math.round(st.val/t.total*100)+"%").join('\n')+'</title>';
+    for(const st of stacks){
+      const hFrac = anMode==="pct" ? st.val/t.total : st.val/maxT;
+      const hh = hFrac*ph;
+      const yTop = anMode==="pct" ? (pt+ph - (acc/t.total)*ph - hh) : (y(acc)+ (y(acc+st.val)-y(acc)));
+      g += '<rect x="'+x+'" y="'+(anMode==="pct" ? yTop : y(acc+st.val))+'" width="'+w+'" height="'+hh+'" fill="'+st.color+'" rx="1.5"/>';
+      acc += st.val;
+    }
+    s += g + '</g>';
+  }
+  // rolling 4-week average line (absolute mode)
+  if(anMode==="abs"){
+    const pts=[];
+    for(let i=0;i<N_WEEKS;i++){
+      const from = Math.max(0,i-3);
+      let sum=0; for(let k=from;k<=i;k++) sum+=totals[k].total;
+      pts.push((pl+i*bw+bw/2)+","+y(sum/(i-from+1)));
+    }
+    s += '<polyline points="'+pts.join(" ")+'" fill="none" stroke="#0E2A3C" stroke-width="2" stroke-opacity="0.5" stroke-linejoin="round"/>';
+    // block targets
+    blockList().forEach(b=>{
+      if(!b.target) return;
+      s += '<line x1="'+(pl+b.from*bw)+'" y1="'+y(b.target)+'" x2="'+(pl+(b.to+1)*bw)+'" y2="'+y(b.target)+'" stroke="'+b.color+'" stroke-width="2" stroke-dasharray="6 4" opacity="0.85"/>';
+    });
+  }
+  // event flags
+  Object.values(state.events||{}).filter(e=>e.squad==="all"||e.squad===curSquad).forEach(e=>{
+    const w = weekOfDate(fromIso(e.date));
+    if(w<0||w>=N_WEEKS) return;
+    const x = pl + w*bw + bw/2;
+    s += '<circle cx="'+x+'" cy="'+(pt-12)+'" r="4.5" fill="'+evKind(e.kind).color+'" stroke="#fff" stroke-width="1.5"><title>'+esc(evKind(e.kind).label+": "+e.name+" ("+fmtDate(fromIso(e.date))+")")+'</title></circle>';
+  });
+  // month labels
+  let lastM=-1;
+  for(let i=0;i<N_WEEKS;i++){
+    const m = weekStart(i).getMonth();
+    if(m!==lastM){ s += '<text x="'+(pl+i*bw+2)+'" y="'+(H-8)+'" font-size="10" font-weight="700" fill="#4A6474">'+MONTHS[m].toUpperCase()+'</text>'; lastM=m; }
+  }
+  return s+'</svg>';
+}
+function renderAnalytics(){
+  const main = document.getElementById("main");
+  const totals=[]; for(let i=0;i<N_WEEKS;i++) totals[i]=weekTotals(curSquad,i);
+  const blocks = blockList();
+
+  let html = '<div class="week-top"><div class="week-title"><h2>Analytics</h2>'
+    + '<div class="dates">'+SQUADS[curSquad]+' · macro → meso → micro</div></div>'
+    + '<div class="spacer"></div>'
+    + '<div class="seg-ctrl" style="flex:0 0 auto"><button class="'+(anMode==="abs"?"on":"")+'" onclick="anMode=\'abs\';renderAnalytics()">Minutes</button>'
+    + '<button class="'+(anMode==="pct"?"on":"")+'" onclick="anMode=\'pct\';renderAnalytics()">% distribution</button></div>'
+    + '<div class="seg-ctrl" style="flex:0 0 auto"><button class="'+(anZones==="grouped"?"on":"")+'" onclick="anZones=\'grouped\';renderAnalytics()">Grouped</button>'
+    + '<button class="'+(anZones==="full"?"on":"")+'" onclick="anZones=\'full\';renderAnalytics()">All zones</button></div>'
+    + '<button class="btn small" onclick="openBlocks()">Blocks</button>'
+    + '<button class="btn small" onclick="exportPlanCsv()">Plan CSV</button>'
+    + '<button class="btn small" onclick="exportEventsCsv()">Events CSV</button>'
+    + '</div>';
+
+  // MACRO
+  html += '<div class="glass chart-card"><h3>Season · '+(anMode==="abs"?"weekly minutes by zone, 4-week rolling average":"zone distribution by week")+'</h3>'
+    + seasonChartSvg(totals)
+    + '<div class="legend" style="margin-top:8px">'
+    + (anZones==="grouped" ? ZGROUPS.map(g=>'<span><i style="background:'+g.color+'"></i>'+g.label+'</span>').join("")
+                           : ZONES.map(z=>'<span><i style="background:'+ZCOLOR[z]+'"></i>'+z+'</span>').join(""))
+    + (anMode==="abs"?'<span><i style="background:#0E2A3C;opacity:.5;border-radius:0;height:3px"></i>4-wk avg</span><span style="color:var(--ink-soft)">▪ dashed = block target</span>':"")
+    + '<span><i style="background:#E05252;border-radius:50%"></i>Race</span><span><i style="background:#9A6FD6;border-radius:50%"></i>Erg test</span>'
+    + '</div></div>';
+
+  // MESO
+  if(blocks.length){
+    html += '<div class="blk-cards">';
+    let prev = null;
+    for(const b of blocks){
+      const t = rangeTotals(curSquad, weekStart(b.from), addDays(weekStart(b.to),6));
+      const nw = b.to-b.from+1, avg = Math.round(t.total/nw);
+      const other = t.land - t.erg;
+      const hi = t.total ? Math.round((["AT","TR","AN","Max","Test"].reduce((a,z)=>a+(t.zones[z]||0),0))/t.total*100) : 0;
+      let dlt = "";
+      if(prev){
+        const pAvg = prev.t.total/(prev.b.to-prev.b.from+1);
+        const vd = pAvg ? Math.round((avg-pAvg)/pAvg*100) : null;
+        const pHi = prev.t.total ? Math.round((["AT","TR","AN","Max","Test"].reduce((a,z)=>a+(prev.t.zones[z]||0),0))/prev.t.total*100) : 0;
+        dlt = '<div class="dlt">vs '+esc(prev.b.name)+': volume '+(vd===null?"—":(vd>0?"▲ +":"▼ ")+vd+"%")+' · intensity share '+(hi-pHi>=0?"+":"")+(hi-pHi)+' pts</div>';
+      }
+      html += '<div class="glass blk-card" style="--bc:'+b.color+'">'
+        + '<h4>'+esc(b.name)+'</h4><div class="rng">W'+(b.from+1)+'–W'+(b.to+1)+(b.focus?' · '+esc(b.focus):"")+'</div>'
+        + '<div class="tot">'+fmtMin(avg)+'<small> avg/wk · '+fmtMin(t.total)+' total'+(b.target?' · target '+fmtMin(b.target)+'/wk':"")+'</small></div>'
+        + zoneBarHtml(t.zones,t.total,10)
+        + '<div class="mix">Water '+fmtMin(t.water)+' · Erg '+fmtMin(t.erg)+' · Other '+fmtMin(other)+' · intensity '+hi+'%</div>'
+        + dlt + '</div>';
+      prev = {b,t};
+    }
+    html += '</div>';
+  }else{
+    html += '<div class="glass" style="padding:22px;text-align:center;margin-bottom:16px;color:var(--ink-soft);font-weight:600">No training blocks defined yet — <button class="btn small primary" onclick="openBlocks(\'new\')" style="margin-left:6px">Define blocks</button></div>';
+  }
+
+  // MICRO
+  html += '<div class="glass" style="padding:6px 4px;overflow-x:auto"><table class="weeks"><thead><tr>'
+    + '<th>Week</th><th>Block</th><th class="num">Volume</th><th class="num">Ramp</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Erg</th><th class="num">Other</th><th>Zones</th></tr></thead><tbody>';
+  for(let i=0;i<N_WEEKS;i++){
+    const t = totals[i];
+    const b = blockOfWeek(i);
+    html += '<tr class="clickable" onclick="jumpWeek('+i+')">'
+      + '<td class="num">W'+(i+1)+'<div style="font-weight:500;font-size:11px;color:var(--ink-soft)">'+fmtDate(weekStart(i))+'</div></td>'
+      + '<td>'+(b?'<span style="font-weight:700;color:'+b.color+'">'+esc(b.name)+'</span>':'<span style="color:var(--ink-soft)">—</span>')+'</td>'
+      + '<td class="num">'+fmtMin(t.total)+'</td>'
+      + '<td class="num">'+rampBadge(t.total?rampPct(totals,i):null)+'</td>'
+      + '<td class="num">'+t.count+'</td>'
+      + '<td class="num">'+fmtMin(t.water)+'</td><td class="num">'+fmtMin(t.erg)+'</td><td class="num">'+fmtMin(t.land-t.erg)+'</td>'
+      + '<td><div class="mini">'+ZONES.filter(z=>t.zones[z]).map(z=>'<div style="width:'+(t.zones[z]/t.total*100)+'%;background:'+ZCOLOR[z]+'"></div>').join("")+'</div></td></tr>';
+  }
+  html += '</tbody></table></div>';
+  main.innerHTML = html;
+}
+
+/* ---------------- CSV export (Plan → Power BI / Dataverse) ---------------- */
+function csvCell(v){ v=String(v??""); return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; }
+function downloadCsv(name, rows){
+  const csv = rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8"}));
+  a.download = name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+function exportPlanCsv(){
+  const rows = [["session_key","squad","date","iso_week_start","season_week","block","day","time","session_name","type","zone","volume_mode","planned_km","entered_minutes","planned_minutes","location","notes"]];
+  for(const sq in SQUADS){
+    const dates = Object.keys(state.plans[sq]||{}).sort();
+    for(const dIso of dates){
+      const d = fromIso(dIso), w = weekOfDate(d);
+      const b = blockOfWeek(w);
+      for(const s of daySessions(sq, dIso)){
+        rows.push([sq+"_"+dIso+"_"+s.id, SQUADS[sq], dIso, iso(weekStart(Math.max(0,w))), "W"+(w+1), b?b.name:"", DAYS[(d.getDay()+6)%7],
+          s.time||"", s.name, s.type, s.zone||"", s.mode, s.mode==="distance"?(+s.km||0):"", s.mode==="duration"?(+s.minutes||0):"",
+          sessMinutes(s, state.settings.splits), s.location||"", s.notes||""]);
+      }
+    }
+  }
+  downloadCsv("eubc_plan_2026-27.csv", rows);
+  toast("Plan CSV downloaded ("+(rows.length-1)+" sessions)");
+}
+function exportEventsCsv(){
+  const rows = [["event_key","date","season_week","name","kind","squad","time","location","notes"]];
+  Object.entries(state.events||{}).sort((a,b)=>a[1].date.localeCompare(b[1].date)).forEach(([id,e])=>{
+    const w = weekOfDate(fromIso(e.date));
+    rows.push([id, e.date, "W"+(w+1), e.name, evKind(e.kind).label, e.squad==="all"?"All":SQUADS[e.squad], e.time||"", e.location||"", e.notes||""]);
+  });
+  downloadCsv("eubc_events_2026-27.csv", rows);
+  toast("Events CSV downloaded ("+(rows.length-1)+" events)");
+}
+
+/* ---------------- settings ---------------- */
+function openSettings(){
+  const h = state.settings.horizon, sp = state.settings.splits;
+  let html = '<button class="x" onclick="hide(\'ovSettings\')">✕</button><h3>Settings</h3>'
+    + '<div class="field"><label>Programme visible to athletes up to and including</label></div>';
+  for(const s in SQUADS){
+    html += '<div class="frow" style="align-items:center;margin-bottom:8px"><div style="width:110px;font-weight:600">'+SQUADS[s]+'</div>'
+      + '<div class="field" style="flex:1;margin:0"><input type="date" id="hz_'+s+'" value="'+h[s]+'" min="'+iso(SEASON_START)+'" max="'+iso(addDays(weekStart(N_WEEKS-1),6))+'"></div></div>';
+  }
+  html += '<div class="hint" style="margin-bottom:16px">Athletes see everything up to this date. Coaches always see and can edit the full programme.</div>'
+    + '<div class="field"><label>Distance → time conversion (split per 500m, seconds)</label></div><div class="splits-grid">';
+  for(const z of ZONES){
+    html += '<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+z+'</div>'
+      + '<div class="field" style="flex:1;margin:0"><input type="number" id="sp_'+ZKEY(z)+'" min="60" max="240" value="'+(sp[z]||120)+'"></div></div>';
+  }
+  html += '</div><div class="hint">Used to estimate minutes for distance-based sessions, e.g. 125s = 2:05 /500m.</div>'
+    + '<div class="modal-actions"><button class="btn" onclick="hide(\'ovSettings\')">Cancel</button>'
+    + '<button class="btn primary" onclick="saveSettings()">Save settings</button></div>';
+  document.getElementById("mdSettings").innerHTML = html;
+  show("ovSettings");
+}
+function saveSettings(){
+  for(const s in SQUADS){
+    const v = document.getElementById("hz_"+s).value;
+    if(v) state.settings.horizon[s]=v;
+  }
+  for(const z of ZONES){
+    const v = +document.getElementById("sp_"+ZKEY(z)).value;
+    if(v>=60 && v<=240) state.settings.splits[z]=v;
+  }
+  persist("settings", state.settings);
+  hide("ovSettings"); toast("Settings saved"); renderAll();
+}
+
+/* ---------------- PDF export ---------------- */
+function openPdf(){
+  const lastVis = lastVisibleWeek(curSquad);
+  let html = '<button class="x" onclick="hide(\'ovPdf\')">✕</button><h3>Download programme (PDF)</h3>'
+    + '<div class="hint" style="margin-top:-8px;margin-bottom:14px">Generates a print view — choose “Save as PDF” in the print dialog.</div>'
+    + '<div class="field"><label>Range · '+SQUADS[curSquad]+'</label><select id="pdfRange">'
+    + '<option value="1">This week (W'+(curWeek+1)+')</option>'
+    + '<option value="2">Two weeks (W'+(curWeek+1)+'–W'+Math.min(curWeek+2,lastVis+1)+')</option>'
+    + '<option value="4">Four weeks / month</option>'
+    + '<option value="all">Full available programme (W1–W'+(lastVis+1)+')</option>'
+    + '</select></div>'
+    + '<div class="modal-actions"><button class="btn" onclick="hide(\'ovPdf\')">Cancel</button>'
+    + '<button class="btn primary" onclick="doPdf()">Generate PDF</button></div>';
+  document.getElementById("mdPdf").innerHTML = html;
+  show("ovPdf");
+}
+function doPdf(){
+  const v = document.getElementById("pdfRange").value;
+  const lastVis = lastVisibleWeek(curSquad);
+  let from = curWeek, to = curWeek;
+  if(v==="2") to = Math.min(curWeek+1, lastVis);
+  else if(v==="4") to = Math.min(curWeek+3, lastVis);
+  else if(v==="all"){ from=0; to=lastVis; }
+  let html = "";
+  for(let w=from; w<=to; w++){
+    if(!weekVisible(curSquad,w)) continue;
+    const t = weekTotals(curSquad,w);
+    html += '<div class="p-week"><div class="p-head"><h2>Week '+(w+1)+' · '+weekLabel(w)+'</h2><span class="p-squad">EUBC · '+SQUADS[curSquad]+'</span></div>'
+      + '<table class="p-tbl"><thead><tr><th style="width:11%">Day</th><th>Sessions</th></tr></thead><tbody>';
+    for(let d=0; d<7; d++){
+      const date = addDays(weekStart(w),d);
+      const sess = daySessions(curSquad, iso(date));
+      const evs = eventsOn(iso(date), curSquad);
+      const evLines = evs.map(e=>
+        '<span class="p-zone" style="background:'+evKind(e.kind).color+'">'+evKind(e.kind).label.toUpperCase()+'</span>'
+        + (e.time? '<b>'+esc(e.time)+'</b> ':"")
+        + '<b>'+esc(e.name)+'</b>'
+        + (e.squad!=="all"? ' · '+SQUADS[e.squad]:"")
+        + (e.location? ' · '+esc(e.location):"")
+        + (e.notes? ' — '+esc(e.notes):"")).join("<br>");
+      const body = [evLines, sess.map(s=>
+            (s.time? '<b>'+esc(s.time)+'</b> ':"")
+            + (s.zone?'<span class="p-zone" style="background:'+ZCOLOR[s.zone]+'">'+esc(s.zone)+'</span>':'<span class="p-zone" style="background:#B8C7D2">OFF</span>')
+            + '<b>'+esc(s.name)+'</b> · '+s.type+' · '+volLabel(s,state.settings.splits)
+            + (s.location? ' · '+esc(s.location):"")
+            + (s.notes? ' — '+esc(s.notes):"")).join("<br>")].filter(Boolean).join("<br>");
+      html += '<tr><td class="p-day">'+DAYS[d]+' '+fmtDate(date)+'</td><td>'
+        + (body || '<span style="color:#99a">—</span>')
+        + '</td></tr>';
+    }
+    const pct = ZONES.filter(z=>t.zones[z]).map(z=>z+" "+Math.round(t.zones[z]/t.total*100)+"%").join(" · ");
+    html += '</tbody></table><div class="p-tot"><span>Total <b>'+fmtMin(t.total)+'</b></span><span>Sessions <b>'+t.count+'</b></span>'
+      + '<span>Water <b>'+fmtMin(t.water)+'</b></span><span>Land <b>'+fmtMin(t.land)+'</b></span>'
+      + (pct? '<span>'+pct+'</span>':"")+'</div>'
+      + '<div class="p-foot">Edinburgh University Boat Club · Season 2026–27 · generated '+fmtDateY(new Date())+'</div></div>';
+  }
+  document.getElementById("printRoot").innerHTML = html;
+  hide("ovPdf");
+  setTimeout(()=>window.print(), 120);
+}
+
+/* ---------------- utilities ---------------- */
+function show(id){ document.getElementById(id).classList.add("open"); }
+function hide(id){ document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".overlay").forEach(o=>o.addEventListener("click", e=>{ if(e.target===o) o.classList.remove("open"); }));
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") document.querySelectorAll(".overlay.open").forEach(o=>o.classList.remove("open")); });
+function esc(s){ return String(s??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escAttr(s){ return esc(s).replace(/"/g,"&quot;"); }
+let toastT = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+
+/* ---------------- boot ---------------- */
+initData();
+(function(){
+  const saved = localStorage.getItem("eubc-tp-auth");
+  if(saved){ try{ auth = JSON.parse(saved); }catch(e){} }
+  if(auth && auth.role){ enterApp(); }
+  document.getElementById("loginPin").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+})();
+</script>
+</body>
+</html>
