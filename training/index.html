@@ -89,6 +89,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .login-err{color:#C23A3A;font-size:13px;font-weight:600;min-height:18px;margin:6px 0 10px}
 .login-card .primary{width:100%;justify-content:center;padding:12px;font-size:15px}
 .login-note{font-size:12px;color:var(--ink-soft);margin-top:18px;line-height:1.5}
+.spinner{width:30px;height:30px;margin:14px auto 0;border-radius:50%;border:3px solid rgba(62,155,214,.25);border-top-color:var(--baby-deep);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ---------- app shell ---------- */
 #app{display:none;max-width:1440px;margin:0 auto;padding:18px 18px 60px}
@@ -288,21 +290,25 @@ svg .wkbar:hover rect{opacity:.82}
     </div>
     <h1><span class="tt">EUBC</span> Training</h1>
     <div class="sub">Season 2026–27 · 31 Aug 2026 → 31 Jul 2027</div>
-    <div class="role-switch" role="tablist">
-      <button id="roleAthlete" class="on" onclick="setLoginRole('athlete')">Athlete</button>
-      <button id="roleCoach" onclick="setLoginRole('coach')">Coach</button>
+    <div id="loginForm">
+      <div class="field">
+        <label for="loginEmail">University email</label>
+        <input id="loginEmail" type="email" placeholder="s1234567@ed.ac.uk" autocomplete="email">
+      </div>
+      <div class="login-err" id="loginErr"></div>
+      <button class="btn primary" id="btnSend" onclick="sendLink()">Email me a sign-in link</button>
+      <div class="login-note" id="loginNote2">Sign in with your @ed.ac.uk address — we'll email you a one-tap sign-in link. No password needed. Coaches sign in the same way.</div>
     </div>
-    <div class="field" id="emailField">
-      <label for="loginEmail">University email</label>
-      <input id="loginEmail" type="email" placeholder="s1234567@ed.ac.uk" autocomplete="email">
+    <div id="loginSent" style="display:none">
+      <div style="font-size:34px;margin:6px 0 10px">✉️</div>
+      <div style="font-weight:800;font-size:17px">Check your inbox</div>
+      <div class="login-note" style="margin-top:8px">We've sent a sign-in link to<br><b id="sentTo"></b><br>Open it on this device to finish signing in. It can take a minute — check spam too.</div>
+      <button class="btn" onclick="resetLogin()" style="margin-top:16px">Use a different email</button>
     </div>
-    <div class="field">
-      <label for="loginPin">PIN</label>
-      <input id="loginPin" type="password" inputmode="numeric" placeholder="••••" maxlength="6">
+    <div id="loginBusy" style="display:none">
+      <div class="spinner"></div>
+      <div class="login-note" id="busyMsg" style="margin-top:12px">Signing you in…</div>
     </div>
-    <div class="login-err" id="loginErr"></div>
-    <button class="btn primary" onclick="doLogin()">Enter</button>
-    <div class="login-note">Athletes sign in with an @ed.ac.uk address and the squad PIN.<br>Coaches use the coach PIN.</div>
   </div>
 </div>
 
@@ -360,21 +366,24 @@ svg .wkbar:hover rect{opacity:.82}
 <div id="printRoot"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* =====================================================================
-   EUBC TRAINING MANAGEMENT — BETA
+   EUBC TRAINING MANAGEMENT — SECURE BETA
    ---------------------------------------------------------------------
-   SETUP (one line): paste your new Firebase project's Realtime Database
-   URL below, e.g. "https://eubc-training-default-rtdb.europe-west1.firebasedatabase.app"
-   Until then the app runs in Local-only mode (banner top right).
+   SETUP: paste your full Firebase web-app config below.
+   Firebase console → Project settings (gear) → General → Your apps →
+   </> Web app → copy the firebaseConfig values.
+   KEEP your existing databaseURL line exactly as it already is.
 ===================================================================== */
 const FIREBASE_CONFIG = {
-  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app/"
+  apiKey: "PASTE-API-KEY",
+  authDomain: "PASTE-AUTH-DOMAIN",           // e.g. eubc-training.firebaseapp.com
+  projectId: "PASTE-PROJECT-ID",             // e.g. eubc-training
+  databaseURL: "PASTE-YOUR-EXISTING-DATABASE-URL"
 };
 const DB_NODE = "eubc-training-v1";
-const PIN_ATHLETE = "2026";
-const PIN_COACH   = "202026";
 
 const SEASON_START = new Date(2026, 7, 31);   // Mon 31 Aug 2026
 const N_WEEKS = 48;                            // → Sun 1 Aug 2027
@@ -492,33 +501,61 @@ function lastVisibleWeek(squad){
   return Math.max(0, Math.min(N_WEEKS-1, weekOfDate(h)));
 }
 
-/* ---------------- firebase / persistence ---------------- */
-function initData(){
-  const cached = localStorage.getItem("eubc-tp-state");
-  if(cached){ try{ state = normalise(JSON.parse(cached)); }catch(e){} }
+/* ---------------- firebase / persistence / auth ---------------- */
+const AUTH_EMAIL_KEY = "eubc-tp-pending-email";
+let fbAuth = null, pendingEnter = false, dataAttached = false;
+
+function configOk(){ return !JSON.stringify(FIREBASE_CONFIG).includes("PASTE"); }
+function initFirebase(){
+  if(!configOk()){ loginFatal("Setup needed — paste the Firebase config into index.html (see the comment at the top of the script)."); return false; }
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     dbRef = db.ref(DB_NODE);
-    const timeout = setTimeout(()=> setLocalMode("Connection timed out"), 6000);
-    dbRef.on("value", snap=>{
-      clearTimeout(timeout);
-      if(suppressSync) return;
-      const v = snap.val();
-      if(v){ state = normalise(v); }
-      else { state = freshState(); pushAll(); }
-      localStorage.setItem("eubc-tp-state", JSON.stringify(state));
-      setConn(true);
-      if(auth) renderAll();
-    }, err=>{ clearTimeout(timeout); setLocalMode(err.message); });
-  }catch(e){ setLocalMode(e.message); }
-  if(!state) state = freshState();
+    fbAuth = firebase.auth();
+    return true;
+  }catch(e){ loginFatal("Sign-in service unavailable — "+(e&&e.message||e)); return false; }
+}
+function emailKey(e){ return String(e||"").trim().toLowerCase().replace(/\./g, ","); }
+function isCoachEmail(e){ return !!(state && state.coaches && state.coaches[emailKey(e)]); }
+
+function attachData(){
+  if(dataAttached) return;
+  dataAttached = true;
+  const cached = localStorage.getItem("eubc-tp-state");
+  if(cached){ try{ state = normalise(JSON.parse(cached)); }catch(e){} }
+  const timeout = setTimeout(()=>{ if(pendingEnter && state) finishEnter(true); }, 7000);
+  dbRef.on("value", snap=>{
+    clearTimeout(timeout);
+    if(suppressSync) return;
+    const v = snap.val();
+    if(v){ state = normalise(v); }
+    else { state = freshState(); pushAll(); }
+    localStorage.setItem("eubc-tp-state", JSON.stringify(state));
+    setConn(true);
+    if(pendingEnter) finishEnter(false);
+    else if(auth) refreshRole();
+  }, err=>{
+    clearTimeout(timeout);
+    const msg = String(err&&err.message||err||"").toLowerCase();
+    if(msg.includes("permission")){
+      dataAttached = false; pendingEnter = false;
+      try{ dbRef.off(); }catch(e){}
+      try{ fbAuth.signOut(); }catch(e){}
+      showLoginScreen();
+      loginFatal("This account doesn't have access. Sign in with your @ed.ac.uk address, or ask a coach to add you.");
+    }else{
+      setLocalMode(err&&err.message);
+      if(pendingEnter && state) finishEnter(true);
+    }
+  });
 }
 function normalise(v){
   v.library = v.library || {};
   v.plans = v.plans || {}; for(const s in SQUADS) v.plans[s] = v.plans[s] || {};
   v.events = v.events || {};
   v.blocks = v.blocks || {};
+  v.coaches = v.coaches || {};
   v.settings = v.settings || {};
   v.settings.splits = Object.assign({}, DEFAULT_SPLITS, v.settings.splits||{});
   v.settings.horizon = v.settings.horizon || {};
@@ -564,32 +601,93 @@ function persist(path, value){
 }
 function pushAll(){ persist(null, state); }
 
-/* ---------------- auth ---------------- */
-let loginRole = "athlete";
-function setLoginRole(r){
-  loginRole = r;
-  document.getElementById("roleAthlete").classList.toggle("on", r==="athlete");
-  document.getElementById("roleCoach").classList.toggle("on", r==="coach");
-  document.getElementById("emailField").style.display = r==="athlete" ? "" : "none";
+/* ---------------- auth flow (email link) ---------------- */
+function loginState(s, msg){
+  const f = id=>document.getElementById(id);
+  f("loginForm").style.display = s==="form"?"":"none";
+  f("loginSent").style.display = s==="sent"?"":"none";
+  f("loginBusy").style.display = s==="busy"?"":"none";
+  if(s==="sent" && msg) f("sentTo").textContent = msg;
+  if(s==="busy") f("busyMsg").textContent = msg||"Signing you in…";
+}
+function loginFatal(msg){ const e=document.getElementById("loginErr"); if(e) e.textContent = msg; }
+function friendlyAuthError(e){
+  const c = (e&&e.code)||"";
+  if(c.includes("unauthorized-domain")) return "This site isn't on the Firebase authorised-domains list yet (Authentication → Settings).";
+  if(c.includes("operation-not-allowed")) return "Email-link sign-in isn't enabled yet in Firebase (Authentication → Sign-in method).";
+  if(c.includes("invalid-email")) return "That email address doesn't look right.";
+  if(c.includes("expired")) return "That sign-in link has expired — request a fresh one.";
+  if(c.includes("invalid-action-code")) return "That sign-in link is no longer valid — request a fresh one.";
+  if(c.includes("network")) return "Network problem — check your connection and try again.";
+  return (e&&e.message)||"Something went wrong — please try again.";
+}
+function sendLink(){
+  const err = document.getElementById("loginErr");
+  const email = document.getElementById("loginEmail").value.trim().toLowerCase();
+  if(!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(email)){ err.textContent = "Enter a valid email address."; return; }
+  err.textContent = "";
+  const btn = document.getElementById("btnSend");
+  btn.disabled = true; btn.textContent = "Sending…";
+  fbAuth.sendSignInLinkToEmail(email, { url: location.origin + location.pathname, handleCodeInApp: true })
+    .then(()=>{ localStorage.setItem(AUTH_EMAIL_KEY, email); loginState("sent", email); })
+    .catch(e=>{ err.textContent = friendlyAuthError(e); })
+    .finally(()=>{ btn.disabled = false; btn.textContent = "Email me a sign-in link"; });
+}
+function resetLogin(){
+  loginState("form");
   document.getElementById("loginErr").textContent = "";
 }
-function doLogin(){
-  const err = document.getElementById("loginErr");
-  const pin = document.getElementById("loginPin").value.trim();
-  if(loginRole==="athlete"){
-    const email = document.getElementById("loginEmail").value.trim().toLowerCase();
-    if(!/^[a-z0-9._%+-]+@ed\.ac\.uk$/.test(email)){ err.textContent="Enter a valid @ed.ac.uk email address."; return; }
-    if(pin!==PIN_ATHLETE){ err.textContent="Incorrect PIN."; return; }
-    auth = {role:"athlete", email};
-  }else{
-    if(pin!==PIN_COACH){ err.textContent="Incorrect coach PIN."; return; }
-    auth = {role:"coach", email:""};
+function handleEmailLink(){
+  if(!fbAuth.isSignInWithEmailLink(location.href)) return false;
+  const stored = localStorage.getItem(AUTH_EMAIL_KEY);
+  if(stored){ finishLink(stored); }
+  else{
+    // Link opened on a different device/browser — confirm the address
+    loginState("form");
+    document.getElementById("loginNote2").textContent = "Confirm the email address this sign-in link was sent to, then finish signing in.";
+    const btn = document.getElementById("btnSend");
+    btn.textContent = "Finish signing in";
+    btn.onclick = ()=>{
+      const em = document.getElementById("loginEmail").value.trim().toLowerCase();
+      if(em) finishLink(em);
+    };
   }
-  localStorage.setItem("eubc-tp-auth", JSON.stringify(auth));
+  return true;
+}
+function finishLink(email){
+  loginState("busy", "Signing you in…");
+  fbAuth.signInWithEmailLink(email, location.href)
+    .then(()=>{ localStorage.removeItem(AUTH_EMAIL_KEY); history.replaceState(null, "", location.pathname); })
+    .catch(e=>{ loginState("form"); document.getElementById("loginErr").textContent = friendlyAuthError(e); });
+}
+function startSession(){
+  document.getElementById("login").style.display = "flex";
+  loginState("busy", "Loading the programme…");
+  pendingEnter = true;
+  attachData();
+}
+function finishEnter(offline){
+  pendingEnter = false;
+  if(offline) setLocalMode("offline");
+  const u = fbAuth.currentUser;
+  if(!u || !u.email){ showLoginScreen(); return; }
+  auth = { role: isCoachEmail(u.email) ? "coach" : "athlete", email: u.email.toLowerCase() };
   enterApp();
 }
+function refreshRole(){
+  const u = fbAuth.currentUser;
+  if(!u || !auth){ renderAll(); return; }
+  const r = isCoachEmail(u.email) ? "coach" : "athlete";
+  if(r !== auth.role){ auth.role = r; enterApp(); } else renderAll();
+}
+function showLoginScreen(){
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login").style.display = "flex";
+  loginState("form");
+}
 function logout(){
-  localStorage.removeItem("eubc-tp-auth");
+  try{ fbAuth.signOut(); }catch(e){}
+  localStorage.removeItem("eubc-tp-state");
   location.reload();
 }
 function enterApp(){
@@ -1439,8 +1537,24 @@ function openSettings(){
     html += '<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+z+'</div>'
       + '<div class="field" style="flex:1;margin:0"><input type="number" id="sp_'+ZKEY(z)+'" min="60" max="240" value="'+(sp[z]||120)+'"></div></div>';
   }
-  html += '</div><div class="hint">Used to estimate minutes for distance-based sessions, e.g. 125s = 2:05 /500m.</div>'
-    + '<div class="modal-actions"><button class="btn" onclick="hide(\'ovSettings\')">Cancel</button>'
+  html += '</div><div class="hint">Used to estimate minutes for distance-based sessions, e.g. 125s = 2:05 /500m.</div>';
+
+  const myKey = emailKey(auth.email);
+  const coachKeys = Object.keys(state.coaches||{}).sort();
+  html += '<div class="field" style="margin-top:18px"><label>Coaches — edit access</label></div>'
+    + '<div class="lib-list" style="max-height:170px;margin-top:2px">'
+    + (coachKeys.length ? coachKeys.map(k=>
+        '<div class="lib-item"><div class="grow" style="font-weight:600;font-size:13.5px">'+esc(k.replace(/,/g,"."))
+        + (k===myKey?' <span class="chip type">you</span>':"")+'</div>'
+        + '<button class="btn small danger" onclick="removeCoach(\''+escAttr(k)+'\')">Remove</button></div>').join("")
+      : '<div class="empty-day">No coaches listed — add yourself first.</div>')
+    + '</div>'
+    + '<div class="frow" style="margin-top:8px;align-items:center">'
+    + '<div class="field" style="flex:1;margin:0"><input id="newCoach" type="email" placeholder="colleague@ed.ac.uk"></div>'
+    + '<button class="btn" onclick="addCoach()">Add coach</button></div>'
+    + '<div class="hint">Coaches can edit the programme, library, events, blocks and settings. Everyone else with a verified @ed.ac.uk address gets view-only access. Changes take effect on their next sync.</div>';
+
+  html += '<div class="modal-actions"><button class="btn" onclick="hide(\'ovSettings\')">Cancel</button>'
     + '<button class="btn primary" onclick="saveSettings()">Save settings</button></div>';
   document.getElementById("mdSettings").innerHTML = html;
   show("ovSettings");
@@ -1456,6 +1570,28 @@ function saveSettings(){
   }
   persist("settings", state.settings);
   hide("ovSettings"); toast("Settings saved"); renderAll();
+}
+function addCoach(){
+  const em = (document.getElementById("newCoach").value||"").trim().toLowerCase();
+  if(!/^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(em)){ toast("Enter a valid email address"); return; }
+  const k = emailKey(em);
+  state.coaches = state.coaches || {};
+  if(state.coaches[k]){ toast("Already a coach"); return; }
+  state.coaches[k] = true;
+  persist("coaches/"+k, true);
+  toast("Coach added");
+  openSettings();
+}
+function removeCoach(k){
+  const self = k === emailKey(auth.email);
+  const msg = self
+    ? "This is YOUR account — removing it takes away your own coach access immediately. Are you sure?"
+    : "Remove coach access for "+k.replace(/,/g,".")+"?";
+  if(!confirm(msg)) return;
+  delete state.coaches[k];
+  persist("coaches/"+k, null);
+  toast("Coach removed");
+  if(self){ hide("ovSettings"); refreshRole(); } else openSettings();
 }
 
 /* ---------------- PDF export ---------------- */
@@ -1534,12 +1670,23 @@ function toast(msg){
 }
 
 /* ---------------- boot ---------------- */
-initData();
+/* ---------------- boot ---------------- */
 (function(){
-  const saved = localStorage.getItem("eubc-tp-auth");
-  if(saved){ try{ auth = JSON.parse(saved); }catch(e){} }
-  if(auth && auth.role){ enterApp(); }
-  document.getElementById("loginPin").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+  document.getElementById("loginEmail").addEventListener("keydown", e=>{
+    if(e.key==="Enter") document.getElementById("btnSend").click();
+  });
+  if(typeof firebase === "undefined"){
+    loginFatal("Can't reach the sign-in service — check your connection and reload.");
+    return;
+  }
+  if(!initFirebase()) return;
+  const linkFlow = handleEmailLink();
+  let first = true;
+  fbAuth.onAuthStateChanged(u=>{
+    if(u && u.email){ startSession(); }
+    else if(!linkFlow || !first){ showLoginScreen(); }
+    first = false;
+  });
 })();
 </script>
 </body>
