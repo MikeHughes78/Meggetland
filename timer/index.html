@@ -185,6 +185,7 @@ input[type=number]{width:104px}
 .stampBtn.running .ident{color:var(--green-deep)}
 .stampBtn.running .time{color:var(--green-deep)}
 .runTag{display:inline-flex;align-items:center;gap:5px;font-family:'Swiss 721','Helvetica Neue',Helvetica,sans-serif;font-size:.6rem;font-weight:600;color:var(--green-deep);letter-spacing:.02em}
+.laneChip{display:inline-block;font-size:.62rem;font-weight:600;color:var(--blade-deep);background:var(--blade-tint);border:1px solid var(--blade);border-radius:5px;padding:1px 5px;margin-right:6px;vertical-align:1px}
 .runDot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:runPulse 1.1s ease-in-out infinite}
 @keyframes runPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
 .stampBtn.flash{animation:stampFlash .5s ease-out}
@@ -299,6 +300,19 @@ try{
 }catch(e){ console.warn('Firebase unavailable — running offline', e); }
 
 const CATS = ['M1x','F1x','M2-','F2-','M2x','F2x','M4-','F4-','M4x','F4x','M4+','F4+','M8+','F8+'];
+/* Hull types for the inventory. A physical hull has a type (seats + rig);
+   the racing category adds sex (M/F). One hull can be raced M or F. */
+const BOAT_TYPES = [
+  {t:'1x', label:'Single scull (1x)'},
+  {t:'2-', label:'Coxless pair (2-)'},
+  {t:'2x', label:'Double scull (2x)'},
+  {t:'4-', label:'Coxless four (4-)'},
+  {t:'4x', label:'Quad scull (4x)'},
+  {t:'4+', label:'Coxed four (4+)'},
+  {t:'8+', label:'Eight (8+)'}
+];
+function catsForType(t){ return CATS.filter(c=>c.slice(1)===t); } // e.g. '4x' -> ['M4x','F4x']
+function typeLabel(t){ const b=BOAT_TYPES.find(x=>x.t===t); return b?b.label:t; }
 const DEFAULT_GMTS = { // 2k Gold Medal Times in seconds (editable in Settings)
   'M1x':390.74,'F1x':427.71,'M2-':368.50,'F2-':407.41,'M2x':359.72,'F2x':397.31,
   'M4-':337.86,'F4-':374.36,'M4x':332.26,'F4x':366.84,'M4+':358.96,'F4+':393.38,
@@ -313,6 +327,7 @@ function positionsFor(c){
   if(s==='4+') return ['Stroke','3','2','Bow','Cox'];
   return ['Cox','Stroke','7','6','5','4','3','2','Bow']; // 8+
 }
+function inventory(){ return (db.settings && db.settings.boats) || {}; }
 
 /* ---------- local mirror + persistence ---------- */
 const LS = { db:'eubcTimer.db', queue:'eubcTimer.queue', offset:'eubcTimer.offset', sort:'eubcTimer.sort' };
@@ -386,6 +401,10 @@ function overlayQueue(prefix){
 if(root) root.child('settings/gmts').on('value', s=>{
   const v=s.val();
   if(v){ db.settings.gmts = Object.assign({...DEFAULT_GMTS}, v); overlayQueue('settings/gmts'); persistDb(); renderCurrent(); }
+});
+if(root) root.child('settings/boats').on('value', s=>{
+  const v=s.val();
+  db.settings.boats = v || {}; overlayQueue('settings/boats'); persistDb(); renderCurrent();
 });
 let pieceSub=null;
 if(root) root.child('activePieceId').on('value', s=>{
@@ -478,6 +497,8 @@ function crewText(b){
   const crew = b.crew||{};
   return pos.map((p,i)=>{ const n=(crew[i]||'').trim(); return n? (pos.length>1? p+': '+n : n) : null; }).filter(Boolean).join(' · ');
 }
+function laneBadge(b){ return b.lane? `<span class="laneChip">Lane ${b.lane}</span>` : ''; }
+function catLine(b){ return `${laneBadge(b)}${catLabel(b.category)}`; }
 function scaledGmtMs(cat, distance){
   const g = (db.settings.gmts||{})[cat];
   if(!g || !distance) return null;
@@ -573,7 +594,7 @@ function loadActiveIntoDraft(){
   draft = {
     name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
     editingId: db.activePieceId,
-    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), _id:b.id }))
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, fromInv:!!b.invId, invType:b.invId&&inventory()[b.invId]?inventory()[b.invId].type:(b.category?b.category.slice(1):null), _id:b.id }))
   };
   renderSetup();
 }
@@ -597,8 +618,8 @@ function renderSetup(){
     <div class="row">
       <label class="fld" style="flex:1">Start type
         <select onchange="draft.startMode=this.value">
-          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial</option>
-          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start</option>
+          <option value="staggered" ${draft.startMode==='staggered'?'selected':''}>Time trial — one after the other</option>
+          <option value="mass" ${draft.startMode==='mass'?'selected':''}>Regatta start — all boats together</option>
         </select>
       </label>
       <button class="btn ghost" style="align-self:flex-end" onclick="addBoat()">+ Add boat</button>
@@ -618,19 +639,38 @@ function renderSetup(){
 }
 function setDist(d){ draft.distance=d; renderSetup(); }
 function addBoat(){
-  draft.boats.push({ ident:String(draft.boats.length+1), category:'M1x', crew:{} });
+  draft.boats.push({ ident:String(draft.boats.length+1), category:'M1x', crew:{}, lane:0, fromInv:false, invId:null, invType:null });
   renderSetup();
 }
 function boatCardHtml(b,i){
   const pos=positionsFor(b.category);
+  const inv=inventory();
+  const invIds=Object.keys(inv).sort((a,c)=>(inv[a].ident||'').localeCompare(inv[c].ident||''));
+  const hasInv=invIds.length>0;
+  // category options: if boat came from inventory, restrict to that hull type's M/F pair
+  const hullType = b.invType || (b.category? b.category.slice(1):null);
+  const catOpts = (b.fromInv && hullType) ? catsForType(hullType) : CATS;
+  const invPicker = hasInv ? `<label class="fld" style="flex:1;min-width:150px">Boat (from inventory)
+        <select onchange="pickInvBoat(${i}, this.value)">
+          <option value="">— Manual entry —</option>
+          ${invIds.map(id=>`<option value="${id}" ${b.invId===id?'selected':''}>${esc(inv[id].ident)} · ${typeLabel(inv[id].type)}</option>`).join('')}
+        </select>
+      </label>` : '';
+  const laneOpts = [0,1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${(b.lane||0)===n?'selected':''}>${n===0?'—':n}</option>`).join('');
   return `<div class="boatCard">
     <div class="head">
+      ${invPicker}
       <label class="fld">Identifier
-        <input style="width:84px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
+        <input style="width:96px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
       </label>
-      <label class="fld" style="flex:1;min-width:150px">Category
+      <label class="fld" style="flex:1;min-width:140px">Category
         <select onchange="draft.boats[${i}].category=this.value;renderSetup()">
-          ${CATS.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${catOpts.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="fld">Lane
+        <select style="width:70px" onchange="draft.boats[${i}].lane=parseInt(this.value)||0">
+          ${laneOpts}
         </select>
       </label>
       <button class="btn small danger" onclick="draft.boats.splice(${i},1);renderSetup()">Remove</button>
@@ -641,6 +681,20 @@ function boatCardHtml(b,i){
       </label>`).join('')}
     </div>
   </div>`;
+}
+function pickInvBoat(i, invId){
+  const b=draft.boats[i];
+  if(!invId){ b.fromInv=false; b.invId=null; b.invType=null; renderSetup(); return; }
+  const hull=inventory()[invId];
+  if(!hull){ renderSetup(); return; }
+  b.fromInv=true; b.invId=invId; b.invType=hull.type; b.ident=hull.ident;
+  // set category to the matching type, preserving M/F if it still fits, else default to Male
+  const cats=catsForType(hull.type);
+  if(!cats.includes(b.category)){
+    const sex=(b.category&&b.category[0]==='F')?'F':'M';
+    b.category = cats.includes(sex+hull.type) ? sex+hull.type : cats[0];
+  }
+  renderSetup();
 }
 function savePiece(mode){
   if(!draft.boats.length){ toast('Add at least one boat'); return; }
@@ -653,6 +707,7 @@ function savePiece(mode){
     const prev = (existing.boats||{})[bid]||{};
     const crew={}; positionsFor(b.category).forEach((p,j)=>{ if((b.crew[j]||'').trim()) crew[j]=b.crew[j].trim(); });
     boats[bid]={ ident:(b.ident||'').trim()||String(i+1), category:b.category, crew,
+                 lane:b.lane||0, invId:b.invId||null,
                  startTs:prev.startTs!=null?prev.startTs:null, finishTs:prev.finishTs!=null?prev.finishTs:null };
     order.push(bid);
   });
@@ -724,22 +779,22 @@ function renderStart(){
     const finished = b.startTs!=null && b.finishTs!=null;
     if(finished) return `<button class="stampBtn done" data-bid="${b.id}">
           <span class="ident">${esc(b.ident)}</span>
-          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
           <span class="time">${fmtElapsed(b.finishTs-b.startTs)}<span class="sub">Finished</span></span>
         </button>`;
     if(running) return `<button class="stampBtn running" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','startTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
           <span class="ident">${esc(b.ident)}</span>
-          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
           <span class="time"><span class="runTag"><span class="runDot"></span>RUNNING</span><br><span data-runlive="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span><span class="sub">Hold to clear</span></span>
         </button>`;
     return `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','startTs')" oncontextmenu="return false">
           <span class="ident">${esc(b.ident)}</span>
-          <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+          <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
           <span class="time">Tap to start</span>
         </button>`;
   }).join('');
   el.innerHTML = `<div class="panel"><h2>Start · ${esc(p.name)} · ${p.distance}m</h2>
-    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start':'Time trial'}</p>
+    <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start — one tap starts every boat on the same server-synced time.':'Time trial — tap each boat the instant it crosses the start.'}</p>
     ${inner}</div>`;
   clearInterval(startTick);
   if(boats.some(b=>b.startTs!=null && b.finishTs==null) && currentView==='Start'){
@@ -786,17 +841,17 @@ function renderFinish(){
     const done = b.finishTs!=null;
     if(done) return `<button class="stampBtn done" data-bid="${b.id}" onpointerdown="lpStart(event,'${id}','${b.id}','finishTs')" onpointerup="lpEnd(event)" onpointercancel="lpEnd(event)" onpointerleave="lpEnd(event)" oncontextmenu="return false">
         <span class="ident">${esc(b.ident)}</span>
-        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
         <span class="time">${fmtElapsed(b.finishTs-b.startTs)}<span class="sub">Hold to clear</span></span>
       </button>`;
     if(running) return `<button class="stampBtn" data-bid="${b.id}" onpointerdown="stampDown(event,'${id}','${b.id}','finishTs')" oncontextmenu="return false">
         <span class="ident">${esc(b.ident)}</span>
-        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
         <span class="time"><span data-live="${b.startTs}">${fmtElapsed(nowMs()-b.startTs)}</span><span class="sub">Tap at the line</span></span>
       </button>`;
     return `<button class="stampBtn waiting" data-bid="${b.id}">
         <span class="ident">${esc(b.ident)}</span>
-        <span class="meta"><div class="cat">${catLabel(b.category)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
+        <span class="meta"><div class="cat">${catLine(b)}</div><div class="crew">${esc(crewText(b))||'&nbsp;'}</div></span>
         <span class="time">Not started</span>
       </button>`;
   };
@@ -833,7 +888,7 @@ function resultsTableHtml(piece){
   const {done,pending}=resultsData(piece);
   const rows=done.map((b,i)=>`<tr class="rank${i+1}">
     <td>${i+1}</td>
-    <td><strong>${esc(b.ident)}</strong> · ${catLabel(b.category)}<div class="crewSmall">${esc(crewText(b))}</div></td>
+    <td>${laneBadge(b)}<strong>${esc(b.ident)}</strong> · ${catLabel(b.category)}<div class="crewSmall">${esc(crewText(b))}</div></td>
     <td class="num">${fmtElapsed(b.elapsed)}</td>
     <td class="num"><span class="bigPct">${b.pct!=null?b.pct.toFixed(2)+'%':'—'}</span></td>
   </tr>`).join('');
@@ -923,7 +978,7 @@ function editPiece(id){
   draft = {
     name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
     editingId: id,
-    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), _id:b.id }))
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, fromInv:!!b.invId, invType:b.invId&&inventory()[b.invId]?inventory()[b.invId].type:(b.category?b.category.slice(1):null), _id:b.id }))
   };
   showView('Setup');
 }
@@ -948,15 +1003,15 @@ function exportPdf(id){
   doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(102,112,124);
   doc.text([ new Date(p.createdAt||0).toLocaleString('en-GB'),
     'Distance: '+p.distance+'m · Start: '+(p.startMode==='mass'?'regatta start':'time trial'),
-    'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · ' ], 14, 25);
+    'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k gold medal times' ], 14, 25);
   doc.autoTable({
     startY:38,
-    head:[['#','Boat','Category','Crew','Time','GMT%']],
-    body:done.map((b,i)=>[i+1, b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
+    head:[['#','Lane','Boat','Category','Crew','Time','GMT%']],
+    body:done.map((b,i)=>[i+1, b.lane||'—', b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
     styles:{font:'helvetica',fontSize:9,cellPadding:2.5},
     headStyles:{fillColor:[14,40,65],textColor:[255,255,255],fontStyle:'bold'},
     alternateRowStyles:{fillColor:[242,243,245]},
-    columnStyles:{0:{cellWidth:8},4:{halign:'right'},5:{halign:'right'}}
+    columnStyles:{0:{cellWidth:8},1:{cellWidth:12,halign:'center'},5:{halign:'right'},6:{halign:'right'}}
   });
   if(pending.length){
     doc.setFontSize(9); doc.setTextColor(120);
@@ -973,9 +1028,31 @@ function exportPdf(id){
 function renderSettings(){
   const el=document.getElementById('viewSettings');
   const g=db.settings.gmts||{};
+  const inv=inventory();
+  const invIds=Object.keys(inv).sort((a,c)=>(inv[a].ident||'').localeCompare(inv[c].ident||''));
+  const invRows = invIds.map(id=>`<div class="pieceRow">
+      <div style="flex:1;min-width:120px"><div class="nm">${esc(inv[id].ident)}</div><div class="sub">${typeLabel(inv[id].type)}</div></div>
+      <button class="btn small danger" onclick="deleteInvBoat('${id}')">Remove</button>
+    </div>`).join('');
   el.innerHTML=`<div class="panel">
+    <h2>Boat inventory</h2>
+    <p class="hint" style="margin-bottom:12px">Your club's hulls. Add each boat's identifier (six-digit code or name) and its type. When setting up a piece you can pick a boat from here and the seats fill automatically.</p>
+    <div class="row" style="align-items:flex-end">
+      <label class="fld" style="flex:1;min-width:150px">Identifier
+        <input id="invIdent" placeholder="e.g. 401234 or Kelpie" oninput="window._invIdent=this.value">
+      </label>
+      <label class="fld" style="flex:1;min-width:150px">Type
+        <select id="invType" onchange="window._invType=this.value">
+          ${BOAT_TYPES.map(bt=>`<option value="${bt.t}">${bt.label}</option>`).join('')}
+        </select>
+      </label>
+      <button class="btn" onclick="addInvBoat()">Add boat</button>
+    </div>
+    <div style="margin-top:12px">${invRows||'<p class="hint">No boats in the inventory yet.</p>'}</div>
+  </div>
+  <div class="panel">
     <h2>Gold medal times (2k)</h2>
-    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00</p>
+    <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
     <div class="gmtGrid">
       ${CATS.map(c=>`<label class="fld">${catLabel(c)}
         <input id="gmt_${c.replace(/[^\w]/g,'_')}" value="${fmtGmtSec(g[c])}" placeholder="m:ss.00" inputmode="decimal">
@@ -991,6 +1068,22 @@ function renderSettings(){
     <p class="hint">All timestamps use Firebase server time — times are stamped the instant a button is touched (pointer-down, not release). Current device offset: <strong>${serverOffset>=0?'+':''}${Math.round(serverOffset)}ms</strong>.
     Once calibrated, this device keeps stamping accurately even if it drops offline — taps queue locally and upload automatically when the connection returns.</p>
   </div>`;
+  window._invIdent=''; window._invType=window._invType||BOAT_TYPES[0].t;
+}
+function addInvBoat(){
+  const ident=(window._invIdent||'').trim();
+  const type=window._invType||BOAT_TYPES[0].t;
+  if(!ident){ toast('Enter an identifier'); return; }
+  const inv=inventory();
+  if(Object.values(inv).some(h=>(h.ident||'').toLowerCase()===ident.toLowerCase())){ toast('That identifier already exists'); return; }
+  const id='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  fbSet('settings/boats/'+id, {ident, type});
+  toast('Boat added');
+}
+function deleteInvBoat(id){
+  if(!confirm('Remove this boat from the inventory?')) return;
+  fbSet('settings/boats/'+id, null);
+  toast('Boat removed');
 }
 function saveGmts(){
   const out={};
