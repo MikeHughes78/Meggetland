@@ -520,6 +520,7 @@ setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallCl
 const VIEWS=['Home','Setup','Start','Finish','Results','Pieces','Settings'];
 let currentView='Home';
 let startTick=null, finishTick=null;
+let invListOpen=false;
 document.getElementById('nav').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   showView(b.dataset.v);
@@ -1039,7 +1040,10 @@ function renderSettings(){
       </label>
       <button class="btn" onclick="addInvBoat()">Add boat</button>
     </div>
-    <div style="margin-top:12px">${invRows||'<p class="hint">No boats in the inventory yet.</p>'}</div>
+    ${invIds.length ? `<div style="margin-top:12px">
+      <button class="btn ghost small" onclick="invListOpen=!invListOpen;renderSettings()">${invListOpen?'Hide':'Show'} boat list (${invIds.length})</button>
+      ${invListOpen ? `<div style="margin-top:10px">${invRows}</div>` : ''}
+    </div>` : '<p class="hint" style="margin-top:12px">No boats in the inventory yet.</p>'}
   </div>
   <div class="panel">
     <h2>Gold medal times (2k)</h2>
@@ -1068,6 +1072,7 @@ function addInvBoat(){
   const inv=inventory();
   if(Object.values(inv).some(h=>(h.ident||'').toLowerCase()===ident.toLowerCase())){ toast('That bow number already exists'); return; }
   const id='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  invListOpen=true;
   fbSet('settings/boats/'+id, {ident, type});
   toast('Boat added');
 }
