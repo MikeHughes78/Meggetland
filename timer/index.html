@@ -484,6 +484,10 @@ function fmtElapsed(ms){
   const m = Math.floor(h/6000), s = Math.floor((h%6000)/100), c = h%100;
   return m+':'+String(s).padStart(2,'0')+'.'+String(c).padStart(2,'0');
 }
+function splitPer500(ms, distance){
+  if(ms==null || isNaN(ms) || ms<=0 || !distance) return '—';
+  return fmtElapsed(ms / (distance/500));
+}
 function fmtGmtSec(sec){
   if(sec==null||isNaN(sec)) return '';
   const h=Math.round(sec*100);
@@ -974,11 +978,12 @@ function resultsTableHtml(piece){
     <td>${i+1}</td>
     <td>${laneBadge(b)}<strong>${esc(b.ident)}</strong> · ${catLabel(b.category)}<div class="crewSmall">${esc(crewText(b))}</div></td>
     <td class="num">${fmtElapsed(b.elapsed)}</td>
+    <td class="num">${splitPer500(b.elapsed, piece.distance)}</td>
     <td class="num"><span class="bigPct">${b.pct!=null?b.pct.toFixed(2)+'%':'—'}</span></td>
   </tr>`).join('');
   const pend=pending.length?`<p class="hint" style="margin-top:10px">Still out: ${pending.map(b=>esc(b.ident)).join(', ')}</p>`:'';
-  return `<table><thead><tr><th>#</th><th>Boat</th><th class="num">Time</th><th class="num">GMT%</th></tr></thead>
-    <tbody>${rows||'<tr><td colspan="4" class="hint">No finished boats yet.</td></tr>'}</tbody></table>${pend}`;
+  return `<table><thead><tr><th>#</th><th>Boat</th><th class="num">Time</th><th class="num">/500m</th><th class="num">GMT%</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="5" class="hint">No finished boats yet.</td></tr>'}</tbody></table>${pend}`;
 }
 function renderResults(){
   const el=document.getElementById('viewResults');
@@ -1090,12 +1095,12 @@ function exportPdf(id){
     'Ranked by '+(sortMode==='gmt'?'GMT%':'total time')+' · GMT scaled linearly from 2k gold medal times' ], 14, 25);
   doc.autoTable({
     startY:38,
-    head:[['#','Lane','Boat','Category','Crew','Time','GMT%']],
-    body:done.map((b,i)=>[i+1, b.lane||'—', b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
+    head:[['#','Lane','Boat','Category','Crew','Time','/500m','GMT%']],
+    body:done.map((b,i)=>[i+1, b.lane||'—', b.ident, catLabel(b.category), crewText(b), fmtElapsed(b.elapsed), splitPer500(b.elapsed, p.distance), b.pct!=null?b.pct.toFixed(2)+'%':'—']),
     styles:{font:'helvetica',fontSize:9,cellPadding:2.5},
     headStyles:{fillColor:[14,40,65],textColor:[255,255,255],fontStyle:'bold'},
     alternateRowStyles:{fillColor:[242,243,245]},
-    columnStyles:{0:{cellWidth:8},1:{cellWidth:12,halign:'center'},5:{halign:'right'},6:{halign:'right'}}
+    columnStyles:{0:{cellWidth:8},1:{cellWidth:12,halign:'center'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right'}}
   });
   if(pending.length){
     doc.setFontSize(9); doc.setTextColor(120);
