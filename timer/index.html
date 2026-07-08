@@ -300,18 +300,16 @@ try{
 }catch(e){ console.warn('Firebase unavailable — running offline', e); }
 
 const CATS = ['M1x','F1x','M2-','F2-','M2x','F2x','M4-','F4-','M4x','F4x','M4+','F4+','M8+','F8+'];
-/* Hull types for the inventory. A physical hull has a type (seats + rig);
-   the racing category adds sex (M/F). One hull can be raced M or F. */
+/* Inventory boat types — a loose reference label for each hull, so a boat can
+   be identified on the water. This does NOT constrain the racing category,
+   which is chosen independently in setup and is what drives GMT. */
 const BOAT_TYPES = [
-  {t:'1x', label:'Single scull (1x)'},
-  {t:'2-', label:'Coxless pair (2-)'},
-  {t:'2x', label:'Double scull (2x)'},
-  {t:'4-', label:'Coxless four (4-)'},
-  {t:'4x', label:'Quad scull (4x)'},
-  {t:'4+', label:'Coxed four (4+)'},
-  {t:'8+', label:'Eight (8+)'}
+  {t:'1x', label:'1x'},
+  {t:'2', label:'2x/-'},
+  {t:'4', label:'4x/-'},
+  {t:'4+', label:'4+'},
+  {t:'8+', label:'8+'}
 ];
-function catsForType(t){ return CATS.filter(c=>c.slice(1)===t); } // e.g. '4x' -> ['M4x','F4x']
 function typeLabel(t){ const b=BOAT_TYPES.find(x=>x.t===t); return b?b.label:t; }
 const DEFAULT_GMTS = { // 2k Gold Medal Times in seconds (editable in Settings)
   'M1x':390.74,'F1x':427.71,'M2-':368.50,'F2-':407.41,'M2x':359.72,'F2x':397.31,
@@ -594,7 +592,7 @@ function loadActiveIntoDraft(){
   draft = {
     name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
     editingId: db.activePieceId,
-    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, fromInv:!!b.invId, invType:b.invId&&inventory()[b.invId]?inventory()[b.invId].type:(b.category?b.category.slice(1):null), _id:b.id }))
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, _id:b.id }))
   };
   renderSetup();
 }
@@ -639,7 +637,7 @@ function renderSetup(){
 }
 function setDist(d){ draft.distance=d; renderSetup(); }
 function addBoat(){
-  draft.boats.push({ ident:String(draft.boats.length+1), category:'M1x', crew:{}, lane:0, fromInv:false, invId:null, invType:null });
+  draft.boats.push({ ident:String(draft.boats.length+1), category:'M1x', crew:{}, lane:0, invId:null });
   renderSetup();
 }
 function boatCardHtml(b,i){
@@ -648,8 +646,6 @@ function boatCardHtml(b,i){
   const invIds=Object.keys(inv).sort((a,c)=>(inv[a].ident||'').localeCompare(inv[c].ident||''));
   const hasInv=invIds.length>0;
   // category options: if boat came from inventory, restrict to that hull type's M/F pair
-  const hullType = b.invType || (b.category? b.category.slice(1):null);
-  const catOpts = (b.fromInv && hullType) ? catsForType(hullType) : CATS;
   const invPicker = hasInv ? `<label class="fld" style="flex:1;min-width:150px">Boat (from inventory)
         <select onchange="pickInvBoat(${i}, this.value)">
           <option value="">— Manual entry —</option>
@@ -660,12 +656,12 @@ function boatCardHtml(b,i){
   return `<div class="boatCard">
     <div class="head">
       ${invPicker}
-      <label class="fld">Identifier
+      <label class="fld">Bow number
         <input style="width:96px" value="${esc(b.ident)}" oninput="draft.boats[${i}].ident=this.value">
       </label>
       <label class="fld" style="flex:1;min-width:140px">Category
         <select onchange="draft.boats[${i}].category=this.value;renderSetup()">
-          ${catOpts.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
+          ${CATS.map(c=>`<option value="${c}" ${b.category===c?'selected':''}>${catLabel(c)}</option>`).join('')}
         </select>
       </label>
       <label class="fld">Lane
@@ -684,16 +680,11 @@ function boatCardHtml(b,i){
 }
 function pickInvBoat(i, invId){
   const b=draft.boats[i];
-  if(!invId){ b.fromInv=false; b.invId=null; b.invType=null; renderSetup(); return; }
+  if(!invId){ b.invId=null; renderSetup(); return; }
   const hull=inventory()[invId];
   if(!hull){ renderSetup(); return; }
-  b.fromInv=true; b.invId=invId; b.invType=hull.type; b.ident=hull.ident;
-  // set category to the matching type, preserving M/F if it still fits, else default to Male
-  const cats=catsForType(hull.type);
-  if(!cats.includes(b.category)){
-    const sex=(b.category&&b.category[0]==='F')?'F':'M';
-    b.category = cats.includes(sex+hull.type) ? sex+hull.type : cats[0];
-  }
+  // inventory only supplies the bow-number identifier; category is untouched
+  b.invId=invId; b.ident=hull.ident;
   renderSetup();
 }
 function savePiece(mode){
@@ -978,7 +969,7 @@ function editPiece(id){
   draft = {
     name:p.name||'', distance:p.distance||2000, startMode:p.startMode||'staggered',
     editingId: id,
-    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, fromInv:!!b.invId, invType:b.invId&&inventory()[b.invId]?inventory()[b.invId].type:(b.category?b.category.slice(1):null), _id:b.id }))
+    boats: boatsInOrder(p).map(b=>({ ident:b.ident||'', category:b.category||'M1x', crew:Object.assign({},b.crew||{}), lane:b.lane||0, invId:b.invId||null, _id:b.id }))
   };
   showView('Setup');
 }
@@ -1036,12 +1027,12 @@ function renderSettings(){
     </div>`).join('');
   el.innerHTML=`<div class="panel">
     <h2>Boat inventory</h2>
-    <p class="hint" style="margin-bottom:12px">Your club's hulls. Add each boat's identifier (six-digit code or name) and its type. When setting up a piece you can pick a boat from here and the seats fill automatically.</p>
+    <p class="hint" style="margin-bottom:12px">Your club's hulls, as a quick reference for identifying a boat on the water. When setting up a piece you can pick a boat from here to fill in its bow number. The type is just a label — the racing category (which drives GMT) is still chosen per boat in setup.</p>
     <div class="row" style="align-items:flex-end">
-      <label class="fld" style="flex:1;min-width:150px">Identifier
+      <label class="fld" style="flex:1;min-width:150px">Bow number
         <input id="invIdent" placeholder="e.g. 401234 or Kelpie" oninput="window._invIdent=this.value">
       </label>
-      <label class="fld" style="flex:1;min-width:150px">Type
+      <label class="fld" style="min-width:110px">Type
         <select id="invType" onchange="window._invType=this.value">
           ${BOAT_TYPES.map(bt=>`<option value="${bt.t}">${bt.label}</option>`).join('')}
         </select>
@@ -1073,9 +1064,9 @@ function renderSettings(){
 function addInvBoat(){
   const ident=(window._invIdent||'').trim();
   const type=window._invType||BOAT_TYPES[0].t;
-  if(!ident){ toast('Enter an identifier'); return; }
+  if(!ident){ toast('Enter a bow number'); return; }
   const inv=inventory();
-  if(Object.values(inv).some(h=>(h.ident||'').toLowerCase()===ident.toLowerCase())){ toast('That identifier already exists'); return; }
+  if(Object.values(inv).some(h=>(h.ident||'').toLowerCase()===ident.toLowerCase())){ toast('That bow number already exists'); return; }
   const id='h'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   fbSet('settings/boats/'+id, {ident, type});
   toast('Boat added');
