@@ -208,6 +208,27 @@ input[type=number]{width:104px}
 .massBtn.holding{animation:holdShrink .6s ease-in forwards}
 .massBtn:active{transform:scale(.99)}
 
+/* ============ close finish / misaligned start ============ */
+.captureBtn{
+  width:100%;padding:34px 20px;border-radius:14px;margin:10px 0 12px;cursor:pointer;
+  border:1.5px solid var(--red-hair);background:var(--red-bg);color:var(--red);
+  font-weight:600;font-size:1.35rem;position:relative;overflow:hidden;
+  transition:background .15s ease;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+}
+.captureBtn .sub{display:block;font-size:.68rem;font-weight:500;color:var(--sub);margin-top:4px}
+.captureBtn.flash{animation:stampFlash .5s ease-out}
+.captureBtn:active{transform:scale(.99)}
+.rawBox{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:12px;margin-bottom:12px}
+.rawBox h3{font-size:.8rem;font-weight:600;color:var(--navy);margin-bottom:8px}
+.rawRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--hair-soft)}
+.rawRow:last-child{border-bottom:none}
+.rawT{font-family:var(--mono);font-weight:600;font-size:.86rem;color:var(--navy);min-width:118px}
+.rawN{font-size:.68rem;font-weight:600;color:var(--sub);min-width:22px}
+.bowChip{font-family:var(--mono);font-size:.85rem;font-weight:600;padding:7px 12px;border-radius:8px;background:var(--blade-tint);border:1px solid var(--blade);color:var(--blade-deep);cursor:pointer}
+.bowChip:active{transform:scale(.95)}
+.rawDel{margin-left:auto;background:#fff;border:1px solid var(--red-hair);color:var(--red);border-radius:8px;font-size:.72rem;font-weight:600;padding:6px 10px;cursor:pointer}
+
 /* ============ results ============ */
 table{width:100%;border-collapse:collapse;font-size:.85rem}
 th{font-weight:600;font-size:.7rem;color:var(--sub);text-align:left;padding:8px 6px;border-bottom:1px solid var(--hair)}
@@ -747,6 +768,75 @@ function lpEnd(ev){
 }
 
 /* =====================================================
+   Close finish / misaligned start — capture raw times
+   fast on one pad, assign to boats afterwards
+   ===================================================== */
+let captureOpen = { start:false, finish:false };  // is the capture pad shown
+const RAW_NODE = { start:'rawStart', finish:'rawFinish' };
+const TS_FIELD = { start:'startTs', finish:'finishTs' };
+function rawStamps(p, kind){
+  const raw=(p&&p[RAW_NODE[kind]])||{};
+  return Object.keys(raw).map(sid=>({sid, ts:raw[sid]})).sort((a,b)=>a.ts-b.ts);
+}
+function toggleCapture(kind){
+  captureOpen[kind]=!captureOpen[kind];
+  renderCurrent();
+}
+function captureStamp(ev, pieceId, kind){
+  const t = nowMs();               // capture instant first, always
+  stampBeep(); buzz(15);
+  const sid='s'+t.toString(36)+Math.random().toString(36).slice(2,5);
+  fbSet('pieces/'+pieceId+'/'+RAW_NODE[kind]+'/'+sid, t);
+  const btn=document.querySelector(`.captureBtn[data-cap="${kind}"]`);
+  if(btn) btn.classList.add('flash');
+}
+function assignRaw(pieceId, sid, boatId, kind){
+  const p=db.pieces[pieceId]; if(!p) return;
+  const ts=(p[RAW_NODE[kind]]||{})[sid];
+  if(ts==null) return;
+  fbSet('pieces/'+pieceId+'/boats/'+boatId+'/'+TS_FIELD[kind], ts);
+  fbSet('pieces/'+pieceId+'/'+RAW_NODE[kind]+'/'+sid, null);
+  const b=(p.boats||{})[boatId];
+  toast('Assigned to '+((b&&b.ident)||'boat'));
+}
+function deleteRaw(pieceId, sid, kind){
+  if(!confirm('Delete this recorded time?')) return;
+  fbSet('pieces/'+pieceId+'/'+RAW_NODE[kind]+'/'+sid, null);
+}
+/* Capture pad + assignment list. Candidates = boats that can take the time. */
+function capturePanelHtml(pieceId, kind, candidates){
+  const p=db.pieces[pieceId];
+  const stamps=rawStamps(p, kind);
+  const label = kind==='finish' ? 'Close finish' : 'Misaligned start';
+  const toggle = `<div class="row" style="margin-bottom:8px">
+    <button class="btn small ghost" onclick="toggleCapture('${kind}')">${captureOpen[kind] ? 'Close pad' : label + (stamps.length?' ('+stamps.length+' to assign)':'')}</button>
+  </div>`;
+  const pad = captureOpen[kind] ? `<button class="captureBtn" data-cap="${kind}" onpointerdown="captureStamp(event,'${pieceId}','${kind}')" oncontextmenu="return false">
+      Tap ${kind==='finish'?'at each bow':'as each boat crosses'}
+      <span class="sub">${stamps.length} recorded — times bank instantly, assign crews below</span>
+    </button>` : '';
+  let assign='';
+  if(stamps.length){
+    const rows=stamps.map((s,n)=>{
+      const chips = candidates.length
+        ? candidates.map(b=>`<button class="bowChip" onclick="assignRaw('${pieceId}','${s.sid}','${b.id}','${kind}')">${esc(b.ident)}</button>`).join('')
+        : '<span class="hint">No boats awaiting a time</span>';
+      return `<div class="rawRow">
+        <span class="rawN">T${n+1}</span>
+        <span class="rawT">${fmtWallClock(s.ts)}</span>
+        ${chips}
+        <button class="rawDel" onclick="deleteRaw('${pieceId}','${s.sid}','${kind}')">✕</button>
+      </div>`;
+    }).join('');
+    assign = `<div class="rawBox">
+      <h3>Recorded times — tap a bow number to assign</h3>
+      ${rows}
+    </div>`;
+  }
+  return toggle + pad + assign;
+}
+
+/* =====================================================
    Start
    ===================================================== */
 function renderStart(){
@@ -787,6 +877,7 @@ function renderStart(){
   }).join('');
   el.innerHTML = `<div class="panel"><h2>Start · ${esc(p.name)} · ${p.distance}m</h2>
     <p class="hint" style="margin-bottom:12px">${p.startMode==='mass'?'Regatta start — one tap starts every boat on the same server-synced time.':'Time trial — tap each boat the instant it crosses the start.'}</p>
+    ${p.startMode!=='mass' ? capturePanelHtml(id,'start',boats.filter(b=>b.startTs==null)) : ''}
     ${inner}</div>`;
   clearInterval(startTick);
   if(boats.some(b=>b.startTs!=null && b.finishTs==null) && currentView==='Start'){
@@ -849,6 +940,7 @@ function renderFinish(){
   };
   el.innerHTML = `<div class="panel"><h2>Finish · ${esc(p.name)} · ${p.distance}m</h2>
     <p class="hint" style="margin-bottom:12px">Tap the bow number the instant it crosses the line.</p>
+    ${capturePanelHtml(id,'finish',onWater)}
     ${onWater.map(btn).join('')||(finished.length?'':'<p class="hint">No boats on the water yet.</p>')}
     ${finished.length?'<h2 style="margin-top:14px">Finished</h2>'+finished.map(btn).join(''):''}
     ${notStarted.length?'<h2 style="margin-top:14px">Waiting to start</h2>'+notStarted.map(btn).join(''):''}
