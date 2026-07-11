@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+	<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -876,10 +876,12 @@ function tstSeatAnalysis(s){
    Single-boat flights count toward raw averages but not % scores. */
 function tstMatrixAgg(s){
   const agg={};
+  const gm = scaledGmtMs(s.sex + (s.type==='pairs'? '2-':'2x'), s.distance);
   const add=(side,name,pct,t)=>{
     const k=side+'|'+name;
-    const a=(agg[k]=agg[k]||{name,side,n:0,sumT:0,nPct:0,sumPct:0,best:null});
+    const a=(agg[k]=agg[k]||{name,side,n:0,sumT:0,nPct:0,sumPct:0,sumGmt:0,best:null});
     a.n++; a.sumT+=t; if(a.best==null||t<a.best)a.best=t;
+    if(gm) a.sumGmt += gm/t*100;
     if(pct!=null){ a.nPct++; a.sumPct+=pct; }
   };
   (s.raceOrder||[]).forEach(rid=>{
@@ -897,10 +899,10 @@ function tstMatrixAgg(s){
   return Object.values(agg);
 }
 function tstRankSort(a,b){
+  if(a.sumT!==b.sumT) return a.sumT-b.sumT;   /* cumulative time, ascending */
   const pa=a.nPct? a.sumPct/a.nPct : Infinity;
   const pb=b.nPct? b.sumPct/b.nPct : Infinity;
-  if(pa!==pb) return pa-pb;
-  return (a.sumT/a.n)-(b.sumT/b.n);
+  return pa-pb;
 }
 
 /* ---------- rendering ---------- */
@@ -1067,19 +1069,21 @@ function tstScheduleHtml(sid, s){
   });
   return out;
 }
-function tstMatrixRankHtml(rows, title, note){
+function tstMatrixRankHtml(rows, title, note, dist){
   rows.sort(tstRankSort);
   const tr=rows.map((a,i)=>`<tr class="rank${i+1}">
     <td>${i+1}</td>
     <td>${esc(a.name)}</td>
     <td class="num">${a.n}</td>
-    <td class="num"><span class="bigPct">${a.nPct? (a.sumPct/a.nPct).toFixed(2)+'%':'—'}</span></td>
-    <td class="num">${fmtElapsed(a.sumT/a.n)}</td>
+    <td class="num"><span class="bigPct">${fmtElapsed(a.sumT)}</span></td>
+    <td class="num">${splitPer500(a.sumT/a.n, dist)}</td>
+    <td class="num">${a.sumGmt? (a.sumGmt/a.n).toFixed(1)+'%':'—'}</td>
+    <td class="num">${a.nPct? (a.sumPct/a.nPct).toFixed(2)+'%':'—'}</td>
     <td class="num">${a.best!=null?fmtElapsed(a.best):'—'}</td>
   </tr>`).join('');
   return `<h2 style="margin-top:14px">${title}</h2>
-  <table><thead><tr><th>#</th><th>Athlete</th><th class="num">Races</th><th class="num">Avg % off</th><th class="num">Avg time</th><th class="num">Best</th></tr></thead>
-  <tbody>${tr||'<tr><td colspan="6" class="hint">No completed races yet.</td></tr>'}</tbody></table>
+  <div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Athlete</th><th class="num">Races</th><th class="num">Total time</th><th class="num">Avg /500m</th><th class="num">Avg GMT%</th><th class="num">Avg % off</th><th class="num">Best</th></tr></thead>
+  <tbody>${tr||'<tr><td colspan="8" class="hint">No completed races yet.</td></tr>'}</tbody></table></div>
   ${note?'<p class="hint" style="margin-top:8px">'+note+'</p>':''}`;
 }
 function tstSeatRankHtml(s){
@@ -1147,9 +1151,9 @@ function tstSessionHtml(sid){
   if(s.type==='seat') rankings=tstSeatRankHtml(s);
   else {
     const agg=tstMatrixAgg(s);
-    const note='Avg % off = average gap to the fastest boat in each flight (0% = fastest every time, lower is better) — this self-corrects for conditions changing between pieces. Raw averages shown alongside.';
-    if(s.type==='pairs') rankings = tstMatrixRankHtml(agg.filter(x=>x.side==='S'),'Stroke side ranking','') + tstMatrixRankHtml(agg.filter(x=>x.side==='B'),'Bow side ranking',note);
-    else rankings = tstMatrixRankHtml(agg,'Ranking',note);
+    const note='Ranked by total cumulative time across completed races — only a fair comparison while everyone has raced the same number of times (check the Races column). Avg /500m and Avg GMT% are averaged per race; Avg % off = average gap to the fastest boat in each flight (0% = fastest, lower is better), a useful conditions-proof cross-check.';
+    if(s.type==='pairs') rankings = tstMatrixRankHtml(agg.filter(x=>x.side==='S'),'Stroke side ranking','',s.distance) + tstMatrixRankHtml(agg.filter(x=>x.side==='B'),'Bow side ranking',note,s.distance);
+    else rankings = tstMatrixRankHtml(agg,'Ranking',note,s.distance);
   }
   return `<div class="panel">
     <div class="row" style="margin-bottom:6px">
@@ -1206,8 +1210,8 @@ function tstExportPdf(sid){
     }
   } else {
     const agg=tstMatrixAgg(s);
-    const rowsFor=list=>list.sort(tstRankSort).map((a,i)=>[i+1,a.name,a.n,a.nPct?(a.sumPct/a.nPct).toFixed(2)+'%':'-',fmtElapsed(a.sumT/a.n),a.best!=null?fmtElapsed(a.best):'-']);
-    const headRow=['#','Athlete','Races','Avg % off fastest','Avg time','Best'];
+    const rowsFor=list=>list.sort(tstRankSort).map((a,i)=>[i+1,a.name,a.n,fmtElapsed(a.sumT),splitPer500(a.sumT/a.n,s.distance),a.sumGmt?(a.sumGmt/a.n).toFixed(1)+'%':'-',a.nPct?(a.sumPct/a.nPct).toFixed(2)+'%':'-',a.best!=null?fmtElapsed(a.best):'-']);
+    const headRow=['#','Athlete','Races','Total time','Avg /500m','Avg GMT%','Avg % off fastest','Best'];
     if(s.type==='pairs'){
       table('Stroke side ranking', headRow, rowsFor(agg.filter(x=>x.side==='S')));
       table('Bow side ranking', headRow, rowsFor(agg.filter(x=>x.side==='B')));
