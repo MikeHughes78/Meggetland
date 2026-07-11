@@ -1,4 +1,4 @@
-	<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -257,16 +257,16 @@ tr.rank3 td:first-child{color:#a5643a;font-weight:700}
 .tRace .lu{font-size:.74rem;color:var(--sub);margin-top:3px;line-height:1.5}
 .tRace .actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .athChip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:500;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--hair);color:var(--text);cursor:pointer;margin:0 6px 6px 0}
-.athChip .st{font-size:.58rem;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--blade-tint);color:var(--blade-deep);border:1px solid var(--blade)}
-.athChip .st.b{background:#f3eefc;color:#6b4fa1;border-color:#cdbbe9}
+.athChip .st{font-size:.58rem;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--red-bg);color:var(--red);border:1px solid var(--red-hair)}
+.athChip .st.b{background:var(--green-bg);color:var(--green-deep);border-color:var(--green-hair)}
 .athChip.sel{background:var(--navy);color:#fff;border-color:var(--navy)}
 .athChip.used{opacity:.35;pointer-events:none}
 .swapLine{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:8px 0;border-bottom:1px solid var(--hair-soft);flex-wrap:wrap}
 .swapLine .arr{font-family:var(--mono);color:var(--blade-deep);font-weight:700}
 .tBoatBox{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:11px;margin-bottom:9px}
 .tBoatBox h4{font-size:.72rem;font-weight:600;color:var(--sub);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
-.sideBtn{font-size:.62rem;font-weight:600;margin-top:3px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid var(--blade);background:var(--blade-tint);color:var(--blade-deep)}
-.sideBtn.b{border-color:#cdbbe9;background:#f3eefc;color:#6b4fa1}
+.sideBtn{font-size:.62rem;font-weight:600;margin-top:3px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid var(--red-hair);background:var(--red-bg);color:var(--red)}
+.sideBtn.b{border-color:var(--green-hair);background:var(--green-bg);color:var(--green-deep)}
 textarea.names{width:100%;min-height:96px;font-size:.92rem;color:var(--text);border:1px solid var(--hair);border-radius:8px;padding:9px 10px;font-family:inherit;resize:vertical;background:#fff}
 textarea.names:focus{outline:none;border-color:var(--blade);box-shadow:0 0 0 3px rgba(107,183,224,.18)}
 .netPos{color:var(--green-deep);font-weight:600}
@@ -328,6 +328,7 @@ body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.view
 
 </div>
 <div class="toastWrap" id="toasts"></div>
+<datalist id="athleteList"></datalist>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -374,6 +375,42 @@ function positionsFor(c){
   return ['Cox','Stroke','7','6','5','4','3','2','Bow']; // 8+
 }
 function inventory(){ return (db.settings && db.settings.boats) || {}; }
+
+/* ---------- athlete database ---------- */
+function athletes(){ return (db.settings && db.settings.athletes) || {}; }
+function refreshAthleteDatalist(){
+  const dl=document.getElementById('athleteList'); if(!dl) return;
+  dl.innerHTML = Object.values(athletes()).map(a=>a.name||'').filter(Boolean)
+    .sort((a,b)=>a.localeCompare(b)).map(n=>`<option value="${esc(n)}">`).join('');
+}
+/* Offer to save unseen names (with squad/side when known). One canonical
+   spelling per athlete keeps CSV/Power BI joins consistent. */
+function captureAthletes(list){
+  const existing={}; Object.values(athletes()).forEach(a=>existing[(a.name||'').toLowerCase()]=1);
+  const seen={}, fresh=[];
+  (list||[]).forEach(x=>{
+    const n=(x.name||'').trim(); if(!n) return;
+    const k=n.toLowerCase(); if(existing[k]||seen[k]) return;
+    seen[k]=1; fresh.push({name:n, sex:x.sex||'', side:x.side||''});
+  });
+  if(!fresh.length) return;
+  if(!confirm('Save '+fresh.length+' new name'+(fresh.length===1?'':'s')+' to the athlete database?\n\n'+fresh.map(x=>x.name).join(', '))) return;
+  fresh.forEach(x=>{
+    const id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    fbSet('settings/athletes/'+id, x);
+  });
+  refreshAthleteDatalist();
+  toast(fresh.length+' saved to athlete database');
+}
+function exportAthletesCsv(){
+  const list=Object.values(athletes()).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  if(!list.length){ toast('Athlete database is empty'); return; }
+  const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';
+  const csv=['Name,Squad,Side'].concat(list.map(a=>[q(a.name), a.sex==='M'?'Men':a.sex==='F'?'Women':'', a.side==='S'?'Stroke':a.side==='B'?'Bow':''].join(','))).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='eubc_athletes.csv'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
 
 /* ---------- local mirror + persistence ---------- */
 const LS = { db:'eubcTimer.db', queue:'eubcTimer.queue', offset:'eubcTimer.offset', sort:'eubcTimer.sort' };
@@ -451,6 +488,10 @@ if(root) root.child('settings/gmts').on('value', s=>{
 if(root) root.child('settings/boats').on('value', s=>{
   const v=s.val();
   db.settings.boats = v || {}; overlayQueue('settings/boats'); persistDb(); renderCurrent();
+});
+if(root) root.child('settings/athletes').on('value', s=>{
+  const v=s.val();
+  db.settings.athletes = v || {}; overlayQueue('settings/athletes'); persistDb(); refreshAthleteDatalist(); renderCurrent();
 });
 let pieceSub=null;
 if(root) root.child('activePieceId').on('value', s=>{
@@ -564,6 +605,7 @@ function gmtPct(b, piece){
 
 /* master clock */
 setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallClock(nowMs()); }, 90);
+refreshAthleteDatalist();
 </script>
 <script>
 /* =====================================================
@@ -573,7 +615,7 @@ setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallCl
    Finish / Results engine is reused unchanged.
    ===================================================== */
 if(!db.sessions) db.sessions={};
-let tst={ screen:'hub', openId:null, draft:null, staged:[], pick:null };
+let tst={ screen:'hub', openId:null, draft:null, staged:[], pick:null, pickOpen:{} };
 let _tstPieceFetch=0;
 
 /* live mirror of sessions (they're small — schedule + names only) */
@@ -669,7 +711,7 @@ function tstEmptyFour(){
   return {seats:[{pos:'Stroke',name:'',side:'S'},{pos:'3',name:'',side:'B'},{pos:'2',name:'',side:'S'},{pos:'Bow',name:'',side:'B'}],cox:''};
 }
 function tstStart(type){
-  tst.staged=[]; tst.pick=null; tst.openId=null;
+  tst.staged=[]; tst.pick=null; tst.openId=null; tst.pickOpen={};
   if(type==='seat') tst.draft={type:'seat',name:'',sex:'M',distance:1000,startMode:'mass',boatClass:'4+',nBoats:2,boats:[tstEmptyFour(),tstEmptyFour()]};
   else if(type==='pairs') tst.draft={type:'pairs',name:'',sex:'M',distance:1000,startMode:'mass',maxBoats:2,stroke:'',bow:''};
   else tst.draft={type:'doubles',name:'',sex:'M',distance:1000,startMode:'mass',maxBoats:2,all:'',permMode:'combo'};
@@ -689,6 +731,32 @@ function tstToggleSide(i,j){
   renderTesting();
 }
 function tstBack(){ tst.screen='hub'; tst.openId=null; tst.draft=null; tst.staged=[]; tst.pick=null; renderTesting(); }
+/* database pick-lists for the matrix textareas */
+function tstDbCandidates(field){
+  const d=tst.draft;
+  const cur={}; tstParseNames(field==='stroke'?d.stroke:field==='bow'?d.bow:d.all).forEach(n=>cur[n.toLowerCase()]=1);
+  return Object.keys(athletes()).map(id=>Object.assign({id},athletes()[id]))
+    .filter(a=>a.name && !cur[a.name.toLowerCase()])
+    .filter(a=>!a.sex || a.sex===d.sex)
+    .filter(a=>field==='stroke'? a.side!=='B' : field==='bow'? a.side!=='S' : true)
+    .sort((x,y)=>x.name.localeCompare(y.name));
+}
+function tstTogglePick(f){ tst.pickOpen[f]=!tst.pickOpen[f]; renderTesting(); }
+function tstAddName(field,id){
+  const a=athletes()[id]; if(!a) return;
+  const d=tst.draft, key=field==='all'?'all':field;
+  d[key]=(String(d[key]||'').trim()? String(d[key]).replace(/\s+$/,'')+'\n':'')+a.name;
+  renderTesting();
+}
+function tstPickerHtml(field){
+  if(!Object.keys(athletes()).length) return '';
+  const cands=tstDbCandidates(field);
+  const open=tst.pickOpen[field];
+  const chips=cands.length
+    ? cands.map(a=>`<button class="chip" onclick="tstAddName('${field}','${a.id}')">${esc(a.name)}</button>`).join('')
+    : '<span class="hint">Everyone eligible in the database is already listed.</span>';
+  return `<div style="margin-top:6px"><button class="btn small ghost" onclick="tstTogglePick('${field}')">${open?'Hide database':'Pick from database ('+cands.length+')'}</button>${open?`<div class="row" style="margin-top:8px;margin-bottom:0">${chips}</div>`:''}</div>`;
+}
 function tstOpen(sid){ tst.screen='session'; tst.openId=sid; tst.staged=[]; tst.pick=null; _tstPieceFetch=0; renderTesting(); }
 
 /* ---------- create sessions ---------- */
@@ -725,6 +793,19 @@ function tstCreateSession(){
       athletes:{all:A}, races:g.races, raceOrder:g.order };
   }
   fbSet('sessions/'+sid, sess);
+  const cap=[];
+  if(sess.type==='seat'){
+    sess.races.r1.boats.forEach(b=>{
+      (b.seats||[]).forEach(x=>cap.push({name:x.name, sex:sess.sex, side:x.side}));
+      if(b.cox) cap.push({name:b.cox, sex:sess.sex, side:''});
+    });
+  } else if(sess.type==='pairs'){
+    sess.athletes.stroke.forEach(n=>cap.push({name:n, sex:sess.sex, side:'S'}));
+    sess.athletes.bow.forEach(n=>cap.push({name:n, sex:sess.sex, side:'B'}));
+  } else {
+    sess.athletes.all.forEach(n=>cap.push({name:n, sex:sess.sex, side:''}));
+  }
+  captureAthletes(cap);
   toast(TYPE_LABEL[sess.type]+' created — '+sess.raceOrder.length+' race'+(sess.raceOrder.length===1?'':'s')+' planned');
   tstOpen(sid);
 }
@@ -980,11 +1061,11 @@ function tstSetupHtml(){
     const boatCards=d.boats.map((b,i)=>`<div class="tBoatBox"><h4>Boat ${i+1}</h4>
       <div class="crewGrid">
         ${b.seats.map((st,j)=>`<label class="fld">${st.pos}
-          <input value="${esc(st.name)}" placeholder="Name" oninput="tst.draft.boats[${i}].seats[${j}].name=this.value">
+          <input value="${esc(st.name)}" placeholder="Name" list="athleteList" oninput="tst.draft.boats[${i}].seats[${j}].name=this.value">
           <button class="sideBtn ${st.side==='B'?'b':''}" onclick="tstToggleSide(${i},${j})">${sideName(st.side)}</button>
         </label>`).join('')}
         ${d.boatClass==='4+'?`<label class="fld">Cox
-          <input value="${esc(b.cox)}" placeholder="Name" oninput="tst.draft.boats[${i}].cox=this.value">
+          <input value="${esc(b.cox)}" placeholder="Name" list="athleteList" oninput="tst.draft.boats[${i}].cox=this.value">
         </label>`:''}
       </div></div>`).join('');
     body=`<div class="row">
@@ -999,12 +1080,18 @@ function tstSetupHtml(){
     ${boatCards}`;
   } else if(d.type==='pairs'){
     body=`<div class="row" style="align-items:flex-start">
-      <label class="fld" style="flex:1;min-width:150px">Strokesiders — one per line
-        <textarea class="names" oninput="tst.draft.stroke=this.value">${esc(d.stroke)}</textarea>
-      </label>
-      <label class="fld" style="flex:1;min-width:150px">Bowsiders — one per line
-        <textarea class="names" oninput="tst.draft.bow=this.value">${esc(d.bow)}</textarea>
-      </label>
+      <div style="flex:1;min-width:150px">
+        <label class="fld">Strokesiders — one per line
+          <textarea class="names" oninput="tst.draft.stroke=this.value">${esc(d.stroke)}</textarea>
+        </label>
+        ${tstPickerHtml('stroke')}
+      </div>
+      <div style="flex:1;min-width:150px">
+        <label class="fld">Bowsiders — one per line
+          <textarea class="names" oninput="tst.draft.bow=this.value">${esc(d.bow)}</textarea>
+        </label>
+        ${tstPickerHtml('bow')}
+      </div>
     </div>
     <div class="row">
       <label class="fld">Pairs on the water at once
@@ -1016,6 +1103,7 @@ function tstSetupHtml(){
     body=`<label class="fld" style="display:flex">Scullers — one per line
       <textarea class="names" oninput="tst.draft.all=this.value">${esc(d.all)}</textarea>
     </label>
+    ${tstPickerHtml('all')}
     <div class="row" style="margin-top:10px">
       <label class="fld">Doubles on the water at once
         <select onchange="tst.draft.maxBoats=parseInt(this.value)">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${d.maxBoats===n?'selected':''}>${n}</option>`).join('')}</select>
@@ -1245,6 +1333,7 @@ const VIEWS=['Home','Setup','Start','Finish','Results','Pieces','Testing','Setti
 let currentView='Home';
 let startTick=null, finishTick=null;
 let invListOpen=false;
+let athListOpen=false;
 document.getElementById('nav').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
   showView(b.dataset.v);
@@ -1403,7 +1492,7 @@ function boatCardHtml(b,i){
     </div>
     <div class="crewGrid">
       ${pos.map((p,j)=>`<label class="fld">${p}
-        <input value="${esc(b.crew[j]||'')}" placeholder="Name" oninput="draft.boats[${i}].crew[${j}]=this.value">
+        <input value="${esc(b.crew[j]||'')}" placeholder="Name" list="athleteList" oninput="draft.boats[${i}].crew[${j}]=this.value">
       </label>`).join('')}
     </div>
   </div>`;
@@ -1437,6 +1526,12 @@ function savePiece(mode){
     createdAt: existing.createdAt || nowMs(), boats, order };
   const wasEdit=!!draft.editingId;
   fbSet('pieces/'+id, piece);
+  const cap=[];
+  Object.values(boats).forEach(b=>{
+    const sx=(b.category||'')[0]==='F'?'F':'M';
+    Object.values(b.crew||{}).forEach(n=>cap.push({name:n, sex:sx, side:''}));
+  });
+  captureAthletes(cap);
   draft=newDraft();
   if(mode==='now'){
     fbSet('activePieceId', id);
@@ -1847,6 +1942,31 @@ function renderSettings(){
     </div>` : '<p class="hint" style="margin-top:12px">No boats in the inventory yet.</p>'}
   </div>
   <div class="panel">
+    <h2>Athlete database</h2>
+    <p class="hint" style="margin-bottom:12px">One canonical spelling per athlete keeps results consistent for Power BI. Name fields across the app suggest from this list, and when a piece or testing session is created you'll be offered the chance to save any new names. Squad and side are optional and just filter the pick-lists in testing setup.</p>
+    <div class="row" style="align-items:flex-end">
+      <label class="fld" style="flex:1;min-width:150px">Name
+        <input id="athName" placeholder="e.g. Sam Wilson" list="athleteList" oninput="window._athName=this.value">
+      </label>
+      <label class="fld">Squad
+        <select onchange="window._athSex=this.value">
+          <option value="" ${!window._athSex?'selected':''}>—</option>
+          <option value="M" ${window._athSex==='M'?'selected':''}>Men</option>
+          <option value="F" ${window._athSex==='F'?'selected':''}>Women</option>
+        </select>
+      </label>
+      <label class="fld">Side
+        <select onchange="window._athSide=this.value">
+          <option value="" ${!window._athSide?'selected':''}>—</option>
+          <option value="S" ${window._athSide==='S'?'selected':''}>Stroke</option>
+          <option value="B" ${window._athSide==='B'?'selected':''}>Bow</option>
+        </select>
+      </label>
+      <button class="btn" onclick="addAthlete()">Add</button>
+    </div>
+    ${athRowsHtml()}
+  </div>
+  <div class="panel">
     <h2>Gold medal times (2k)</h2>
     <p class="hint" style="margin-bottom:12px">Enter as m:ss.00. For pieces that aren't 2000m, the GMT is scaled linearly to the piece distance.</p>
     <div class="gmtGrid">
@@ -1865,6 +1985,7 @@ function renderSettings(){
     Once calibrated, this device keeps stamping accurately even if it drops offline — taps queue locally and upload automatically when the connection returns.</p>
   </div>`;
   window._invIdent=''; window._invType=window._invType||BOAT_TYPES[0].t;
+  window._athName='';
 }
 function addInvBoat(){
   const ident=(window._invIdent||'').trim();
@@ -1881,6 +2002,42 @@ function deleteInvBoat(id){
   if(!confirm('Remove this boat from the inventory?')) return;
   fbSet('settings/boats/'+id, null);
   toast('Boat removed');
+}
+function athRowsHtml(){
+  const ath=athletes();
+  const ids=Object.keys(ath).sort((a,b)=>(ath[a].name||'').localeCompare(ath[b].name||''));
+  if(!ids.length) return '<p class="hint" style="margin-top:12px">No athletes saved yet.</p>';
+  const rows=ids.map(id=>{
+    const a=ath[id];
+    const sub=[a.sex==='M'?'Men':a.sex==='F'?'Women':null, a.side==='S'?'Stroke side':a.side==='B'?'Bow side':null].filter(Boolean).join(' · ')||'—';
+    return `<div class="pieceRow">
+      <div style="flex:1;min-width:120px"><div class="nm">${esc(a.name)}</div><div class="sub">${sub}</div></div>
+      <button class="btn small danger" onclick="deleteAthlete('${id}')">Remove</button>
+    </div>`;
+  }).join('');
+  return `<div style="margin-top:12px">
+    <div class="row" style="margin-bottom:0">
+      <button class="btn ghost small" onclick="athListOpen=!athListOpen;renderSettings()">${athListOpen?'Hide':'Show'} athlete list (${ids.length})</button>
+      <button class="btn ghost small" onclick="exportAthletesCsv()">Export CSV</button>
+    </div>
+    ${athListOpen?`<div style="margin-top:10px">${rows}</div>`:''}
+  </div>`;
+}
+function addAthlete(){
+  const name=(window._athName||'').trim();
+  if(!name){ toast('Enter a name'); return; }
+  if(Object.values(athletes()).some(a=>(a.name||'').toLowerCase()===name.toLowerCase())){ toast('Already in the database'); return; }
+  const id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  athListOpen=true;
+  fbSet('settings/athletes/'+id, {name, sex:window._athSex||'', side:window._athSide||''});
+  refreshAthleteDatalist();
+  toast('Athlete added');
+}
+function deleteAthlete(id){
+  if(!confirm('Remove this athlete from the database?')) return;
+  fbSet('settings/athletes/'+id, null);
+  refreshAthleteDatalist();
+  toast('Athlete removed');
 }
 function saveGmts(){
   const out={};
