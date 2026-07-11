@@ -248,6 +248,30 @@ tr.rank3 td:first-child{color:#a5643a;font-weight:700}
 .gmtGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:10px}
 .gmtGrid label.fld input{width:100%;font-family:var(--mono);font-size:.88rem}
 
+/* ============ testing (seat racing & matrices) ============ */
+.roundHead{font-size:.7rem;font-weight:600;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 2px}
+.tRace{padding:10px 2px;border-bottom:1px solid var(--hair-soft)}
+.tRace:last-child{border-bottom:none}
+.tRace .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tRace .nm{font-weight:600;color:var(--navy);font-size:.86rem}
+.tRace .lu{font-size:.74rem;color:var(--sub);margin-top:3px;line-height:1.5}
+.tRace .actions{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.athChip{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;font-weight:500;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--hair);color:var(--text);cursor:pointer;margin:0 6px 6px 0}
+.athChip .st{font-size:.58rem;font-weight:700;padding:1px 5px;border-radius:4px;background:var(--blade-tint);color:var(--blade-deep);border:1px solid var(--blade)}
+.athChip .st.b{background:#f3eefc;color:#6b4fa1;border-color:#cdbbe9}
+.athChip.sel{background:var(--navy);color:#fff;border-color:var(--navy)}
+.athChip.used{opacity:.35;pointer-events:none}
+.swapLine{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:8px 0;border-bottom:1px solid var(--hair-soft);flex-wrap:wrap}
+.swapLine .arr{font-family:var(--mono);color:var(--blade-deep);font-weight:700}
+.tBoatBox{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:11px;margin-bottom:9px}
+.tBoatBox h4{font-size:.72rem;font-weight:600;color:var(--sub);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+.sideBtn{font-size:.62rem;font-weight:600;margin-top:3px;padding:3px 8px;border-radius:5px;cursor:pointer;border:1px solid var(--blade);background:var(--blade-tint);color:var(--blade-deep)}
+.sideBtn.b{border-color:#cdbbe9;background:#f3eefc;color:#6b4fa1}
+textarea.names{width:100%;min-height:96px;font-size:.92rem;color:var(--text);border:1px solid var(--hair);border-radius:8px;padding:9px 10px;font-family:inherit;resize:vertical;background:#fff}
+textarea.names:focus{outline:none;border-color:var(--blade);box-shadow:0 0 0 3px rgba(107,183,224,.18)}
+.netPos{color:var(--green-deep);font-weight:600}
+.netNeg{color:var(--red);font-weight:600}
+
 .toastWrap{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:99;display:flex;flex-direction:column;gap:8px;align-items:center;width:max-content;max-width:92vw}
 @media(min-width:700px){.toastWrap{bottom:24px}}
 .toast{
@@ -258,9 +282,10 @@ tr.rank3 td:first-child{color:#a5643a;font-weight:700}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .hidden{display:none!important}
 body.viewonly{padding-bottom:20px}
-body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.viewonly #viewFinish, body.viewonly #viewPieces, body.viewonly #viewSettings, body.viewonly .editOnly{display:none!important}
+body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.viewonly #viewFinish, body.viewonly #viewPieces, body.viewonly #viewTesting, body.viewonly #viewSettings, body.viewonly .editOnly{display:none!important}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media(max-width:420px){
+  nav button{font-size:.65rem;padding:8px 1px}
   header.bar{padding:9px 12px}
   header.bar h1{font-size:.92rem}
   #masterClock{font-size:.98rem}
@@ -288,6 +313,7 @@ body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.view
   <button data-v="Finish">Finish</button>
   <button data-v="Results">Results</button>
   <button data-v="Pieces">Pieces</button>
+  <button data-v="Testing">Testing</button>
   <button data-v="Settings">Settings</button>
 </nav>
 
@@ -297,6 +323,7 @@ body.viewonly nav, body.viewonly #viewSetup, body.viewonly #viewStart, body.view
 <div id="viewFinish" class="view hidden"></div>
 <div id="viewResults" class="view hidden"></div>
 <div id="viewPieces" class="view hidden"></div>
+<div id="viewTesting" class="view hidden"></div>
 <div id="viewSettings" class="view hidden"></div>
 
 </div>
@@ -540,9 +567,677 @@ setInterval(()=>{ document.getElementById('masterClock').textContent = fmtWallCl
 </script>
 <script>
 /* =====================================================
+   Testing — seat racing, pairs matrix, doubles matrix
+   Sessions plan the races; every race is timed as a
+   normal piece (tagged with sessionId), so the Start /
+   Finish / Results engine is reused unchanged.
+   ===================================================== */
+if(!db.sessions) db.sessions={};
+let tst={ screen:'hub', openId:null, draft:null, staged:[], pick:null };
+let _tstPieceFetch=0;
+
+/* live mirror of sessions (they're small — schedule + names only) */
+if(root) root.child('sessions').on('value', s=>{
+  db.sessions = s.val()||{};
+  overlayQueue('sessions'); persistDb();
+  if(currentView==='Testing') renderTesting();
+});
+
+/* fetch recent pieces so race status / rankings are fresh (throttled) */
+function tstFetchPieces(){
+  if(!root || Date.now()-_tstPieceFetch<5000) return;
+  _tstPieceFetch=Date.now();
+  root.child('pieces').orderByChild('createdAt').limitToLast(200).once('value').then(s=>{
+    const v=s.val()||{};
+    Object.keys(v).forEach(k=>{ db.pieces[k]=Object.assign(db.pieces[k]||{}, v[k]); });
+    overlayQueue('pieces'); persistDb();
+    if(currentView==='Testing') renderTesting();
+  }).catch(()=>{});
+}
+
+const TYPE_LABEL={seat:'Seat race',pairs:'Pairs matrix',doubles:'Doubles matrix'};
+function sideName(s){ return s==='S'?'Stroke side':'Bow side'; }
+function fmtSecs(ms){ return (ms/1000).toFixed(2)+'s'; }
+function fmtNet(ms){ return (ms>=0?'+':'−')+(Math.abs(ms)/1000).toFixed(2)+'s'; }
+
+/* ---------- helpers ---------- */
+function tstParseNames(txt){
+  const seen={}, out=[];
+  String(txt||'').split(/\n|,/).map(x=>x.trim()).filter(Boolean).forEach(n=>{
+    const k=n.toLowerCase(); if(!seen[k]){ seen[k]=1; out.push(n); }
+  });
+  return out;
+}
+function chunkArr(arr,n){ const out=[]; for(let i=0;i<arr.length;i+=Math.max(1,n)) out.push(arr.slice(i,i+Math.max(1,n))); return out; }
+
+/* ---------- schedule generators ---------- */
+/* Pairs matrix: strokesiders fixed, bowsiders rotate one place per round,
+   so every strokesider meets every bowsider exactly once across the full
+   rotation. Uneven lists pad with rests. Rounds split into flights when
+   there are more pairs than boats. */
+function genPairsSchedule(stroke,bow,maxBoats){
+  const n=Math.max(stroke.length,bow.length);
+  const races={}, order=[];
+  for(let r=0;r<n;r++){
+    const pairs=[];
+    for(let i=0;i<n;i++){
+      const s=stroke[i], b=bow[(i+r)%n];
+      if(s&&b) pairs.push({stroke:s,bow:b});
+    }
+    chunkArr(pairs,maxBoats).forEach((fl,fi,all)=>{
+      const rid='r'+r+'f'+fi;
+      races[rid]={ label:'Round '+(r+1)+(all.length>1?' · Flight '+(fi+1):''), round:r+1, boats:fl, pieceId:null };
+      order.push(rid);
+    });
+  }
+  return {races,order,rounds:n};
+}
+
+/* Doubles matrix: circle-method round robin so every athlete rows with
+   every other exactly once. perm=true appends a mirrored second pass
+   with seat order flipped. */
+function genDoublesSchedule(names,maxBoats,perm){
+  const arr=[...names]; if(arr.length%2) arr.push(null);
+  const n=arr.length, base=[];
+  for(let r=0;r<n-1;r++){
+    const rd=[];
+    for(let i=0;i<n/2;i++){
+      const a=arr[i], b=arr[n-1-i];
+      if(a&&b) rd.push({stroke:a,bow:b});
+    }
+    base.push(rd);
+    arr.splice(1,0,arr.pop());
+  }
+  const races={}, order=[];
+  let roundNum=0;
+  for(let p=0;p<(perm?2:1);p++){
+    base.forEach((rd,ri)=>{
+      roundNum++;
+      const pairs = p===0? rd : rd.map(x=>({stroke:x.bow,bow:x.stroke}));
+      chunkArr(pairs,maxBoats).forEach((fl,fi,all)=>{
+        const rid='p'+p+'r'+ri+'f'+fi;
+        races[rid]={ label:'Round '+roundNum+(all.length>1?' · Flight '+(fi+1):'')+(p===1?' · seats swapped':''), round:roundNum, boats:fl, pieceId:null };
+        order.push(rid);
+      });
+    });
+  }
+  return {races,order,rounds:roundNum};
+}
+
+/* ---------- drafts ---------- */
+function tstEmptyFour(){
+  return {seats:[{pos:'Stroke',name:'',side:'S'},{pos:'3',name:'',side:'B'},{pos:'2',name:'',side:'S'},{pos:'Bow',name:'',side:'B'}],cox:''};
+}
+function tstStart(type){
+  tst.staged=[]; tst.pick=null; tst.openId=null;
+  if(type==='seat') tst.draft={type:'seat',name:'',sex:'M',distance:1000,startMode:'mass',boatClass:'4+',nBoats:2,boats:[tstEmptyFour(),tstEmptyFour()]};
+  else if(type==='pairs') tst.draft={type:'pairs',name:'',sex:'M',distance:1000,startMode:'mass',maxBoats:2,stroke:'',bow:''};
+  else tst.draft={type:'doubles',name:'',sex:'M',distance:1000,startMode:'mass',maxBoats:2,all:'',permMode:'combo'};
+  tst.screen='new';
+  renderTesting();
+}
+function tstSetBoats(n){
+  const d=tst.draft;
+  n=Math.max(2,Math.min(4,n));
+  while(d.boats.length<n) d.boats.push(tstEmptyFour());
+  d.boats.length=n; d.nBoats=n;
+  renderTesting();
+}
+function tstToggleSide(i,j){
+  const s=tst.draft.boats[i].seats[j];
+  s.side = s.side==='S'?'B':'S';
+  renderTesting();
+}
+function tstBack(){ tst.screen='hub'; tst.openId=null; tst.draft=null; tst.staged=[]; tst.pick=null; renderTesting(); }
+function tstOpen(sid){ tst.screen='session'; tst.openId=sid; tst.staged=[]; tst.pick=null; _tstPieceFetch=0; renderTesting(); }
+
+/* ---------- create sessions ---------- */
+function tstCreateSession(){
+  const d=tst.draft; if(!d) return;
+  if(!d.distance){ toast('Set a distance'); return; }
+  const sid='s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  let sess=null;
+  if(d.type==='seat'){
+    for(const b of d.boats){
+      if(b.seats.some(x=>!x.name.trim())){ toast('Name every rower in every boat'); return; }
+      if(d.boatClass==='4+' && !String(b.cox||'').trim()){ toast('Name every cox (or switch to 4−)'); return; }
+    }
+    const boats=d.boats.map(b=>({
+      seats:b.seats.map(x=>({pos:x.pos,name:x.name.trim(),side:x.side})),
+      cox: d.boatClass==='4+'? String(b.cox||'').trim() : ''
+    }));
+    sess={ type:'seat', name:d.name.trim()||('Seat racing '+new Date().toLocaleDateString('en-GB')),
+      createdAt:nowMs(), sex:d.sex, distance:d.distance, startMode:d.startMode, boatClass:d.boatClass,
+      races:{ r1:{label:'Race 1',round:1,boats,pieceId:null,baseRaceId:null,swaps:[]} }, raceOrder:['r1'] };
+  } else if(d.type==='pairs'){
+    const S=tstParseNames(d.stroke), B=tstParseNames(d.bow);
+    if(S.length<2||B.length<2){ toast('Enter at least 2 names per side'); return; }
+    const g=genPairsSchedule(S,B,d.maxBoats);
+    sess={ type:'pairs', name:d.name.trim()||('Pairs matrix '+new Date().toLocaleDateString('en-GB')),
+      createdAt:nowMs(), sex:d.sex, distance:d.distance, startMode:d.startMode,
+      athletes:{stroke:S,bow:B}, races:g.races, raceOrder:g.order };
+  } else {
+    const A=tstParseNames(d.all);
+    if(A.length<3){ toast('Enter at least 3 scullers'); return; }
+    const g=genDoublesSchedule(A,d.maxBoats,d.permMode==='perm');
+    sess={ type:'doubles', name:d.name.trim()||('Doubles matrix '+new Date().toLocaleDateString('en-GB')),
+      createdAt:nowMs(), sex:d.sex, distance:d.distance, startMode:d.startMode, permMode:d.permMode,
+      athletes:{all:A}, races:g.races, raceOrder:g.order };
+  }
+  fbSet('sessions/'+sid, sess);
+  toast(TYPE_LABEL[sess.type]+' created — '+sess.raceOrder.length+' race'+(sess.raceOrder.length===1?'':'s')+' planned');
+  tstOpen(sid);
+}
+function tstDeleteSession(sid){
+  const s=db.sessions[sid]; if(!s) return;
+  if(!confirm('Delete this testing session? Timed pieces stay in Pieces — only the session plan and rankings are removed.')) return;
+  fbSet('sessions/'+sid, null);
+  tstBack();
+  toast('Session deleted');
+}
+
+/* ---------- run a race (creates / activates its piece) ---------- */
+function tstRunRace(sid,rid){
+  const s=db.sessions[sid]; if(!s) return;
+  const r=(s.races||{})[rid]; if(!r) return;
+  if(r.pieceId && db.pieces[r.pieceId]){
+    fbSet('activePieceId', r.pieceId); subscribeActivePiece(); showView('Start'); return;
+  }
+  const cat = s.sex + (s.type==='seat'? s.boatClass : s.type==='pairs'? '2-':'2x');
+  const boats={}, order=[];
+  (r.boats||[]).forEach((L,i)=>{
+    const bid='b'+i+'_'+Math.random().toString(36).slice(2,7);
+    const crew={};
+    if(s.type==='seat'){
+      (L.seats||[]).forEach((seat,j)=>{ if(seat&&seat.name) crew[j]=seat.name; });
+      if(L.cox) crew[4]=L.cox;
+    } else { crew[0]=L.stroke; crew[1]=L.bow; }
+    boats[bid]={ ident:String(i+1), category:cat, crew, lane:(i+1<=8? i+1 : 0), invId:null, startTs:null, finishTs:null };
+    order.push(bid);
+  });
+  const pid='p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  fbSet('pieces/'+pid, { name:(s.name||'Testing')+' — '+r.label, distance:s.distance,
+    startMode:s.startMode||'mass', createdAt:nowMs(), boats, order, sessionId:sid, raceId:rid });
+  fbSet('sessions/'+sid+'/races/'+rid+'/pieceId', pid);
+  fbSet('activePieceId', pid); subscribeActivePiece();
+  toast(r.label+' ready to time');
+  showView('Start');
+}
+
+/* ---------- race results / status ---------- */
+function tstRaceResults(r){
+  const p=r&&r.pieceId? db.pieces[r.pieceId]:null;
+  if(!p) return null;
+  return boatsInOrder(p).map((b,i)=>({idx:i, ident:b.ident,
+    elapsed:(b.startTs!=null&&b.finishTs!=null)?(b.finishTs-b.startTs):null }));
+}
+function tstStatus(r){
+  const p=r&&r.pieceId? db.pieces[r.pieceId]:null;
+  if(!p) return {pill:'', label:'Planned', create:true};
+  const st=pieceStatus(p);
+  if(st.label==='Not run yet') return {pill:'<span class="pill">Ready</span>', ready:true};
+  if(st.complete) return {pill:'<span class="pill ok">Complete</span>', results:true};
+  return {pill:'<span class="pill warn">In progress</span>', open:true};
+}
+
+/* ---------- seat race: swap staging ---------- */
+function tstPickRower(i,j){
+  const sid=tst.openId, s=db.sessions[sid]; if(!s) return;
+  const base=s.races[s.raceOrder[s.raceOrder.length-1]];
+  const seat=base.boats[i].seats[j];
+  if(tst.pick && tst.pick.i===i && tst.pick.j===j){ tst.pick=null; renderTesting(); return; }
+  if(!tst.pick){ tst.pick={i,j,side:seat.side}; renderTesting(); return; }
+  if(tst.pick.i===i){ toast('Pick a rower in a different boat'); return; }
+  if(tst.pick.side!==seat.side){ toast('Swaps must be same side — '+sideName(tst.pick.side)+' selected'); return; }
+  tst.staged.push({i:tst.pick.i, si:tst.pick.j, j:i, sj:j});
+  tst.pick=null;
+  renderTesting();
+}
+function tstUnstage(k){ tst.staged.splice(k,1); renderTesting(); }
+function tstSeatUsed(i,j){
+  return tst.staged.some(sw=>(sw.i===i&&sw.si===j)||(sw.j===i&&sw.sj===j));
+}
+function tstCreateSwapRace(){
+  const sid=tst.openId, s=db.sessions[sid]; if(!s) return;
+  if(!tst.staged.length){ toast('Stage at least one swap first'); return; }
+  const baseId=s.raceOrder[s.raceOrder.length-1];
+  const base=s.races[baseId];
+  const boats=JSON.parse(JSON.stringify(base.boats));
+  const swaps=tst.staged.map(sw=>({
+    iBoat:sw.i, jBoat:sw.j,
+    aName:base.boats[sw.i].seats[sw.si].name,
+    bName:base.boats[sw.j].seats[sw.sj].name,
+    side:base.boats[sw.i].seats[sw.si].side
+  }));
+  tst.staged.forEach(sw=>{
+    const A=boats[sw.i].seats[sw.si], B=boats[sw.j].seats[sw.sj];
+    const t=A.name; A.name=B.name; B.name=t;
+  });
+  const n=s.raceOrder.length+1;
+  const rid='r'+n+'_'+Math.random().toString(36).slice(2,5);
+  fbSet('sessions/'+sid+'/races/'+rid, {label:'Race '+n, round:n, boats, pieceId:null, baseRaceId:baseId, swaps});
+  fbSet('sessions/'+sid+'/raceOrder', [...s.raceOrder, rid]);
+  tst.staged=[]; tst.pick=null;
+  toast('Race '+n+' created — run it from the schedule');
+}
+
+/* ---------- analysis: seat race ---------- */
+/* For each swap race, compare the margin between the two boats involved
+   before (base race) and after. The swing is credited head-to-head to the
+   swapped rowers. Races where both sides swapped between the same two
+   boats are shown but excluded from the individual net ranking, since the
+   swing can't be attributed to one rower. */
+function tstSeatAnalysis(s){
+  const events=[];
+  (s.raceOrder||[]).forEach(rid=>{
+    const r=s.races[rid];
+    if(!r || !r.baseRaceId || !r.swaps || !r.swaps.length) return;
+    const base=s.races[r.baseRaceId]; if(!base) return;
+    const cur=tstRaceResults(r), prev=tstRaceResults(base);
+    if(!cur||!prev) return;
+    const groups={};
+    r.swaps.forEach(sw=>{
+      const key=Math.min(sw.iBoat,sw.jBoat)+'v'+Math.max(sw.iBoat,sw.jBoat);
+      (groups[key]=groups[key]||[]).push(sw);
+    });
+    Object.keys(groups).forEach(key=>{
+      const list=groups[key];
+      const parts=key.split('v'); const i=+parts[0], j=+parts[1];
+      const pi=prev[i], pj=prev[j], ci=cur[i], cj=cur[j];
+      if(!pi||!pj||!ci||!cj) return;
+      if([pi,pj,ci,cj].some(x=>x.elapsed==null)) return;
+      const swing=(pi.elapsed-pj.elapsed)-(ci.elapsed-cj.elapsed); /* + => boat i improved */
+      list.forEach(sw=>{
+        const inI = sw.iBoat===i? sw.bName : sw.aName;
+        const outI= sw.iBoat===i? sw.aName : sw.bName;
+        events.push({ raceLabel:r.label, side:sw.side,
+          winner: swing>=0? inI:outI, loser: swing>=0? outI:inI,
+          margin:Math.abs(swing), boats:(i+1)+' & '+(j+1), combined:list.length>1 });
+      });
+    });
+  });
+  const net={};
+  events.filter(e=>!e.combined).forEach(e=>{
+    const add=(name,delta,win)=>{
+      const k=e.side+'|'+name;
+      const a=(net[k]=net[k]||{name,side:e.side,net:0,w:0,l:0,n:0});
+      a.net+=delta; a.n++; if(win)a.w++; else a.l++;
+    };
+    add(e.winner, e.margin, true); add(e.loser, -e.margin, false);
+  });
+  return {events, net:Object.values(net)};
+}
+
+/* ---------- analysis: matrices ---------- */
+/* Within each completed flight, every boat's time is expressed as % off the
+   fastest boat in that flight (0% = fastest), which self-corrects for
+   conditions drifting between pieces. Athletes are ranked on their average
+   % off fastest; raw average and best times are shown alongside.
+   Single-boat flights count toward raw averages but not % scores. */
+function tstMatrixAgg(s){
+  const agg={};
+  const add=(side,name,pct,t)=>{
+    const k=side+'|'+name;
+    const a=(agg[k]=agg[k]||{name,side,n:0,sumT:0,nPct:0,sumPct:0,best:null});
+    a.n++; a.sumT+=t; if(a.best==null||t<a.best)a.best=t;
+    if(pct!=null){ a.nPct++; a.sumPct+=pct; }
+  };
+  (s.raceOrder||[]).forEach(rid=>{
+    const r=s.races[rid]; const res=tstRaceResults(r); if(!res) return;
+    const done=res.filter(x=>x.elapsed!=null);
+    if(!done.length) return;
+    const tf=Math.min.apply(null, done.map(x=>x.elapsed));
+    done.forEach(x=>{
+      const L=(r.boats||[])[x.idx]; if(!L) return;
+      const pct = done.length>=2? (x.elapsed-tf)/tf*100 : null;
+      if(s.type==='pairs'){ add('S',L.stroke,pct,x.elapsed); add('B',L.bow,pct,x.elapsed); }
+      else { add('x',L.stroke,pct,x.elapsed); add('x',L.bow,pct,x.elapsed); }
+    });
+  });
+  return Object.values(agg);
+}
+function tstRankSort(a,b){
+  const pa=a.nPct? a.sumPct/a.nPct : Infinity;
+  const pb=b.nPct? b.sumPct/b.nPct : Infinity;
+  if(pa!==pb) return pa-pb;
+  return (a.sumT/a.n)-(b.sumT/b.n);
+}
+
+/* ---------- rendering ---------- */
+function renderTesting(){
+  const el=document.getElementById('viewTesting');
+  if(!el || currentView!=='Testing') return;
+  tstFetchPieces();
+  if(tst.screen==='session' && tst.openId && db.sessions[tst.openId]) el.innerHTML=tstSessionHtml(tst.openId);
+  else if(tst.screen==='new' && tst.draft) el.innerHTML=tstSetupHtml();
+  else { tst.screen='hub'; el.innerHTML=tstHubHtml(); }
+}
+
+function tstHubHtml(){
+  const modes=[
+    {t:'seat', ic:'⇄', tt:'Run a seat race', ds:'Coxed or coxless fours · swap rowers between races'},
+    {t:'pairs', ic:'╫', tt:'Run a pairs matrix', ds:'Sweep 2− · auto-generated partner rotation'},
+    {t:'doubles', ic:'✕', tt:'Run a doubles matrix', ds:'Sculling 2x · round robin, optional both seat orders'}
+  ].map(m=>`<div class="homeBtn" onclick="tstStart('${m.t}')">
+      <div class="ic">${m.ic}</div>
+      <div class="tx"><div class="tt">${m.tt}</div><div class="ds">${m.ds}</div></div>
+      <div class="chev">›</div>
+    </div>`).join('');
+  const ids=Object.keys(db.sessions||{}).sort((a,b)=>((db.sessions[b]||{}).createdAt||0)-((db.sessions[a]||{}).createdAt||0));
+  const rows=ids.map(id=>{
+    const s=db.sessions[id]; if(!s) return '';
+    const total=(s.raceOrder||[]).length;
+    const doneN=(s.raceOrder||[]).filter(rid=>{
+      const res=tstRaceResults((s.races||{})[rid]);
+      return res && res.length && res.every(x=>x.elapsed!=null);
+    }).length;
+    return `<div class="pieceRow">
+      <div style="flex:1;min-width:150px"><div class="nm">${esc(s.name)} <span class="pill" style="margin-left:6px">${TYPE_LABEL[s.type]||''}</span></div>
+      <div class="sub">${new Date(s.createdAt||0).toLocaleString('en-GB')} · ${s.distance}m · ${doneN}/${total} races complete</div></div>
+      <button class="btn small" onclick="tstOpen('${id}')">Open</button>
+      <button class="btn small danger" onclick="tstDeleteSession('${id}')">Delete</button>
+    </div>`;
+  }).join('');
+  return `<div class="panel">
+    <h2>Testing</h2>
+    <p class="hint" style="margin-bottom:14px">Plan a selection session — every race is timed like any other piece, and rankings build automatically as results come in.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;max-width:460px">${modes}</div>
+  </div>
+  <div class="panel"><h2>Saved sessions</h2>${rows||'<p class="hint">No testing sessions yet.</p>'}</div>`;
+}
+
+function tstCommonFields(d){
+  const distChips=[250,500,750,1000,1500,2000].map(x=>
+    `<button class="chip ${d.distance===x?'on':''}" onclick="tst.draft.distance=${x};renderTesting()">${x}m</button>`).join('');
+  return `<div class="row">
+    <label class="fld" style="flex:1;min-width:170px">Session name
+      <input value="${esc(d.name)}" placeholder="e.g. Sat AM selection" oninput="tst.draft.name=this.value">
+    </label>
+    <label class="fld">Distance (m)
+      <input type="number" min="50" step="50" value="${d.distance}" oninput="tst.draft.distance=Math.max(0,parseInt(this.value)||0)">
+    </label>
+  </div>
+  <div class="row">${distChips}</div>
+  <div class="row">
+    <label class="fld">Squad
+      <span class="seg"><button class="${d.sex==='M'?'on':''}" onclick="tst.draft.sex='M';renderTesting()">Men</button><button class="${d.sex==='F'?'on':''}" onclick="tst.draft.sex='F';renderTesting()">Women</button></span>
+    </label>
+    <label class="fld" style="flex:1;min-width:180px">Start type
+      <select onchange="tst.draft.startMode=this.value">
+        <option value="mass" ${d.startMode==='mass'?'selected':''}>Regatta start — side by side</option>
+        <option value="staggered" ${d.startMode==='staggered'?'selected':''}>Time trial — one after the other</option>
+      </select>
+    </label>
+  </div>`;
+}
+
+function tstSetupHtml(){
+  const d=tst.draft;
+  let body='';
+  if(d.type==='seat'){
+    const boatCards=d.boats.map((b,i)=>`<div class="tBoatBox"><h4>Boat ${i+1}</h4>
+      <div class="crewGrid">
+        ${b.seats.map((st,j)=>`<label class="fld">${st.pos}
+          <input value="${esc(st.name)}" placeholder="Name" oninput="tst.draft.boats[${i}].seats[${j}].name=this.value">
+          <button class="sideBtn ${st.side==='B'?'b':''}" onclick="tstToggleSide(${i},${j})">${sideName(st.side)}</button>
+        </label>`).join('')}
+        ${d.boatClass==='4+'?`<label class="fld">Cox
+          <input value="${esc(b.cox)}" placeholder="Name" oninput="tst.draft.boats[${i}].cox=this.value">
+        </label>`:''}
+      </div></div>`).join('');
+    body=`<div class="row">
+      <label class="fld">Boat class
+        <span class="seg"><button class="${d.boatClass==='4+'?'on':''}" onclick="tst.draft.boatClass='4+';renderTesting()">4+</button><button class="${d.boatClass==='4-'?'on':''}" onclick="tst.draft.boatClass='4-';renderTesting()">4−</button></span>
+      </label>
+      <label class="fld">Boats
+        <span class="seg">${[2,3,4].map(n=>`<button class="${d.nBoats===n?'on':''}" onclick="tstSetBoats(${n})">${n}</button>`).join('')}</span>
+      </label>
+    </div>
+    <p class="hint" style="margin-bottom:10px">Tap the side tag under each seat to flip it — the default is a standard rig. Sides matter: swaps are only allowed between rowers on the same side.</p>
+    ${boatCards}`;
+  } else if(d.type==='pairs'){
+    body=`<div class="row" style="align-items:flex-start">
+      <label class="fld" style="flex:1;min-width:150px">Strokesiders — one per line
+        <textarea class="names" oninput="tst.draft.stroke=this.value">${esc(d.stroke)}</textarea>
+      </label>
+      <label class="fld" style="flex:1;min-width:150px">Bowsiders — one per line
+        <textarea class="names" oninput="tst.draft.bow=this.value">${esc(d.bow)}</textarea>
+      </label>
+    </div>
+    <div class="row">
+      <label class="fld">Pairs on the water at once
+        <select onchange="tst.draft.maxBoats=parseInt(this.value)">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${d.maxBoats===n?'selected':''}>${n}</option>`).join('')}</select>
+      </label>
+    </div>
+    <p class="hint">The full rotation is generated so every strokesider partners every bowsider once — run as many rounds as the session allows and stop whenever you like; rankings use whatever's complete. If the lists are uneven, athletes rest in turn. At least 2 boats per flight are needed for the %-off-fastest comparison.</p>`;
+  } else {
+    body=`<label class="fld" style="display:flex">Scullers — one per line
+      <textarea class="names" oninput="tst.draft.all=this.value">${esc(d.all)}</textarea>
+    </label>
+    <div class="row" style="margin-top:10px">
+      <label class="fld">Doubles on the water at once
+        <select onchange="tst.draft.maxBoats=parseInt(this.value)">${[1,2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${d.maxBoats===n?'selected':''}>${n}</option>`).join('')}</select>
+      </label>
+      <label class="fld">Seating order
+        <span class="seg"><button class="${d.permMode==='combo'?'on':''}" onclick="tst.draft.permMode='combo';renderTesting()">Crews choose</button><button class="${d.permMode==='perm'?'on':''}" onclick="tst.draft.permMode='perm';renderTesting()">Race both</button></span>
+      </label>
+    </div>
+    <p class="hint">Every athlete rows with every other athlete once. "Race both" doubles the schedule so each combination races in both seat orders; "Crews choose" runs each combination once and the athletes settle seating on the water.</p>`;
+  }
+  return `<div class="panel">
+    <h2>New ${TYPE_LABEL[d.type].toLowerCase()}</h2>
+    ${tstCommonFields(d)}
+    ${body}
+    <div class="row" style="margin-top:14px">
+      <button class="btn" onclick="tstCreateSession()">Create session</button>
+      <button class="btn ghost" onclick="tstBack()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- session dashboard ---------- */
+function tstLineupText(s, L, i){
+  if(s.type==='seat'){
+    const names=(L.seats||[]).map(x=>esc(x.name)).join(', ');
+    return `<strong>Boat ${i+1}</strong> — ${names}${L.cox?' · cox '+esc(L.cox):''}`;
+  }
+  return `<strong>Boat ${i+1}</strong> — Str: ${esc(L.stroke)} · Bow: ${esc(L.bow)}`;
+}
+function tstScheduleHtml(sid, s){
+  let lastRound=null, out='';
+  (s.raceOrder||[]).forEach(rid=>{
+    const r=(s.races||{})[rid]; if(!r) return;
+    if(s.type!=='seat' && r.round!==lastRound){ out+=`<div class="roundHead">Round ${r.round}</div>`; lastRound=r.round; }
+    const st=tstStatus(r);
+    const res=tstRaceResults(r);
+    const lines=(r.boats||[]).map((L,i)=>{
+      const t=res&&res[i]&&res[i].elapsed!=null? ` · <span style="font-family:var(--mono)">${fmtElapsed(res[i].elapsed)}</span>` : '';
+      return `<div>${tstLineupText(s,L,i)}${t}</div>`;
+    }).join('');
+    const swaps=(r.swaps&&r.swaps.length)? `<div class="lu" style="color:var(--blade-deep)">Swap${r.swaps.length>1?'s':''}: ${r.swaps.map(sw=>esc(sw.aName)+' ⇄ '+esc(sw.bName)+' ('+sideName(sw.side).toLowerCase()+')').join(' · ')}</div>` : '';
+    const actions = (st.create||st.ready) ? `<button class="btn small" onclick="tstRunRace('${sid}','${rid}')">Run</button>`
+      : st.results ? `<button class="btn small ghost" onclick="openPiece('${r.pieceId}')">Results</button>`
+      : `<button class="btn small" onclick="tstRunRace('${sid}','${rid}')">Continue</button>`;
+    const edit = r.pieceId? `<button class="btn small ghost" onclick="editPiece('${r.pieceId}')">Edit</button>` : '';
+    out+=`<div class="tRace">
+      <div class="top"><span class="nm">${esc(r.label)}</span>${st.pill||''}<span class="actions">${actions}${edit}</span></div>
+      ${swaps}
+      <div class="lu">${lines}</div>
+    </div>`;
+  });
+  return out;
+}
+function tstMatrixRankHtml(rows, title, note){
+  rows.sort(tstRankSort);
+  const tr=rows.map((a,i)=>`<tr class="rank${i+1}">
+    <td>${i+1}</td>
+    <td>${esc(a.name)}</td>
+    <td class="num">${a.n}</td>
+    <td class="num"><span class="bigPct">${a.nPct? (a.sumPct/a.nPct).toFixed(2)+'%':'—'}</span></td>
+    <td class="num">${fmtElapsed(a.sumT/a.n)}</td>
+    <td class="num">${a.best!=null?fmtElapsed(a.best):'—'}</td>
+  </tr>`).join('');
+  return `<h2 style="margin-top:14px">${title}</h2>
+  <table><thead><tr><th>#</th><th>Athlete</th><th class="num">Races</th><th class="num">Avg % off</th><th class="num">Avg time</th><th class="num">Best</th></tr></thead>
+  <tbody>${tr||'<tr><td colspan="6" class="hint">No completed races yet.</td></tr>'}</tbody></table>
+  ${note?'<p class="hint" style="margin-top:8px">'+note+'</p>':''}`;
+}
+function tstSeatRankHtml(s){
+  const {events, net}=tstSeatAnalysis(s);
+  const tableFor=side=>{
+    const rows=net.filter(x=>x.side===side).sort((a,b)=>b.net-a.net);
+    const tr=rows.map((a,i)=>`<tr class="rank${i+1}">
+      <td>${i+1}</td><td>${esc(a.name)}</td>
+      <td class="num">${a.n}</td><td class="num">${a.w}–${a.l}</td>
+      <td class="num"><span class="${a.net>=0?'netPos':'netNeg'}">${fmtNet(a.net)}</span></td>
+    </tr>`).join('');
+    return `<h2 style="margin-top:14px">${sideName(side)} ranking</h2>
+    <table><thead><tr><th>#</th><th>Athlete</th><th class="num">Swaps</th><th class="num">W–L</th><th class="num">Net margin</th></tr></thead>
+    <tbody>${tr||'<tr><td colspan="5" class="hint">No attributable swaps completed yet.</td></tr>'}</tbody></table>`;
+  };
+  const evRows=events.map(e=>`<div class="swapLine">
+    <span style="color:var(--sub);min-width:64px">${esc(e.raceLabel)}</span>
+    <span><strong>${esc(e.winner)}</strong> beat <strong>${esc(e.loser)}</strong> by <span style="font-family:var(--mono)">${fmtSecs(e.margin)}</span></span>
+    <span style="color:var(--sub);font-size:.72rem">${sideName(e.side).toLowerCase()} · boats ${e.boats}${e.combined?' · combined swap — not in ranking':''}</span>
+  </div>`).join('');
+  return tableFor('S') + tableFor('B') +
+    (events.length? `<h2 style="margin-top:14px">Head-to-heads</h2>${evRows}
+      <p class="hint" style="margin-top:8px">Each swing is the change in margin between the two boats before and after the swap, credited to the swapped rowers. When both sides swap between the same two boats at once, the swing can't be split between the two swaps, so those races are listed but excluded from the net ranking.</p>` : '');
+}
+function tstSessionHtml(sid){
+  const s=db.sessions[sid];
+  const total=(s.raceOrder||[]).length;
+  const doneN=(s.raceOrder||[]).filter(rid=>{
+    const res=tstRaceResults((s.races||{})[rid]);
+    return res && res.length && res.every(x=>x.elapsed!=null);
+  }).length;
+  const meta=`${TYPE_LABEL[s.type]} · ${s.sex==='M'?'Men':'Women'} · ${s.distance}m · ${s.startMode==='mass'?'regatta start':'time trial'} · ${doneN}/${total} races complete`;
+  let swapPanel='';
+  if(s.type==='seat'){
+    const base=s.races[s.raceOrder[s.raceOrder.length-1]];
+    const stagedBoats=JSON.parse(JSON.stringify(base.boats));
+    tst.staged.forEach(sw=>{ const A=stagedBoats[sw.i].seats[sw.si], B=stagedBoats[sw.j].seats[sw.sj]; const t=A.name; A.name=B.name; B.name=t; });
+    const boatsHtml=base.boats.map((b,i)=>`<div class="tBoatBox"><h4>Boat ${i+1}</h4>
+      ${b.seats.map((st,j)=>{
+        const sel=tst.pick&&tst.pick.i===i&&tst.pick.j===j;
+        const used=tstSeatUsed(i,j);
+        const shown=stagedBoats[i].seats[j].name;
+        return `<button class="athChip ${sel?'sel':''} ${used?'used':''}" onclick="tstPickRower(${i},${j})">${esc(shown)}<span class="st ${st.side==='B'?'b':''}">${st.side}</span></button>`;
+      }).join('')}
+      ${b.cox?`<div class="hint" style="margin-top:4px">Cox: ${esc(b.cox)}</div>`:''}
+    </div>`).join('');
+    const stagedHtml=tst.staged.map((sw,k)=>{
+      const a=base.boats[sw.i].seats[sw.si], b2=base.boats[sw.j].seats[sw.sj];
+      return `<div class="swapLine"><span class="arr">⇄</span>
+        <span><strong>${esc(a.name)}</strong> (boat ${sw.i+1}) with <strong>${esc(b2.name)}</strong> (boat ${sw.j+1}) · ${sideName(a.side).toLowerCase()}</span>
+        <button class="rawDel" style="margin-left:auto" onclick="tstUnstage(${k})">✕</button></div>`;
+    }).join('');
+    swapPanel=`<div class="panel">
+      <h2>Next race — stage swaps</h2>
+      <p class="hint" style="margin-bottom:10px">Line-ups from ${esc(base.label)}${tst.staged.length?' with staged swaps applied':''}. Tap one rower, then a rower on the same side in another boat.${tst.pick?' <strong>'+esc(base.boats[tst.pick.i].seats[tst.pick.j].name)+' selected — now pick their opposite number.</strong>':''}</p>
+      ${boatsHtml}
+      ${stagedHtml?`<div style="margin-top:6px">${stagedHtml}</div>`:''}
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="tstCreateSwapRace()">Create Race ${s.raceOrder.length+1}</button>
+        ${tst.staged.length?`<button class="btn ghost" onclick="tst.staged=[];tst.pick=null;renderTesting()">Clear swaps</button>`:''}
+      </div>
+    </div>`;
+  }
+  let rankings='';
+  if(s.type==='seat') rankings=tstSeatRankHtml(s);
+  else {
+    const agg=tstMatrixAgg(s);
+    const note='Avg % off = average gap to the fastest boat in each flight (0% = fastest every time, lower is better) — this self-corrects for conditions changing between pieces. Raw averages shown alongside.';
+    if(s.type==='pairs') rankings = tstMatrixRankHtml(agg.filter(x=>x.side==='S'),'Stroke side ranking','') + tstMatrixRankHtml(agg.filter(x=>x.side==='B'),'Bow side ranking',note);
+    else rankings = tstMatrixRankHtml(agg,'Ranking',note);
+  }
+  return `<div class="panel">
+    <div class="row" style="margin-bottom:6px">
+      <button class="btn small ghost" onclick="tstBack()">‹ All sessions</button>
+      <span style="flex:1"></span>
+      <button class="btn small" onclick="tstExportPdf('${sid}')">PDF</button>
+      <button class="btn small danger" onclick="tstDeleteSession('${sid}')">Delete</button>
+    </div>
+    <h2>${esc(s.name)}</h2>
+    <p class="hint">${meta}</p>
+  </div>
+  ${swapPanel}
+  <div class="panel">
+    <h2>Rankings</h2>
+    <p class="hint">Updates live as races complete.</p>
+    ${rankings}
+  </div>
+  <div class="panel">
+    <h2>Race schedule</h2>
+    ${tstScheduleHtml(sid,s)||'<p class="hint">No races planned.</p>'}
+  </div>`;
+}
+
+/* ---------- session PDF ---------- */
+function tstExportPdf(sid){
+  const s=db.sessions[sid]; if(!s){ toast('Session not found'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc=new jsPDF();
+  doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(14,40,65);
+  doc.text('EUBC Testing — '+(s.name||''), 14, 18);
+  doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(102,112,124);
+  doc.text([ new Date(s.createdAt||0).toLocaleString('en-GB'),
+    TYPE_LABEL[s.type]+' · '+(s.sex==='M'?'Men':'Women')+' · '+s.distance+'m · '+(s.startMode==='mass'?'regatta start':'time trial') ], 14, 25);
+  let y=36;
+  const head={fillColor:[14,40,65],textColor:[255,255,255],fontStyle:'bold'};
+  const alt={fillColor:[242,243,245]};
+  const table=(title, headRow, body)=>{
+    doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(14,40,65);
+    doc.text(title, 14, y); y+=3;
+    doc.autoTable({ startY:y, head:[headRow], body,
+      styles:{font:'helvetica',fontSize:9,cellPadding:2.5}, headStyles:head, alternateRowStyles:alt });
+    y=doc.lastAutoTable.finalY+10;
+  };
+  if(s.type==='seat'){
+    const {events, net}=tstSeatAnalysis(s);
+    ['S','B'].forEach(side=>{
+      const rows=net.filter(x=>x.side===side).sort((a,b)=>b.net-a.net)
+        .map((a,i)=>[i+1,a.name,a.n,a.w+'-'+a.l,fmtNet(a.net).replace('−','-')]);
+      table(sideName(side)+' ranking', ['#','Athlete','Swaps','W-L','Net margin'], rows.length?rows:[['—','No attributable swaps yet','','','']]);
+    });
+    if(events.length){
+      table('Head-to-heads', ['Race','Result','Side','Boats','Note'],
+        events.map(e=>[e.raceLabel, e.winner+' beat '+e.loser+' by '+fmtSecs(e.margin), sideName(e.side), e.boats, e.combined?'Combined swap — excluded from ranking':'']));
+    }
+  } else {
+    const agg=tstMatrixAgg(s);
+    const rowsFor=list=>list.sort(tstRankSort).map((a,i)=>[i+1,a.name,a.n,a.nPct?(a.sumPct/a.nPct).toFixed(2)+'%':'-',fmtElapsed(a.sumT/a.n),a.best!=null?fmtElapsed(a.best):'-']);
+    const headRow=['#','Athlete','Races','Avg % off fastest','Avg time','Best'];
+    if(s.type==='pairs'){
+      table('Stroke side ranking', headRow, rowsFor(agg.filter(x=>x.side==='S')));
+      table('Bow side ranking', headRow, rowsFor(agg.filter(x=>x.side==='B')));
+    } else {
+      table('Ranking', headRow, rowsFor(agg));
+    }
+  }
+  const raceRows=[];
+  (s.raceOrder||[]).forEach(rid=>{
+    const r=(s.races||{})[rid]; if(!r) return;
+    const res=tstRaceResults(r);
+    (r.boats||[]).forEach((L,i)=>{
+      const crew = s.type==='seat'
+        ? (L.seats||[]).map(x=>x.name).join(', ')+(L.cox?' · cox '+L.cox:'')
+        : 'Str: '+L.stroke+' · Bow: '+L.bow;
+      const t=res&&res[i]&&res[i].elapsed!=null? fmtElapsed(res[i].elapsed):'-';
+      raceRows.push([i===0?r.label:'', 'Boat '+(i+1), crew, t]);
+    });
+  });
+  if(raceRows.length) table('Races', ['Race','Boat','Crew','Time'], raceRows);
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Generated '+new Date().toLocaleString('en-GB')+' · Edinburgh University Boat Club', 14, 290);
+  doc.save((s.name||'testing').replace(/[^\w\-]+/g,'_')+'_testing.pdf');
+}
+</script>
+<script>
+/* =====================================================
    Views
    ===================================================== */
-const VIEWS=['Home','Setup','Start','Finish','Results','Pieces','Settings'];
+const VIEWS=['Home','Setup','Start','Finish','Results','Pieces','Testing','Settings'];
 let currentView='Home';
 let startTick=null, finishTick=null;
 let invListOpen=false;
@@ -567,7 +1262,7 @@ function showView(v){
 }
 function renderCurrent(){
   if(VIEWONLY){ renderResults(); return; }
-  ({Home:renderHome,Setup:renderSetup,Start:renderStart,Finish:renderFinish,Results:renderResults,Pieces:renderPieces,Settings:renderSettings})[currentView]();
+  ({Home:renderHome,Setup:renderSetup,Start:renderStart,Finish:renderFinish,Results:renderResults,Pieces:renderPieces,Testing:renderTesting,Settings:renderSettings})[currentView]();
 }
 
 /* =====================================================
@@ -590,6 +1285,11 @@ function renderHome(){
       <div class="homeBtn" onclick="showView('Pieces')">
         <div class="ic">≣</div>
         <div class="tx"><div class="tt">Open existing piece</div><div class="ds">Saved pieces, results and PDFs</div></div>
+        <div class="chev">›</div>
+      </div>
+      <div class="homeBtn" onclick="showView('Testing')">
+        <div class="ic">⇄</div>
+        <div class="tx"><div class="tt">Run testing</div><div class="ds">Seat racing, pairs &amp; doubles matrices</div></div>
         <div class="chev">›</div>
       </div>
       <div class="homeBtn" onclick="showView('Settings')">
@@ -1046,7 +1746,7 @@ function drawPieces(el){
     const resume = (!st.run && !st.complete) ? `<button class="btn small ghost" onclick="runPiece('${id}')">Continue</button>` : '';
     return `<div class="pieceRow">
       <div style="flex:1;min-width:150px"><div class="nm">${esc(p.name)} ${active?'<span class="pill ok" style="margin-left:6px">Active</span>':''}${(active&&stPill)?' ':''}${stPill}</div>
-      <div class="sub">${new Date(p.createdAt||0).toLocaleString('en-GB')} · ${p.distance}m · ${n} boat${n===1?'':'s'} · ${p.startMode==='mass'?'regatta start':'time trial'}</div></div>
+      <div class="sub">${new Date(p.createdAt||0).toLocaleString('en-GB')} · ${p.distance}m · ${n} boat${n===1?'':'s'} · ${p.startMode==='mass'?'regatta start':'time trial'}${p.sessionId?' · testing':''}</div></div>
       ${primary}
       ${resume}
       <button class="btn small ghost" onclick="editPiece('${id}')">Edit</button>
