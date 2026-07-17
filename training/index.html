@@ -280,13 +280,15 @@ table.roster tr.inactive td{opacity:.5}
 .tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:#eef0f3;color:var(--ink-2)}
 .tag.m{background:#e7f0fa;color:#2b62a8}.tag.f{background:#fbeaf2;color:#b23a77}
 .tag.cox{background:#f0ecf9;color:#6b46b8}
-.tag.side{background:#eaf6ef;color:#2f7a4f}
+.tag.side-bow{background:#e9f5ee;color:#2f7a4f}
+.tag.side-stroke{background:#f7ecea;color:#a8514c}
+.tag.side-both{background:#eef0f3;color:var(--ink-2)}
 .roster-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 4px}
 .roster-tools .grow{flex:1}
 
 /* ---------- crew picker ---------- */
 .crew-sess-list{display:flex;flex-direction:column;gap:9px;margin-top:6px}
-.crew-sess{display:flex;align-items:center;gap:12px;padding:13px 15px}
+.crew-sess{display:flex;align-items:center;gap:12px;padding:13px 15px;position:relative}
 .crew-sess .grow{flex:1;min-width:0}
 .crew-sess h4{font-size:14.5px;font-weight:600}
 .crew-sess .meta{font-size:12px;color:var(--ink-2);margin-top:2px}
@@ -305,8 +307,9 @@ table.roster tr.inactive td{opacity:.5}
 .seat{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .seat .lbl{width:58px;font-size:11.5px;font-weight:600;color:var(--ink-2);flex:none}
 .seat .side-req{width:16px;text-align:center;font-size:10px;font-weight:700;flex:none}
-.seat .side-req.S{color:#2b62a8}.seat .side-req.B{color:#e0873c}
+.seat .side-req.S{color:#a8514c}.seat .side-req.B{color:#2f7a4f}
 .seat input{flex:1;min-width:0;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12.5px}
+.seat input.oar{flex:none;width:64px;font-size:11.5px}
 .seat.cox-seat input{border-style:dashed}
 .seat .chk{width:18px;text-align:center;flex:none;font-size:13px;font-weight:700}
 .seat .chk.ok{color:#3a9d5b}.seat .chk.bad{color:var(--danger)}
@@ -314,6 +317,21 @@ table.roster tr.inactive td{opacity:.5}
 .cc-warn{font-size:11.5px;color:var(--danger);font-weight:600;margin-top:6px}
 .cc-remove{margin-left:auto}
 .crew-add{margin-top:6px}
+
+/* ---------- crew quick view (modal + hover) ---------- */
+.cs-pop{display:none;position:absolute;top:100%;left:12px;right:12px;z-index:60;margin-top:5px;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--sh-pop);padding:12px;pointer-events:none}
+.crew-sess:hover .cs-pop{display:block}
+.cv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.cv-crew{border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+.cv-title{font-weight:700;font-size:12.5px;color:var(--accent)}
+.cv-boat{font-size:10.5px;color:var(--ink-3);margin-bottom:5px}
+.cv-seat{display:flex;align-items:center;gap:8px;font-size:12px;padding:1px 0}
+.cv-lbl{width:44px;color:var(--ink-3);font-weight:600;flex:none}
+.cv-nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cv-side{width:12px;text-align:center;font-weight:700;font-size:10px;flex:none}
+.cv-side.S{color:#a8514c}.cv-side.B{color:#2f7a4f}
+.cv-oar{font-size:10px;color:var(--ink-2);background:#eef0f3;border-radius:4px;padding:0 5px;flex:none}
 
 /* ---------- crew PDF ---------- */
 @media print{
@@ -329,6 +347,7 @@ table.roster tr.inactive td{opacity:.5}
   .p-crewbox td{padding:1.5px 2px;border-bottom:1px solid #eef0f3}
   .p-crewbox td.s{color:#8b94a1;width:42px;font-weight:600}
   .p-crewbox td.side{width:16px;color:#99a;text-align:right}
+  .p-crewbox td.oar{width:36px;color:#5a6472;text-align:right;font-size:9px}
   .p-crewfoot{margin-top:10px;font-size:8.5px;color:#8b94a1}
 }
 
@@ -503,6 +522,7 @@ table.roster tr.inactive td{opacity:.5}
 <div class="overlay" id="ovMembers"><div class="glass modal wide" id="mdMembers"></div></div>
 <div class="overlay" id="ovAthletes"><div class="glass modal wide" id="mdAthletes"></div></div>
 <div class="overlay" id="ovBoats"><div class="glass modal wide" id="mdBoats"></div></div>
+<div class="overlay" id="ovCrewView"><div class="glass modal wide" id="mdCrewView"></div></div>
 <div class="overlay" id="ovPdf"><div class="glass modal" id="mdPdf"></div></div>
 <div class="glass toast" id="toast"></div>
 <div id="printRoot"></div>
@@ -1261,7 +1281,7 @@ function renderOverview(){
   const horizon = role()==="coach" ? seasonEnd : addDays(fromIso(horizonIso(curSquad)),6);
 
   let html = '<div class="week-top"><div class="week-title"><h2>Season overview</h2>'
-    + '<div class="dates">'+SQNAME[curSquad]+' · monthly and weekly totals'
+    + '<div class="dates">'+SQNAME[curSquad]+''
     + (role()==="athlete" ? ' · published to '+fmtDateY(fromIso(horizonIso(curSquad))) : "")
     + '</div></div></div>';
 
@@ -1390,8 +1410,8 @@ function renderSessionModal(){
     + '<button class="'+(f.mode==="duration"?"on":"")+'" onclick="sessMode(\'duration\')" '+(f.type==="Off"?"disabled":"")+'>Duration</button>'
     + '<button class="'+(f.mode==="distance"?"on":"")+'" onclick="sessMode(\'distance\')" '+(f.type==="Off"?"disabled":"")+'>Distance</button></div>'
     + (f.mode==="duration"
-        ? '<input id="sfVol" type="number" min="0" step="5" value="'+(+f.minutes||0)+'" '+(f.type==="Off"?"disabled":"")+'><div class="hint">Minutes</div>'
-        : '<input id="sfVol" type="number" min="0" step="0.5" value="'+(+f.km||0)+'"><div class="hint">Kilometres — converted to time using the zone split in Settings ('+splitLabel(f.zone)+' /500m → '+fmtMin(sessMinutes({...f,km:+f.km||0},state.settings.splits))+')</div>')
+        ? '<input id="sfVol" type="number" min="0" step="5" value="'+(+f.minutes||0)+'" '+(f.type==="Off"?"disabled":"")+'>'
+        : '<input id="sfVol" type="number" min="0" step="0.5" value="'+(+f.km||0)+'"><div class="hint">'+(splitLabel(f.zone))+' /500m → '+fmtMin(sessMinutes({...f,km:+f.km||0},state.settings.splits))+'</div>')
     + '</div>'
     + '<div class="field"><label>Notes <span style="text-transform:none;font-weight:500">(optional)</span></label><textarea id="sfNotes" rows="2" placeholder="Rate, rest, focus…">'+esc(f.notes||"")+'</textarea></div>';
   if(!editing) html += '<label class="checkline"><input type="checkbox" id="sfSave" checked> Also save to the session library</label>';
@@ -1496,8 +1516,7 @@ function duplicateSession(){
 let libEditId = null;
 function openLibrary(){ libEditId=null; renderLibrary(); show("ovLibrary"); }
 function renderLibrary(){
-  let html = '<button class="x" onclick="hide(\'ovLibrary\')">✕</button><h3>Session library</h3>'
-    + '<div class="hint" style="margin-top:-8px">Stock sessions the whole coaching team can drop into any squad\'s week.</div>';
+  let html = '<button class="x" onclick="hide(\'ovLibrary\')">✕</button><h3>Session library</h3>';
   if(libEditId!==null){
     const f = libEditId==="new" ? {name:"",type:"Water",zone:"UT2",mode:"duration",minutes:60,km:10,notes:"",time:"",location:""} : {...state.library[libEditId]};
     html += '<div style="margin-top:14px">'
@@ -1558,8 +1577,7 @@ function openEvents(editId){
 }
 function renderEvents(){
   const isCoach = role()==="coach";
-  let html = '<button class="x" onclick="hide(\'ovEvents\')">✕</button><h3>Season events</h3>'
-    + '<div class="hint" style="margin-top:-8px">Races, erg tests and other key dates. These appear on the day, on the season ribbon, and in the PDF.</div>';
+  let html = '<button class="x" onclick="hide(\'ovEvents\')">✕</button><h3>Season events</h3>';
   if(isCoach && evEditId!==null){
     const f = evEditId==="new" ? {name:"",date:iso(weekStart(curWeek)),kind:"race",squad:"all",time:"",location:"",notes:""} : {...state.events[evEditId]};
     html += '<div style="margin-top:14px">'
@@ -1626,8 +1644,7 @@ function blockOfWeek(w){ return blockList().find(b=> w>=b.from && w<=b.to) || nu
 let blkEditId = null;
 function openBlocks(id){ blkEditId = id||null; renderBlocks(); show("ovBlocks"); }
 function renderBlocks(){
-  let html = '<button class="x" onclick="hide(\'ovBlocks\')">✕</button><h3>Training blocks</h3>'
-    + '<div class="hint" style="margin-top:-8px">Meso cycles — named week ranges (e.g. General Prep, Race Specific, Taper). They band the season chart and drive block comparisons.</div>';
+  let html = '<button class="x" onclick="hide(\'ovBlocks\')">✕</button><h3>Training blocks</h3>';
   if(blkEditId!==null){
     const f = blkEditId==="new" ? {name:"",from:curWeek,to:Math.min(curWeek+3,N_WEEKS-1),focus:"",target:""} : {...state.blocks[blkEditId]};
     html += '<div style="margin-top:14px">'
@@ -1760,7 +1777,7 @@ function renderAnalytics(){
   const blocks = blockList();
 
   let html = '<div class="week-top"><div class="week-title"><h2>Analytics</h2>'
-    + '<div class="dates">'+SQNAME[curSquad]+' · macro → meso → micro</div></div>'
+    + '<div class="dates">'+SQNAME[curSquad]+'</div></div>'
     + '<div class="spacer"></div>'
     + '<div class="seg-ctrl" style="flex:0 0 auto"><button class="'+(anMode==="abs"?"on":"")+'" onclick="anMode=\'abs\';renderAnalytics()">Minutes</button>'
     + '<button class="'+(anMode==="pct"?"on":"")+'" onclick="anMode=\'pct\';renderAnalytics()">% distribution</button></div>'
@@ -1953,8 +1970,7 @@ function renderMembers(){
           : '<button class="btn small danger" onclick="removeMember(\''+escAttr(m.k)+'\')">Remove access</button>')
       + '</div>';
   };
-  let html = '<button class="x" onclick="hide(\'ovMembers\')">✕</button><h3>Members</h3>'
-    + '<div class="hint" style="margin-top:-8px">People who have registered with their email. Approve to grant view access; squad controls what they see (coxes see Men and Women). Coach edit rights are managed separately in Settings.</div>';
+  let html = '<button class="x" onclick="hide(\'ovMembers\')">✕</button><h3>Members</h3>';
   html += '<div class="lib-group" style="margin-top:14px">Awaiting approval<span>'+pending.length+'</span></div>'
     + '<div class="lib-list" style="max-height:26vh">'
     + (pending.length ? pending.map(m=>row(m,true)).join("") : '<div class="empty-day">No pending requests.</div>')
@@ -1997,13 +2013,12 @@ function openSettings(){
     html += '<div class="frow" style="align-items:center;margin-bottom:8px"><div style="width:110px;font-weight:600">'+SQUADS[s]+'</div>'
       + '<div class="field" style="flex:1;margin:0"><input type="date" id="hz_'+s+'" value="'+h[s]+'" min="'+iso(SEASON_START)+'" max="'+iso(addDays(weekStart(N_WEEKS-1),6))+'"></div></div>';
   }
-  html += '<div class="hint" style="margin-bottom:16px">Athletes see everything up to this date. Coaches always see and can edit the full programme.</div>'
-    + '<div class="field"><label>Distance → time conversion (split per 500m, seconds)</label></div><div class="splits-grid">';
+  html += '<div class="field"><label>Distance → time conversion (split per 500m, seconds)</label></div><div class="splits-grid">';
   for(const z of ZONES){
     html += '<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+z+'</div>'
       + '<div class="field" style="flex:1;margin:0"><input type="number" id="sp_'+ZKEY(z)+'" min="60" max="240" value="'+(sp[z]||120)+'"></div></div>';
   }
-  html += '</div><div class="hint">Used to estimate minutes for distance-based sessions, e.g. 125s = 2:05 /500m.</div>';
+  html += '</div>';
 
   // ---- weekly load targets (T2 minutes) ----
   const lts = state.settings.loadTargets;
@@ -2011,8 +2026,7 @@ function openSettings(){
     + '<div class="targets-grid">'
     + LOAD_TYPES.map(t=>'<div class="tcell">'+loadChip(t)
         + '<input type="number" min="0" step="50" id="lt_'+t+'" value="'+(+lts[t]||0)+'" style="flex:1;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13.5px"></div>').join("")
-    + '</div>'
-    + '<div class="hint">Tag any week Camp / Load / Maintain / Taper from the week view; its T2 total is checked against the target here (±10% reads as on-target).</div>';
+    + '</div>';
 
   // ---- T2 weighting factors ----
   const F = t2Factors();
@@ -2023,8 +2037,7 @@ function openSettings(){
     + '<div class="field" style="margin-top:12px"><label>T2 intensity factors (per zone)</label></div><div class="splits-grid">'
     + ZONES.map(z=>'<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+z+'</div>'
         + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.05" min="0" id="t2i_'+ZKEY(z)+'" value="'+F.intensity[z]+'"></div></div>').join("")
-    + '</div>'
-    + '<div class="hint">T2 min = duration × mode factor × intensity factor. Defaults follow Tran et&nbsp;al. (2014); UT2 is the 1.0 anchor and S&amp;C is excluded (0). TR = 5.0 is the factor coaches most often retune.</div>';
+    + '</div>';
 
   const myKey = emailKey(auth.email);
   const coachKeys = Object.keys(state.coaches||{}).sort();
@@ -2038,8 +2051,7 @@ function openSettings(){
     + '</div>'
     + '<div class="frow" style="margin-top:8px;align-items:center">'
     + '<div class="field" style="flex:1;margin:0"><input id="newCoach" type="email" placeholder="colleague@ed.ac.uk"></div>'
-    + '<button class="btn" onclick="addCoach()">Add coach</button></div>'
-    + '<div class="hint">Coaches can edit the programme, library, events, blocks and settings. Everyone else with a verified @ed.ac.uk address gets view-only access. Changes take effect on their next sync.</div>';
+    + '<button class="btn" onclick="addCoach()">Add coach</button></div>';
 
   html += '<div class="modal-actions"><button class="btn" onclick="hide(\'ovSettings\')">Cancel</button>'
     + '<button class="btn primary" onclick="saveSettings()">Save settings</button></div>';
@@ -2100,7 +2112,6 @@ function removeCoach(k){
 function openPdf(){
   const lastVis = lastVisibleWeek(curSquad);
   let html = '<button class="x" onclick="hide(\'ovPdf\')">✕</button><h3>Download programme (PDF)</h3>'
-    + '<div class="hint" style="margin-top:-8px;margin-bottom:14px">Generates a print view — choose “Save as PDF” in the print dialog.</div>'
     + '<div class="field"><label>Range · '+SQNAME[curSquad]+'</label><select id="pdfRange">'
     + '<option value="1">This week (W'+(curWeek+1)+')</option>'
     + '<option value="2">Two weeks (W'+(curWeek+1)+'–W'+Math.min(curWeek+2,lastVis+1)+')</option>'
@@ -2185,8 +2196,7 @@ function athById(id){ return id ? (state.athletes||{})[id] : null; }
 let athEditId = null;
 function openAthletes(){ if(role()!=="coach") return; athEditId=null; renderAthletes(); show("ovAthletes"); }
 function renderAthletes(){
-  let html = '<button class="x" onclick="hide(\'ovAthletes\')">✕</button><h3>Athlete database</h3>'
-    + '<div class="hint" style="margin-top:-8px">Weight and date of birth are coach-only. Set an athlete inactive to keep their history for analytics without showing them in crew pickers.</div>';
+  let html = '<button class="x" onclick="hide(\'ovAthletes\')">✕</button><h3>Athlete database</h3>';
 
   if(athEditId!==null){
     const a = athEditId==="new"
@@ -2219,7 +2229,7 @@ function renderAthletes(){
           + '<td style="font-weight:600">'+esc(athFull(a))+(a.active===false?' <span class="tag">inactive</span>':"")+'</td>'
           + '<td><span class="tag '+(a.sex==="F"?"f":"m")+'">'+a.sex+'</span></td>'
           + '<td>'+(a.role==="cox"?'<span class="tag cox">Cox</span>':"Rower")+'</td>'
-          + '<td>'+(a.role==="cox"?'—':'<span class="tag side">'+SIDE_LABEL[a.sweepSide||"both"]+'</span>')+'</td>'
+          + '<td>'+(a.role==="cox"?'—':'<span class="tag side-'+(a.sweepSide||"both")+'">'+SIDE_LABEL[a.sweepSide||"both"]+'</span>')+'</td>'
           + '<td>'+(a.weightKg?a.weightKg:'—')+'</td><td>'+(a.dob?athAge(a.dob):'—')+'</td>'
           + '<td>'+(SQUADS[a.squad]||"—")+'</td>'
           + '<td style="text-align:right;white-space:nowrap"><button class="btn small" onclick="athEditId=\''+a.athleteId+'\';renderAthletes()">Edit</button></td></tr>'
@@ -2262,16 +2272,16 @@ function exportAthletesCsv(){
 /* =====================================================================
    BOAT DATABASE
 ===================================================================== */
+const TYPE_ORDER = { "8":0, "4":1, "2":2, "1":3 };
 function boatArr(){
   return Object.values(state.boats||{})
-    .sort((a,b)=> (a.boatType||"").localeCompare(b.boatType||"") || (a.boatId||"").localeCompare(b.boatId||""));
+    .sort((a,b)=> (TYPE_ORDER[a.boatType]-TYPE_ORDER[b.boatType]) || (a.boatId||"").localeCompare(b.boatId||""));
 }
 function boatsOfType(bt){ return boatArr().filter(b=>b.boatType===bt && b.active!==false); }
 let boatEditId = null;
 function openBoats(){ if(role()!=="coach") return; boatEditId=null; renderBoats(); show("ovBoats"); }
 function renderBoats(){
-  let html = '<button class="x" onclick="hide(\'ovBoats\')">✕</button><h3>Boat database</h3>'
-    + '<div class="hint" style="margin-top:-8px">Boat IDs use the EHU prefix — enter the three digits to make e.g. EHU192.</div>';
+  let html = '<button class="x" onclick="hide(\'ovBoats\')">✕</button><h3>Boat database</h3>';
   if(boatEditId!==null){
     const isNew = boatEditId==="new";
     const b = isNew ? {boatId:"",boatType:"8",boatName:"",weightClass:"OM",active:true} : {...state.boats[boatEditId]};
@@ -2280,7 +2290,7 @@ function renderBoats(){
       + '<div class="frow"><div class="field"><label>Boat ID</label>'
         + '<div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:var(--ink-2)">EHU</span>'
         + '<input id="bfDigits" '+(isNew?"":"disabled")+' maxlength="3" style="width:80px" value="'+escAttr(digits)+'" placeholder="192">'
-        + (isNew?"":'<span class="hint" style="margin:0">ID is fixed once set</span>')+'</div></div>'
+        + ""+'</div></div>'
       + '<div class="field"><label>Boat type</label><select id="bfType">'+BOAT_TYPES.map(t=>'<option value="'+t+'"'+(b.boatType===t?" selected":"")+'>'+BOAT_TYPE_LABEL[t]+' ('+t+')</option>').join("")+'</select></div></div>'
       + '<div class="frow"><div class="field"><label>Boat name</label><input id="bfName" value="'+escAttr(b.boatName||"")+'" placeholder="e.g. The Meggetland"></div>'
       + '<div class="field"><label>Weight class</label><select id="bfClass">'+Object.keys(WEIGHT_CLASSES).map(c=>'<option value="'+c+'"'+(b.weightClass===c?" selected":"")+'>'+c+' · '+WEIGHT_CLASSES[c]+'</option>').join("")+'</select></div></div>'
@@ -2374,13 +2384,35 @@ function sideOk(athleteId, reqSide){        // reqSide "S"/"B"/null
   return a.sweepSide === REQ_SIDE_LABEL[reqSide];
 }
 
+function crewViewCard(c){
+  const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+  const boat=c.boatRef?state.boats[c.boatRef]:null;
+  const rigTxt=spec.scull?"":((RIG_OPTS[c.boatType]||[]).filter(r=>r[0]===c.rig).map(r=>r[1])[0]||"");
+  const seatLine=(lbl,aid,side,oar)=>{ const a=athById(aid);
+    return '<div class="cv-seat"><span class="cv-lbl">'+lbl+'</span><span class="cv-nm">'+esc(a?athShort(a):"—")+'</span>'
+      + '<span class="cv-side '+(side||"")+'">'+(side||"")+'</span>'+(oar?'<span class="cv-oar">'+esc(oar)+'</span>':"")+'</div>'; };
+  let rows="";
+  if(spec.cox) rows+=seatLine("Cox", c.cox, "", "");
+  spec.seats.forEach((st,i)=> rows+=seatLine(st.label, c.seats?c.seats[i]:"", st.side, c.oars?c.oars[i]:""));
+  return '<div class="cv-crew"><div class="cv-title">'+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+'</div>'
+    + '<div class="cv-boat">'+(boat?esc(boat.boatId)+(boat.boatName?" · "+esc(boat.boatName):""):"boat TBC")+'</div>'+rows+'</div>';
+}
+function viewCrewSession(id){
+  const s=state.crewSessions[id]; if(!s) return;
+  const crews=crewList(s);
+  let html='<button class="x" onclick="hide(\'ovCrewView\')">✕</button><h3>'+CREW_CATS[s.category]+' · '+(s.date?fmtDateY(fromIso(s.date)):"no date")+'</h3>'
+    + '<div class="cv-grid">'+(crews.length?crews.map(crewViewCard).join(""):'<div class="empty-day">No crews.</div>')+'</div>'
+    + '<div class="modal-actions"><button class="btn" onclick="crewPdf(\''+id+'\')">PDF</button>'
+    + '<button class="btn primary" onclick="hide(\'ovCrewView\');openCrewSession(\''+id+'\')">Edit</button></div>';
+  document.getElementById("mdCrewView").innerHTML=html; show("ovCrewView");
+}
+
 function renderCrews(){
   const main=document.getElementById("main");
   if(crewEditId && state.crewSessions[crewEditId]) { renderCrewEditor(main); return; }
   crewEditId=null;
   const list=crewSessionList();
-  let html='<div class="week-top"><div class="week-title"><h2>Water sessions · crews</h2>'
-    + '<div class="dates">Coach-only · announce crews ahead of the day</div></div></div>';
+  let html='<div class="week-top"><div class="week-title"><h2>Water sessions · crews</h2></div></div>';
   html += '<div class="glass" style="padding:14px 16px;margin-bottom:14px"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">'
     + '<div class="crew-cats">'+Object.keys(CREW_CATS).map(c=>'<button class="'+(newCrewCat===c?"on":"")+'" onclick="newCrewCat=\''+c+'\';renderCrews()">'+CREW_CATS[c]+'</button>').join("")+'</div>'
     + '<input type="date" id="newCrewDate" value="'+(newCrewDateVal||"")+'" onchange="newCrewDateVal=this.value" style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px">'
@@ -2391,9 +2423,12 @@ function renderCrews(){
         return '<div class="glass crew-sess"><div class="grow"><h4>'+CREW_CATS[s.category]+' · '+(s.date?fmtDateY(fromIso(s.date)):"no date")+'</h4>'
           + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")
           + (bad?' · <span style="color:var(--danger);font-weight:600">'+bad+' with a side issue</span>':(crews.length?' · all sides valid':""))+'</div></div>'
+          + '<button class="btn small" onclick="viewCrewSession(\''+s.id+'\')">View</button>'
           + '<button class="btn small" onclick="openCrewSession(\''+s.id+'\')">Edit</button>'
           + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button>'
-          + '<button class="btn small danger" onclick="deleteCrewSession(\''+s.id+'\')">Delete</button></div>';
+          + '<button class="btn small danger" onclick="deleteCrewSession(\''+s.id+'\')">Delete</button>'
+          + (crews.length?'<div class="cs-pop"><div class="cv-grid">'+crews.map(crewViewCard).join("")+'</div></div>':"")
+          + '</div>';
       }).join("") : '<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">No sessions yet — pick a category and date to start.</div>')
     + '</div>';
   main.innerHTML=html;
@@ -2424,8 +2459,7 @@ function renderCrewEditor(main){
   const dlR='<datalist id="dlRowers">'+[...rMap.byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
   const dlC='<datalist id="dlCoxes">'+[...cMap.byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
 
-  let html='<div class="week-top"><div class="week-title"><h2>'+CREW_CATS[s.category]+' crews</h2>'
-    + '<div class="dates">'+(s.date?fmtDateY(fromIso(s.date)):"set a date")+' · '+crewList(s).length+' crews</div></div>'
+  let html='<div class="week-top"><div class="week-title"><h2>'+CREW_CATS[s.category]+' crews</h2></div>'
     + '<div class="navbtns"><button class="btn small" onclick="crewEditId=null;renderCrews()">← All sessions</button></div>'
     + '<div class="spacer"></div>'
     + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">Generate PDF</button>'
@@ -2435,7 +2469,7 @@ function renderCrewEditor(main){
     + '<div class="crew-cats">'+Object.keys(CREW_CATS).map(c=>'<button class="'+(s.category===c?"on":"")+'" onclick="setSessionCat(\''+s.id+'\',\''+c+'\')">'+CREW_CATS[c]+'</button>').join("")+'</div>'
     + '<label style="font-size:12px;font-weight:500;color:var(--ink-2)">Date</label>'
     + '<input type="date" value="'+(s.date||"")+'" onchange="setSessionDate(\''+s.id+'\',this.value)" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px">'
-    + '<div class="spacer" style="flex:1"></div><span style="font-size:11.5px;color:var(--ink-3)">Autocomplete lists '+rowers.length+' rowers · '+coxes.length+' coxes for this category</span></div>';
+    + '</div>';
 
   html += '<div class="crew-grid">';
   crewList(s).forEach(c=> html += crewCardHtml(s,c));
@@ -2484,6 +2518,7 @@ function crewCardHtml(s,c){
     h+='<div class="seat'+(bad?" bad":"")+'"><span class="lbl">'+st.label+'</span>'
       + '<span class="side-req '+(st.side||"")+'">'+(st.side||"")+'</span>'
       + '<input list="dlRowers" value="'+escAttr(label)+'" placeholder="name" onchange="assignSeat(\''+sid+'\',\''+cid+'\','+i+',this.value)">'
+      + '<input class="oar" value="'+escAttr(c.oars?(c.oars[i]||""):"")+'" placeholder="oar" onchange="assignOar(\''+sid+'\',\''+cid+'\','+i+',this.value)">'
       + '<span class="chk '+(aid?(bad?"bad":"ok"):"")+'">'+(aid?(bad?'✗':'✓'):'')+'</span></div>';
   });
   if(crewHasSideError(s,c)) h+='<div class="cc-warn">Wrong side — check the ✗ seats against each athlete\'s registered side.</div>';
@@ -2500,7 +2535,7 @@ function setSessionDate(sid,date){ _sess(sid).date=date; persist("crewSessions/"
 function addCrew(sid){
   const s=_sess(sid); s.crews=s.crews||{};
   const id=uid(); const order=Object.keys(s.crews).length;
-  s.crews[id]={id, order, boatType:"4", boatClass:DEFAULT_CLASS["4"], rig:"stroke", boatRef:"", steer:"bow", seats:{}, cox:""};
+  s.crews[id]={id, order, boatType:"8", boatClass:DEFAULT_CLASS["8"], rig:"stroke", boatRef:"", steer:"bow", seats:{}, cox:"", oars:{}};
   saveSess(sid);
 }
 function removeCrew(sid,cid){ const s=_sess(sid); if(s&&s.crews){ delete s.crews[cid]; saveSess(sid); } }
@@ -2514,20 +2549,34 @@ function setCrewRig(sid,cid,r){ const c=_crew(sid,cid); if(!c) return; c.rig=r; 
 function setCrewSteer(sid,cid,v){ const c=_crew(sid,cid); if(!c) return; c.steer=v; saveSess(sid); }
 function setCrewBoat(sid,cid,v){ const c=_crew(sid,cid); if(!c) return; c.boatRef=v; saveSess(sid); }
 function clampSeats(c){
-  const n=(SEAT_LABELS[c.boatType]||[]).length; const out={};
-  for(let i=0;i<n;i++) if(c.seats&&c.seats[i]) out[i]=c.seats[i];
-  c.seats=out;
+  const n=(SEAT_LABELS[c.boatType]||[]).length; const out={}, oout={};
+  for(let i=0;i<n;i++){ if(c.seats&&c.seats[i]) out[i]=c.seats[i]; if(c.oars&&c.oars[i]) oout[i]=c.oars[i]; }
+  c.seats=out; c.oars=oout;
+}
+function crewHasAthlete(c, id, exceptKind, exceptIdx){
+  if(!id) return false;
+  if(c.cox===id && exceptKind!=="cox") return true;
+  if(c.seats) for(const k in c.seats){ if(c.seats[k]===id && !(exceptKind==="seat" && +k===exceptIdx)) return true; }
+  return false;
 }
 function assignSeat(sid,cid,i,text){
   const c=_crew(sid,cid); if(!c) return; c.seats=c.seats||{};
   const id=resolveAthlete(text, eligibleRowers(_sess(sid).category));
+  if(id && crewHasAthlete(c, id, "seat", i)){ toast("Already in this crew"); renderCrews(); return; }
   if(id) c.seats[i]=id; else delete c.seats[i];
   saveSess(sid);
 }
 function assignCox(sid,cid,text){
   const c=_crew(sid,cid); if(!c) return;
-  c.cox=resolveAthlete(text, eligibleCoxes())||"";
-  saveSess(sid);
+  const id=resolveAthlete(text, eligibleCoxes())||"";
+  if(id && crewHasAthlete(c, id, "cox", null)){ toast("Already in this crew"); renderCrews(); return; }
+  c.cox=id; saveSess(sid);
+}
+function assignOar(sid,cid,i,text){
+  const c=_crew(sid,cid); if(!c) return; c.oars=c.oars||{};
+  const v=(text||"").trim();
+  if(v) c.oars[i]=v; else delete c.oars[i];
+  persist("crewSessions/"+sid, _sess(sid));
 }
 function finishCrews(){ const s=_sess(crewEditId); crewEditId=null; renderCrews(); toast("Crews saved"+(s?" · "+CREW_CATS[s.category]:"")); }
 
@@ -2543,9 +2592,9 @@ function crewPdf(sid){
     const boat=c.boatRef?state.boats[c.boatRef]:null;
     const rigTxt = spec.scull ? "" : (RIG_OPTS[c.boatType]||[]).filter(r=>r[0]===c.rig).map(r=>r[1])[0]||"";
     let rows="";
-    if(spec.cox){ const ca=athById(c.cox); rows+='<tr><td class="s">Cox</td><td>'+esc(ca?athShort(ca):"—")+'</td><td class="side"></td></tr>'; }
-    spec.seats.forEach((st,i)=>{ const a=athById(c.seats?c.seats[i]:""); 
-      rows+='<tr><td class="s">'+st.label+'</td><td>'+esc(a?athShort(a):"—")+'</td><td class="side">'+(st.side||"")+'</td></tr>'; });
+    if(spec.cox){ const ca=athById(c.cox); rows+='<tr><td class="s">Cox</td><td>'+esc(ca?athShort(ca):"—")+'</td><td class="side"></td><td class="oar"></td></tr>'; }
+    spec.seats.forEach((st,i)=>{ const a=athById(c.seats?c.seats[i]:""); const oar=c.oars?(c.oars[i]||""):"";
+      rows+='<tr><td class="s">'+st.label+'</td><td>'+esc(a?athShort(a):"—")+'</td><td class="side">'+(st.side||"")+'</td><td class="oar">'+esc(oar)+'</td></tr>'; });
     html+='<div class="p-crewbox"><h3>'+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+'</h3>'
       + '<div class="p-boat">'+(boat?esc(boat.boatId)+(boat.boatName?" · "+esc(boat.boatName):""):"boat TBC")+'</div>'
       + '<table>'+rows+'</table></div>';
@@ -2555,13 +2604,13 @@ function crewPdf(sid){
   setTimeout(()=>window.print(),120);
 }
 function exportCrewsCsv(){
-  const rows=[["session_id","date","category","crew_id","boat_type","boat_class","rig","boat_id","boat_name","seat","required_side","athlete_id","athlete_name","athlete_side","side_ok"]];
+  const rows=[["session_id","date","category","crew_id","boat_type","boat_class","rig","boat_id","boat_name","seat","required_side","athlete_id","athlete_name","athlete_side","side_ok","oar"]];
   crewSessionList().forEach(s=>crewList(s).forEach(c=>{
     const spec=crewSpec(c.boatType,c.boatClass,c.rig);
     const boat=c.boatRef?state.boats[c.boatRef]:null;
-    const push=(seat,req,aid)=>{ const a=athById(aid); rows.push([s.id,s.date||"",s.category,c.id,c.boatType,c.boatClass,c.rig||"",boat?boat.boatId:"",boat?boat.boatName||"":"",seat,req?REQ_SIDE_LABEL[req]:"",aid||"",a?athFull(a):"",a?(a.sweepSide||""):"",req?(sideOk(aid,req)?"TRUE":"FALSE"):""]); };
-    if(spec.cox) push("Cox","",c.cox);
-    spec.seats.forEach((st,i)=>push(st.label, st.side, c.seats?c.seats[i]:""));
+    const push=(seat,req,aid,oar)=>{ const a=athById(aid); rows.push([s.id,s.date||"",s.category,c.id,c.boatType,c.boatClass,c.rig||"",boat?boat.boatId:"",boat?boat.boatName||"":"",seat,req?REQ_SIDE_LABEL[req]:"",aid||"",a?athFull(a):"",a?(a.sweepSide||""):"",req?(sideOk(aid,req)?"TRUE":"FALSE"):"",oar||""]); };
+    if(spec.cox) push("Cox","",c.cox,"");
+    spec.seats.forEach((st,i)=>push(st.label, st.side, c.seats?c.seats[i]:"", c.oars?c.oars[i]:""));
   }));
   downloadCsv("eubc_crews.csv", rows); toast("Crews CSV downloaded ("+(rows.length-1)+" seats)");
 }
