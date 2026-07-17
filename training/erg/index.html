@@ -6,15 +6,15 @@
 <title>EUBC erg scores</title>
 <!-- ============================================================
   EUBC ERG SCORE SUBMISSION  ·  meggetland.com/training/erg
-  Single-file pattern. Firebase project: trailerplan-a3a9d
+  Single-file pattern. Firebase project: eubctraining-ad9bd
   Node: eubc-ergscores-v1
   Flow: sign in (email link) -> photo -> extraction (worker)
         -> athlete confirmation -> Firebase -> coach queue -> CSV
   Photos are never stored. Confirmed JSON is the system of record.
 ============================================================ -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
   :root{
     --navy:#0E2841;
@@ -252,20 +252,17 @@
    Copy firebaseConfig from the training page (same project).
 ============================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSy…your value…",
+  apiKey: "AIzaSyCv3P_Brq01U_xgV1CNsGPzBbsndleerD8",
   authDomain: "eubctraining-ad9bd.firebaseapp.com",
-  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "eubctraining-ad9bd",
-  storageBucket: "eubctraining-ad9bd.appspot.com",
-  messagingSenderId: "…your value…",
-  appId: "…your value…"
+  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app"
 };
 
 // Cloudflare Worker that holds the Anthropic key (see extract-worker/)
 const EXTRACT_ENDPOINT = "https://eubc-erg-extract.mahughes78.workers.dev/";
 
-// Where this page lives, for the email sign-in link round trip
-const SIGN_IN_URL = "https://www.meggetland.com/training/erg/";
+// Sign-in links return to wherever this page is served from (same approach as the training page)
+const SIGN_IN_URL = location.origin + location.pathname;
 
 const ROOT = "eubc-ergscores-v1";            // all data lives under this node
 const MEMBERS_PATH = ROOT + "/members";       // repoint at the training system's member node to share approvals
@@ -319,7 +316,7 @@ const todayISO = () => new Date().toISOString().slice(0,10);
    AUTH — passwordless email link, member approval queue
 ============================================================ */
 $("btnSendLink").onclick = async () => {
-  const email = $("emailInput").value.trim();
+  const email = $("emailInput").value.trim().toLowerCase();
   const name = $("nameInput").value.trim();
   if (!email || !email.includes("@")) return msg("signInMsg","bad","Enter a valid email address.");
   if (!name) return msg("signInMsg","bad","Enter your name so coaches know who's asking.");
