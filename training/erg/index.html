@@ -251,11 +251,14 @@
    CONFIG — the only section you should need to touch.
    Copy firebaseConfig from the training page (same project).
 ============================================================ */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCv3P_Brq01U_xgV1CNsGPzBbsndleerD8",
+const firebaseConfig = {
+  apiKey: "AIzaSy…your value…",
   authDomain: "eubctraining-ad9bd.firebaseapp.com",
+  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "eubctraining-ad9bd",
-  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app"
+  storageBucket: "eubctraining-ad9bd.appspot.com",
+  messagingSenderId: "…your value…",
+  appId: "…your value…"
 };
 
 // Cloudflare Worker that holds the Anthropic key (see extract-worker/)
@@ -266,7 +269,7 @@ const SIGN_IN_URL = "https://www.meggetland.com/training/erg/";
 
 const ROOT = "eubc-ergscores-v1";            // all data lives under this node
 const MEMBERS_PATH = ROOT + "/members";       // repoint at the training system's member node to share approvals
-const COACHES_PATH = ROOT + "/coaches";       // { emailKey: true } — same dot-to-comma keys as training
+const COACHES_PATH = "eubc-training-v1/coaches";       // { emailKey: true } — same dot-to-comma keys as training
 const SCORES_PATH  = ROOT + "/scores";
 
 const BACKDATE_LIMIT_DAYS = 7;                // soft limit on how far back a session date can be set
