@@ -261,6 +261,15 @@ svg .wkbar:hover rect{opacity:.82}
 .mg-tc{font-size:10.5px;font-weight:500;color:var(--ink-3)}
 .chip.sq{background:var(--accent-soft);color:var(--accent)}
 .mem-squad{padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12.5px}
+.lchip{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.01em;
+  color:#fff;background:var(--lc,#7A8CA0);display:inline-block}
+.load-pick{display:inline-flex;align-items:center;gap:7px}
+.load-pick label{font-size:12px;font-weight:500;color:var(--ink-2)}
+.load-sel{padding:5px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);
+  background:var(--surface);font-size:12.5px;font-weight:600;color:var(--ink)}
+.targets-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.tcell{display:flex;align-items:center;gap:9px}
+.tcell .lchip{width:74px;text-align:center}
 
 /* ---------- modals ---------- */
 .overlay{position:fixed;inset:0;background:rgba(29,37,48,.35);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto}
@@ -471,6 +480,19 @@ const evKind = k => EV_KINDS.find(x=>x.id===k) || EV_KINDS[2];
 /* Default distance→time conversion: seconds per 500m by zone */
 const DEFAULT_SPLITS = { UT2:125, UT1:120, AT:115, TR:110, AN:105, Max:100, Test:110, "S&C":120 };
 
+/* ---- T2-minute load model (Tran et al. 2014) ----
+   T2 min = duration × mode factor × intensity factor, summed per session.
+   Mode factors keyed to the Type field; intensity factors keyed to zone.
+   S&C is excluded from the aerobic total (factor 0). All editable in Settings. */
+const DEFAULT_T2_MODE = { Water:1.00, Erg:1.35, Land:1.00, Off:0 };
+const DEFAULT_T2_INT  = { UT2:1.00, UT1:1.35, AT:2.10, TR:5.00, AN:9.00, Max:9.00, Test:9.00, "S&C":0 };
+
+/* ---- weekly load periods (micro character within a meso block) ---- */
+const LOAD_TYPES  = ["camp","load","maintain","taper"];
+const LOAD_LABEL  = { camp:"Camp", load:"Load", maintain:"Maintain", taper:"Taper", "":"—" };
+const LOAD_COLOR  = { camp:"#2b62a8", load:"#4DA3E0", maintain:"#38B6A5", taper:"#7A8CA0" };
+const DEFAULT_LOAD_TARGETS = { camp:1300, load:1000, maintain:800, taper:600 };
+
 const SEED_LIBRARY = [
   {name:"Steady state 60′", type:"Water", zone:"UT2", mode:"duration", minutes:60, notes:"Continuous paddling, rate 18–20"},
   {name:"Steady state 90′", type:"Water", zone:"UT2", mode:"duration", minutes:90, notes:"Rate 18–20, technical focus"},
@@ -513,6 +535,18 @@ function sessMinutes(s, splits){
   }
   return Math.round(+s.minutes || 0);
 }
+function t2Factors(){
+  const t = (state && state.settings && state.settings.t2) || {};
+  return { mode: Object.assign({}, DEFAULT_T2_MODE, t.mode||{}),
+           intensity: Object.assign({}, DEFAULT_T2_INT, t.intensity||{}) };
+}
+function sessT2(s, splits, F){
+  if(s.type==="Off") return 0;
+  F = F || t2Factors();
+  const fm = F.mode[s.type] ?? 0;
+  const fi = F.intensity[s.zone] ?? 0;
+  return sessMinutes(s, splits) * fm * fi;
+}
 function fmtMin(m){
   if(!m) return "0′";
   if(m < 60) return m+"′";
@@ -536,30 +570,58 @@ function daySessions(squad, dIso){
     .sort((a,b)=> (a.time||"99:99").localeCompare(b.time||"99:99") || (a.order||0)-(b.order||0));
 }
 function weekTotals(squad, wi){
-  const zones = {}; let total=0, water=0, land=0, erg=0, count=0;
+  const zones = {}; let total=0, water=0, land=0, erg=0, count=0, t2=0;
+  const F = t2Factors();
   for(let d=0; d<7; d++){
     for(const s of daySessions(squad, iso(addDays(weekStart(wi), d)))){
       const m = sessMinutes(s, state.settings.splits);
       if(s.type==="Off") continue;
-      total += m; count++;
+      total += m; count++; t2 += sessT2(s, state.settings.splits, F);
       if(s.type==="Water") water+=m; else { land+=m; if(s.type==="Erg") erg+=m; }
       if(s.zone) zones[s.zone] = (zones[s.zone]||0) + m;
     }
   }
-  return { total, water, land, erg, count, zones };
+  return { total, water, land, erg, count, zones, t2:Math.round(t2) };
 }
 function rangeTotals(squad, fromD, toD){ // inclusive dates
-  const zones={}; let total=0, water=0, land=0, erg=0, count=0;
+  const zones={}; let total=0, water=0, land=0, erg=0, count=0, t2=0;
+  const F = t2Factors();
   for(let d=new Date(fromD); d<=toD; d=addDays(d,1)){
     for(const s of daySessions(squad, iso(d))){
       const m = sessMinutes(s, state.settings.splits);
       if(s.type==="Off") continue;
-      total+=m; count++;
+      total+=m; count++; t2 += sessT2(s, state.settings.splits, F);
       if(s.type==="Water") water+=m; else { land+=m; if(s.type==="Erg") erg+=m; }
       if(s.zone) zones[s.zone]=(zones[s.zone]||0)+m;
     }
   }
-  return {total, water, land, erg, count, zones};
+  return {total, water, land, erg, count, zones, t2:Math.round(t2)};
+}
+
+/* ---------------- load period (per-week) helpers ---------------- */
+function loadTypeOf(squad, wi){
+  if(squad==="all") return "";
+  return (state.settings.loadType && state.settings.loadType[squad] && state.settings.loadType[squad][wi]) || "";
+}
+function loadTarget(type){ return type ? (+state.settings.loadTargets[type] || 0) : 0; }
+function setLoadType(squad, wi, type){
+  if(squad==="all") return;
+  state.settings.loadType = state.settings.loadType || {};
+  const map = state.settings.loadType[squad] = state.settings.loadType[squad] || {};
+  if(type) map[wi] = type; else delete map[wi];
+  persist("settings/loadType/"+squad, map);
+  renderAll();
+}
+/* status pill for actual-vs-target T2 (reuses ramp styling): within ±10% = ok */
+function t2Pill(actual, target){
+  if(!target) return '<span class="ramp na">no target</span>';
+  const pct = Math.round(actual/target*100);
+  const cls = (pct>=90 && pct<=110) ? "ok" : (pct<90 ? "warn" : "hot");
+  return '<span class="ramp '+cls+'">'+pct+'% of '+target+'</span>';
+}
+function loadChip(type){
+  if(!type) return "";
+  return '<span class="lchip" style="--lc:'+LOAD_COLOR[type]+'">'+LOAD_LABEL[type]+'</span>';
 }
 
 /* ---------------- role / view-as / membership ---------------- */
@@ -652,6 +714,12 @@ function normalise(v){
   v.settings.splits = Object.assign({}, DEFAULT_SPLITS, v.settings.splits||{});
   v.settings.horizon = v.settings.horizon || {};
   for(const s in SQUADS) v.settings.horizon[s] = v.settings.horizon[s] || iso(addDays(SEASON_START,27));
+  v.settings.t2 = v.settings.t2 || {};
+  v.settings.t2.mode = Object.assign({}, DEFAULT_T2_MODE, v.settings.t2.mode||{});
+  v.settings.t2.intensity = Object.assign({}, DEFAULT_T2_INT, v.settings.t2.intensity||{});
+  v.settings.loadTargets = Object.assign({}, DEFAULT_LOAD_TARGETS, v.settings.loadTargets||{});
+  v.settings.loadType = v.settings.loadType || {};
+  for(const s in SQUADS) v.settings.loadType[s] = v.settings.loadType[s] || {};
   return v;
 }
 function eventsOn(dIso, squad){
@@ -952,6 +1020,13 @@ function renderWeek(){
   const nextOk = curWeek<N_WEEKS-1 && weekVisible(curSquad,curWeek+1);
 
   const blk = blockOfWeek(curWeek);
+  const lt = loadTypeOf(curSquad, curWeek);
+  const loadCtrl = (isCoach && curSquad!=="all")
+    ? '<div class="load-pick"><label>Load week</label><select class="load-sel" onchange="setLoadType(\''+curSquad+'\','+curWeek+',this.value)">'
+      + '<option value="">— none —</option>'
+      + LOAD_TYPES.map(t=>'<option value="'+t+'"'+(t===lt?" selected":"")+'>'+LOAD_LABEL[t]+' · '+loadTarget(t)+' T2</option>').join("")
+      + '</select></div>'
+    : (lt ? '<div class="load-pick"><label>Load week</label>'+loadChip(lt)+'</div>' : "");
   let html = '<div class="week-top">'
     + '<div class="week-title"><h2>Week '+(curWeek+1)+' <span style="color:var(--ink-soft);font-weight:600">of '+N_WEEKS+'</span></h2>'
     + '<div class="dates">'+weekLabel(curWeek)+' · '+SQNAME[curSquad]
@@ -961,6 +1036,7 @@ function renderWeek(){
     + '<button class="btn small" onclick="goToday()">Today</button>'
     + '<button class="btn small" onclick="navWeek(1)" '+(nextOk?"":"disabled style='opacity:.4'")+'>Next →</button>'
     + '</div><div class="spacer"></div>'
+    + loadCtrl
     + (isCoach && curSquad!=="all" ? '<button class="btn small" onclick="copyPrevWeek()">Copy previous week</button>' : "")
     + '</div>';
 
@@ -1014,8 +1090,12 @@ function renderWeek(){
         return '<rect x="'+x+'" y="'+(32-bh)+'" width="'+bw2+'" height="'+bh+'" rx="2" fill="'+(cur?"var(--baby-deep)":"rgba(14,42,60,.18)")+'"><title>W'+(s0+j+1)+' · '+fmtMin(v)+'</title></rect>';
       }).join("") + '</svg>';
 
+  const t2tgt = loadTarget(lt);
   html += '<div class="stats" style="margin-top:16px;margin-bottom:0">'
     + '<div class="glass stat"><div class="lab">Weekly volume</div><div class="val">'+fmtMin(t.total)+'</div>'+spark+'</div>'
+    + '<div class="glass stat"><div class="lab">T2 load'+(lt?' · '+LOAD_LABEL[lt]:"")+'</div>'
+    + '<div class="val">'+t.t2+' <small>T2 min</small></div>'
+    + '<div style="margin-top:8px">'+t2Pill(t.t2, t2tgt)+'</div></div>'
     + '<div class="glass stat"><div class="lab">Ramp vs 4-wk avg</div><div class="val">'+rampBadge(ramp)+'</div>'
     + '<div style="font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-top:8px">'+(ramp===null?"Not enough prior weeks":(ramp>15?"Sharp increase — check load":ramp>8?"Building — keep an eye on it":"Within normal range"))+'</div></div>'
     + '<div class="glass stat"><div class="lab">Sessions</div><div class="val">'+t.count+'</div></div>'
@@ -1079,13 +1159,14 @@ function renderOverview(){
     const from = m < SEASON_START ? SEASON_START : m;
     const to = mEnd > seasonEnd ? seasonEnd : mEnd;
     const clipped = to > horizon ? horizon : to;
-    const t = clipped >= from ? rangeTotals(curSquad, from, clipped) : {total:0,water:0,land:0,count:0,zones:{}};
+    const t = clipped >= from ? rangeTotals(curSquad, from, clipped) : {total:0,water:0,land:0,count:0,zones:{},t2:0};
     const mEvs = Object.entries(state.events||{}).map(([id,e])=>({id,...e}))
       .filter(e=>{ const d=fromIso(e.date); return d>=m && d<=mEnd && (curSquad==="all"||e.squad==="all"||e.squad===curSquad); })
       .sort((a,b)=>a.date.localeCompare(b.date));
     const evHtml2 = mEvs.map(e=>'<div style="font-size:11.5px;font-weight:500;color:var(--ink-2);margin-top:4px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:'+evKind(e.kind).color+';margin-right:6px"></span>'+esc(e.name)+' · '+fmtDate(fromIso(e.date))+'</div>').join("");
     html += '<div class="glass ov-m"><h4>'+MONTHS[m.getMonth()]+' '+m.getFullYear()+'</h4>'
       + '<div class="tot">'+fmtMin(t.total)+' <small>· '+t.count+' sessions</small></div>'
+      + '<div style="font-size:12px;font-weight:600;color:var(--accent);margin:-2px 0 7px">'+t.t2+' T2 min</div>'
       + zoneBarHtml(t.zones,t.total,10)
       + '<div class="legend" style="font-size:11px">'+zonePctLegend(t.zones,t.total)+'</div>'
       + evHtml2 + '</div>';
@@ -1093,13 +1174,15 @@ function renderOverview(){
   html += '</div>';
 
   html += '<div class="glass" style="padding:6px 4px;overflow-x:auto"><table class="weeks"><thead><tr>'
-    + '<th>Week</th><th>Dates</th><th class="num">Volume</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Land</th><th>Zones</th></tr></thead><tbody>';
+    + '<th>Week</th><th>Dates</th><th>Load</th><th class="num">Volume</th><th class="num">T2</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Land</th><th>Zones</th></tr></thead><tbody>';
   for(let i=0;i<=lastVis;i++){
     const t = weekTotals(curSquad,i);
     const evs = eventsInWeek(i, curSquad);
     const evHtml = evs.map(e=>'<div style="font-size:11.5px;font-weight:600;color:var(--ink-soft);margin-top:2px"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+evKind(e.kind).color+';margin-right:5px"></span>'+esc(e.name)+' · '+fmtDate(fromIso(e.date))+'</div>').join("");
+    const lti = loadTypeOf(curSquad,i);
     html += '<tr class="clickable" onclick="jumpWeek('+i+')"><td class="num">W'+(i+1)+'</td><td>'+weekLabel(i)+evHtml+'</td>'
-      + '<td class="num">'+fmtMin(t.total)+'</td><td class="num">'+t.count+'</td>'
+      + '<td>'+(lti?loadChip(lti):'<span style="color:var(--ink-soft)">—</span>')+'</td>'
+      + '<td class="num">'+fmtMin(t.total)+'</td><td class="num" style="color:var(--accent)">'+t.t2+'</td><td class="num">'+t.count+'</td>'
       + '<td class="num">'+fmtMin(t.water)+'</td><td class="num">'+fmtMin(t.land)+'</td>'
       + '<td><div class="mini">'+ZONES.filter(z=>t.zones[z]).map(z=>'<div style="width:'+(t.zones[z]/t.total*100)+'%;background:'+ZCOLOR[z]+'"></div>').join("")+'</div></td></tr>';
   }
@@ -1630,14 +1713,18 @@ function renderAnalytics(){
 
   // MICRO
   html += '<div class="glass" style="padding:6px 4px;overflow-x:auto"><table class="weeks"><thead><tr>'
-    + '<th>Week</th><th>Block</th><th class="num">Volume</th><th class="num">Ramp</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Erg</th><th class="num">Other</th><th>Zones</th></tr></thead><tbody>';
+    + '<th>Week</th><th>Block</th><th>Load</th><th class="num">Volume</th><th class="num">T2</th><th class="num">vs target</th><th class="num">Ramp</th><th class="num">Sessions</th><th class="num">Water</th><th class="num">Erg</th><th class="num">Other</th><th>Zones</th></tr></thead><tbody>';
   for(let i=0;i<N_WEEKS;i++){
     const t = totals[i];
     const b = blockOfWeek(i);
+    const lti = loadTypeOf(curSquad,i), ltgt = loadTarget(lti);
     html += '<tr class="clickable" onclick="jumpWeek('+i+')">'
       + '<td class="num">W'+(i+1)+'<div style="font-weight:500;font-size:11px;color:var(--ink-soft)">'+fmtDate(weekStart(i))+'</div></td>'
       + '<td>'+(b?'<span style="font-weight:700;color:'+b.color+'">'+esc(b.name)+'</span>':'<span style="color:var(--ink-soft)">—</span>')+'</td>'
+      + '<td>'+(lti?loadChip(lti):'<span style="color:var(--ink-soft)">—</span>')+'</td>'
       + '<td class="num">'+fmtMin(t.total)+'</td>'
+      + '<td class="num" style="color:var(--accent);font-weight:700">'+t.t2+'</td>'
+      + '<td class="num">'+(ltgt?t2Pill(t.t2,ltgt):'<span class="ramp na">—</span>')+'</td>'
       + '<td class="num">'+rampBadge(t.total?rampPct(totals,i):null)+'</td>'
       + '<td class="num">'+t.count+'</td>'
       + '<td class="num">'+fmtMin(t.water)+'</td><td class="num">'+fmtMin(t.erg)+'</td><td class="num">'+fmtMin(t.land-t.erg)+'</td>'
@@ -1672,8 +1759,10 @@ function renderMulti(n){
     const vis = weekVisible(curSquad, w);
     const t = vis ? weekTotals(curSquad, w) : null;
     const b = blockOfWeek(w);
+    const ltw = loadTypeOf(curSquad,w);
     html += '<div class="mg-wk" onclick="jumpWeek('+w+')"><div class="mg-wknum">W'+(w+1)+'</div><div class="mg-wkdate">'+fmtDate(weekStart(w))+'</div>'
-      + (b?'<div class="mg-blk" style="color:'+b.color+'">'+esc(b.name)+'</div>':"")+'</div>';
+      + (b?'<div class="mg-blk" style="color:'+b.color+'">'+esc(b.name)+'</div>':"")
+      + (ltw?'<div style="margin-top:3px">'+loadChip(ltw)+'</div>':"")+'</div>';
     for(let d=0; d<7; d++){
       const date = addDays(weekStart(w), d);
       const dIso = iso(date);
@@ -1690,7 +1779,9 @@ function renderMulti(n){
           }).join("")
         + '</div>';
     }
-    html += '<div class="mg-tot">'+(vis?fmtMin(t.total):"—")+(vis&&t.count?'<div class="mg-tc">'+t.count+' sessions</div>':"")+'</div>';
+    html += '<div class="mg-tot">'+(vis?fmtMin(t.total):"—")
+      +(vis?'<div class="mg-tc" style="color:var(--accent)">'+t.t2+' T2</div>':"")
+      +(vis&&t.count?'<div class="mg-tc">'+t.count+' sessions</div>':"")+'</div>';
   }
   html += '</div></div>';
   if(end < start+n-1 && role()!=="coach")
@@ -1712,16 +1803,17 @@ function downloadCsv(name, rows){
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
 }
 function exportPlanCsv(){
-  const rows = [["session_key","squad","date","iso_week_start","season_week","block","day","time","session_name","type","zone","volume_mode","planned_km","entered_minutes","planned_minutes","location","notes"]];
+  const rows = [["session_key","squad","date","iso_week_start","season_week","block","load_type","week_t2_target","day","time","session_name","type","zone","volume_mode","planned_km","entered_minutes","planned_minutes","t2_minutes","location","notes"]];
   for(const sq in SQUADS){
     const dates = Object.keys(state.plans[sq]||{}).sort();
     for(const dIso of dates){
       const d = fromIso(dIso), w = weekOfDate(d);
       const b = blockOfWeek(w);
+      const ltx = loadTypeOf(sq, w);
       for(const s of daySessions(sq, dIso)){
-        rows.push([sq+"_"+dIso+"_"+s.id, SQUADS[sq], dIso, iso(weekStart(Math.max(0,w))), "W"+(w+1), b?b.name:"", DAYS[(d.getDay()+6)%7],
+        rows.push([sq+"_"+dIso+"_"+s.id, SQUADS[sq], dIso, iso(weekStart(Math.max(0,w))), "W"+(w+1), b?b.name:"", ltx?LOAD_LABEL[ltx]:"", loadTarget(ltx)||"", DAYS[(d.getDay()+6)%7],
           s.time||"", s.name, s.type, s.zone||"", s.mode, s.mode==="distance"?(+s.km||0):"", s.mode==="duration"?(+s.minutes||0):"",
-          sessMinutes(s, state.settings.splits), s.location||"", s.notes||""]);
+          sessMinutes(s, state.settings.splits), Math.round(sessT2(s, state.settings.splits)), s.location||"", s.notes||""]);
       }
     }
   }
@@ -1815,6 +1907,27 @@ function openSettings(){
   }
   html += '</div><div class="hint">Used to estimate minutes for distance-based sessions, e.g. 125s = 2:05 /500m.</div>';
 
+  // ---- weekly load targets (T2 minutes) ----
+  const lts = state.settings.loadTargets;
+  html += '<div class="field" style="margin-top:20px"><label>Weekly load targets (T2 minutes)</label></div>'
+    + '<div class="targets-grid">'
+    + LOAD_TYPES.map(t=>'<div class="tcell">'+loadChip(t)
+        + '<input type="number" min="0" step="50" id="lt_'+t+'" value="'+(+lts[t]||0)+'" style="flex:1;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13.5px"></div>').join("")
+    + '</div>'
+    + '<div class="hint">Tag any week Camp / Load / Maintain / Taper from the week view; its T2 total is checked against the target here (±10% reads as on-target).</div>';
+
+  // ---- T2 weighting factors ----
+  const F = t2Factors();
+  html += '<div class="field" style="margin-top:20px"><label>T2 mode factors</label></div><div class="splits-grid">'
+    + ["Water","Erg","Land"].map(k=>'<div class="frow" style="align-items:center"><div style="width:74px;font-weight:700">'+(k==="Land"?"Other land":k)+'</div>'
+        + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.05" min="0" id="t2m_'+k+'" value="'+F.mode[k]+'"></div></div>').join("")
+    + '</div>'
+    + '<div class="field" style="margin-top:12px"><label>T2 intensity factors (per zone)</label></div><div class="splits-grid">'
+    + ZONES.map(z=>'<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+z+'</div>'
+        + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.05" min="0" id="t2i_'+ZKEY(z)+'" value="'+F.intensity[z]+'"></div></div>').join("")
+    + '</div>'
+    + '<div class="hint">T2 min = duration × mode factor × intensity factor. Defaults follow Tran et&nbsp;al. (2014); UT2 is the 1.0 anchor and S&amp;C is excluded (0). TR = 5.0 is the factor coaches most often retune.</div>';
+
   const myKey = emailKey(auth.email);
   const coachKeys = Object.keys(state.coaches||{}).sort();
   html += '<div class="field" style="margin-top:18px"><label>Coaches — edit access</label></div>'
@@ -1843,6 +1956,21 @@ function saveSettings(){
   for(const z of ZONES){
     const v = +document.getElementById("sp_"+ZKEY(z)).value;
     if(v>=60 && v<=240) state.settings.splits[z]=v;
+  }
+  for(const t of LOAD_TYPES){
+    const el = document.getElementById("lt_"+t);
+    if(el){ const v=+el.value; if(v>=0) state.settings.loadTargets[t]=v; }
+  }
+  state.settings.t2 = state.settings.t2 || {};
+  state.settings.t2.mode = state.settings.t2.mode || {};
+  state.settings.t2.intensity = state.settings.t2.intensity || {};
+  for(const k of ["Water","Erg","Land"]){
+    const el = document.getElementById("t2m_"+k);
+    if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0) state.settings.t2.mode[k]=v; }
+  }
+  for(const z of ZONES){
+    const el = document.getElementById("t2i_"+ZKEY(z));
+    if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0) state.settings.t2.intensity[z]=v; }
   }
   persist("settings", state.settings);
   hide("ovSettings"); toast("Settings saved"); renderAll();
