@@ -1,1 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>EUBC erg scores</title>
+<!-- ============================================================
+  EUBC ERG SCORE SUBMISSION  ·  meggetland.com/training/erg
+  Single-file pattern. Firebase project: trailerplan-a3a9d
+  Node: eubc-ergscores-v1
+  Flow: sign in (email link) -> photo -> extraction (worker)
+        -> athlete confirmation -> Firebase -> coach queue -> CSV
+  Photos are never stored. Confirmed JSON is the system of record.
+============================================================ -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --navy:#0E2841;
+    --blade:#6BB7E0;
+    --canvas:#f2f3f5;
+    --panel:#ffffff;
+    --hairline:#e2e4e8;
+    --ink:#1a1d21;
+    --ink-soft:#5c6470;
+    --ok:#2e7d4f;
+    --warn:#b07a1e;
+    --bad:#b3392e;
+    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:"Swiss 721","Swiss721 BT","Helvetica Neue",Helvetica,Arial,sans-serif;
+    background:var(--canvas);color:var(--ink);
+    font-size:15px;line-height:1.45;
+    min-height:100vh;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px 64px}
 
+  /* header */
+  header{
+    background:var(--navy);color:#fff;
+    padding:14px 16px;margin-bottom:20px;
+  }
+  header .h-inner{max-width:640px;margin:0 auto;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  header h1{font-size:17px;font-weight:600;letter-spacing:.01em}
+  header .who{font-size:12px;color:var(--blade);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+  header .who button{background:none;border:none;color:var(--blade);font-size:12px;font-family:var(--mono);cursor:pointer;text-decoration:underline;padding:0}
+
+  /* panels */
+  .panel{
+    background:var(--panel);border:1px solid var(--hairline);
+    padding:18px;margin-bottom:14px;
+  }
+  .panel h2{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--navy)}
+  .panel p.note{font-size:13px;color:var(--ink-soft);margin-bottom:10px}
+
+  /* buttons */
+  .btn{
+    display:block;width:100%;
+    background:var(--navy);color:#fff;border:none;
+    font-family:inherit;font-size:15px;font-weight:600;
+    padding:13px 16px;cursor:pointer;
+    letter-spacing:.01em;
+  }
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.secondary{background:var(--panel);color:var(--navy);border:1px solid var(--navy)}
+  .btn.ghost{background:none;color:var(--ink-soft);border:1px solid var(--hairline);font-weight:400}
+  .btn + .btn{margin-top:10px}
+  .btn-row{display:flex;gap:10px}
+  .btn-row .btn{flex:1}
+
+  /* inputs */
+  label.fld{display:block;font-size:12px;color:var(--ink-soft);margin:12px 0 4px}
+  input[type=text],input[type=email],input[type=date],input[type=number]{
+    width:100%;border:1px solid var(--hairline);background:#fff;
+    font-family:inherit;font-size:15px;padding:10px;color:var(--ink);
+  }
+  input:focus{outline:2px solid var(--blade);outline-offset:-1px}
+  input.mono{font-family:var(--mono);font-size:14px}
+
+  /* status chips + banners */
+  .banner{font-size:13px;padding:10px 12px;margin:10px 0;border:1px solid}
+  .banner.info{border-color:var(--blade);background:#f0f8fd;color:var(--navy)}
+  .banner.warn{border-color:#e5c58a;background:#fdf6e9;color:var(--warn)}
+  .banner.bad{border-color:#e3b1ab;background:#fdf0ee;color:var(--bad)}
+  .banner.ok{border-color:#a9d4bb;background:#eef8f2;color:var(--ok)}
+
+  /* photo area */
+  .photo-drop{
+    border:1px dashed var(--blade);background:#fafcfe;
+    padding:28px 16px;text-align:center;cursor:pointer;color:var(--navy);
+  }
+  .photo-drop strong{display:block;font-size:15px;margin-bottom:4px}
+  .photo-drop span{font-size:12px;color:var(--ink-soft)}
+  #photoPreview{width:100%;display:none;border:1px solid var(--hairline);margin-top:10px}
+
+  /* confirmation table */
+  table.pieces{width:100%;border-collapse:collapse;margin-top:8px}
+  table.pieces th{
+    font-size:11px;font-weight:600;color:var(--ink-soft);text-align:left;
+    padding:6px 4px;border-bottom:1px solid var(--navy);
+  }
+  table.pieces td{padding:4px 2px;border-bottom:1px solid var(--hairline)}
+  table.pieces input{
+    width:100%;border:1px solid transparent;background:none;
+    font-family:var(--mono);font-size:14px;padding:6px 4px;color:var(--ink);
+  }
+  table.pieces input:focus{border-color:var(--blade);background:#fff;outline:none}
+  .totals-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:6px}
+  .totals-grid .cell label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:2px}
+  .totals-grid .cell input{width:100%;font-family:var(--mono);font-size:15px;padding:8px;border:1px solid var(--hairline)}
+
+  /* score list */
+  .score-card{border:1px solid var(--hairline);padding:12px;margin-bottom:10px;background:#fff}
+  .score-card .fmt{font-family:var(--mono);font-size:14px;color:var(--navy);font-weight:600}
+  .score-card .meta{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .score-card .nums{font-family:var(--mono);font-size:13px;margin-top:6px}
+  .score-card .nums b{color:var(--navy)}
+  .score-card .flag{font-size:11px;color:var(--warn);margin-top:4px}
+
+  .spinner{
+    display:inline-block;width:16px;height:16px;border:2px solid var(--hairline);
+    border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite;
+    vertical-align:-3px;margin-right:8px;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spinner{animation-duration:2s}}
+
+  .screen{display:none}
+  .screen.active{display:block}
+  .tiny{font-size:11px;color:var(--ink-soft)}
+  .mono-ref{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-inner">
+    <h1>EUBC erg scores</h1>
+    <div class="who" id="whoBox"></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ================= SIGN IN ================= -->
+  <div class="screen" id="scrSignIn">
+    <div class="panel">
+      <h2>Sign in</h2>
+      <p class="note">Use your university email. We'll send you a sign-in link — no password needed. One time per device.</p>
+      <label class="fld" for="emailInput">Email</label>
+      <input type="email" id="emailInput" placeholder="s1234567@ed.ac.uk" autocomplete="email">
+      <label class="fld" for="nameInput">Name (first and last)</label>
+      <input type="text" id="nameInput" placeholder="Your name" autocomplete="name">
+      <div id="signInMsg"></div>
+      <button class="btn" id="btnSendLink" style="margin-top:14px">Send sign-in link</button>
+    </div>
+  </div>
+
+  <!-- ================= PENDING APPROVAL ================= -->
+  <div class="screen" id="scrPending">
+    <div class="panel">
+      <h2>Waiting for approval</h2>
+      <p class="note">You're signed in, but a coach needs to approve your account before you can submit scores. This usually happens within a day — no need to do anything else.</p>
+    </div>
+  </div>
+
+  <!-- ================= MEMBER HOME ================= -->
+  <div class="screen" id="scrHome">
+    <div class="panel">
+      <h2>Submit an erg score</h2>
+      <p class="note">Photograph the <b>View detail</b> screen in the PM5 memory (Menu → Memory → pick the workout). Fill the frame with the screen and avoid glare.</p>
+      <div class="photo-drop" id="photoDrop">
+        <strong>Take or choose a photo</strong>
+        <span>of the finished erg screen</span>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+      <img id="photoPreview" alt="Erg screen photo preview">
+      <div id="extractMsg"></div>
+      <button class="btn" id="btnExtract" style="margin-top:12px" disabled>Read the screen</button>
+    </div>
+    <div class="panel">
+      <h2>My recent scores</h2>
+      <div id="myScores"><p class="note">Nothing submitted yet.</p></div>
+    </div>
+    <div class="panel" id="coachPanel" style="display:none">
+      <h2>Coach view</h2>
+      <p class="note">Most recent submissions across the squad, newest first.</p>
+      <div id="coachQueue"></div>
+      <button class="btn secondary" id="btnCsv" style="margin-top:12px">Export CSV for Power BI</button>
+      <p class="tiny" style="margin-top:8px">One row per piece, long format. Session summary repeated on each row.</p>
+    </div>
+  </div>
+
+  <!-- ================= CONFIRMATION ================= -->
+  <div class="screen" id="scrConfirm">
+    <div class="panel">
+      <h2>Check your score</h2>
+      <p class="note">These numbers were read from your photo. Correct anything that's wrong before saving — this is the version that counts.</p>
+
+      <label class="fld" for="cFormat">Session format</label>
+      <input type="text" id="cFormat" class="mono" placeholder="e.g. 4x675m/1:40r">
+
+      <label class="fld" for="cDate">Session date (the day you rowed it)</label>
+      <input type="date" id="cDate">
+      <div id="screenDateNote"></div>
+
+      <h2 style="margin-top:18px">Whole session</h2>
+      <div class="totals-grid">
+        <div class="cell"><label for="cWorkTime">Work time</label><input type="text" id="cWorkTime" placeholder="9:52.2"></div>
+        <div class="cell"><label for="cWorkDist">Distance (m)</label><input type="text" id="cWorkDist" placeholder="2700"></div>
+        <div class="cell"><label for="cAvgSplit">Avg split /500m</label><input type="text" id="cAvgSplit" placeholder="1:49.6"></div>
+        <div class="cell"><label for="cAvgRate">Avg rate (s/m)</label><input type="text" id="cAvgRate" placeholder="26"></div>
+      </div>
+      <label class="fld" for="cTotalTime">Total time incl. rest (optional)</label>
+      <input type="text" id="cTotalTime" class="mono" placeholder="12:32.2">
+
+      <h2 style="margin-top:18px">Pieces</h2>
+      <table class="pieces">
+        <thead><tr><th>#</th><th>Time</th><th>Metres</th><th>/500m</th><th>Rate</th><th>HR</th><th></th></tr></thead>
+        <tbody id="piecesBody"></tbody>
+      </table>
+      <button class="btn ghost" id="btnAddPiece" style="margin-top:10px">Add a piece</button>
+
+      <div id="checksBox"></div>
+      <div id="saveMsg"></div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn secondary" id="btnBack">Back</button>
+        <button class="btn" id="btnSave">Save score</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SAVED ================= -->
+  <div class="screen" id="scrSaved">
+    <div class="panel">
+      <h2>Score saved</h2>
+      <div class="banner ok" id="savedSummary"></div>
+      <p class="note">Keep the photo on your phone if you'd ever like to query anything — we don't store it.</p>
+      <button class="btn" id="btnAnother">Submit another</button>
+      <button class="btn ghost" id="btnDone">Done</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ============================================================
+   CONFIG — the only section you should need to touch.
+   Copy firebaseConfig from the training page (same project).
+============================================================ */
+const firebaseConfig = {
+  apiKey: "PASTE_FROM_TRAINING_PAGE",
+  authDomain: "trailerplan-a3a9d.firebaseapp.com",
+  databaseURL: "https://trailerplan-a3a9d-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "trailerplan-a3a9d",
+  storageBucket: "trailerplan-a3a9d.appspot.com",
+  messagingSenderId: "PASTE_FROM_TRAINING_PAGE",
+  appId: "PASTE_FROM_TRAINING_PAGE"
+};
+
+// Cloudflare Worker that holds the Anthropic key (see extract-worker/)
+const EXTRACT_ENDPOINT = "https://eubc-erg-extract.YOUR-SUBDOMAIN.workers.dev";
+
+// Where this page lives, for the email sign-in link round trip
+const SIGN_IN_URL = "https://www.meggetland.com/training/erg/";
+
+const ROOT = "eubc-ergscores-v1";            // all data lives under this node
+const MEMBERS_PATH = ROOT + "/members";       // repoint at the training system's member node to share approvals
+const COACHES_PATH = ROOT + "/coaches";       // { emailKey: true } — same dot-to-comma keys as training
+const SCORES_PATH  = ROOT + "/scores";
+
+const BACKDATE_LIMIT_DAYS = 7;                // soft limit on how far back a session date can be set
+/* ============================================================ */
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+const $ = id => document.getElementById(id);
+const emailKey = e => e.toLowerCase().trim().replace(/\./g, ",");
+
+let me = null;            // { email, key, name, isCoach }
+let photoBlob = null;     // downscaled JPEG awaiting extraction
+let extracted = null;     // last extraction result (raw provenance)
+let myScoreCache = [];    // for duplicate checks
+let coachScoreCache = []; // for CSV export
+
+/* ---------------- screens ---------------- */
+function show(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+  window.scrollTo(0,0);
+}
+function msg(el, kind, text){
+  $(el).innerHTML = text ? `<div class="banner ${kind}">${text}</div>` : "";
+}
+
+/* ---------------- time helpers ---------------- */
+// "12:32.2" | "1:49.6" | "58.4" -> seconds (float), else null
+function toSec(s){
+  if (s == null) return null;
+  s = String(s).trim();
+  if (!s) return null;
+  const m = s.match(/^(?:(\d+):)?(\d{1,2}(?:\.\d+)?)$/);
+  if (!m) return null;
+  return (m[1] ? parseInt(m[1],10)*60 : 0) + parseFloat(m[2]);
+}
+function fmtSec(sec, dp=1){
+  if (sec == null) return "";
+  const m = Math.floor(sec/60), s = sec - m*60;
+  return m + ":" + s.toFixed(dp).padStart(dp?4+dp-1:2,"0");
+}
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+/* ============================================================
+   AUTH — passwordless email link, member approval queue
+============================================================ */
+$("btnSendLink").onclick = async () => {
+  const email = $("emailInput").value.trim();
+  const name = $("nameInput").value.trim();
+  if (!email || !email.includes("@")) return msg("signInMsg","bad","Enter a valid email address.");
+  if (!name) return msg("signInMsg","bad","Enter your name so coaches know who's asking.");
+  try {
+    $("btnSendLink").disabled = true;
+    await auth.sendSignInLinkToEmail(email, { url: SIGN_IN_URL, handleCodeInApp: true });
+    localStorage.setItem("ergEmail", email);
+    localStorage.setItem("ergName", name);
+    msg("signInMsg","ok","Link sent — check your inbox and open it on this device.");
+  } catch (e) {
+    msg("signInMsg","bad","Couldn't send the link: " + e.message);
+    $("btnSendLink").disabled = false;
+  }
+};
+
+async function completeLinkSignIn(){
+  if (!auth.isSignInWithEmailLink(window.location.href)) return;
+  let email = localStorage.getItem("ergEmail");
+  if (!email) email = window.prompt("Confirm your email to finish signing in:");
+  try {
+    await auth.signInWithEmailLink(email, window.location.href);
+    history.replaceState(null, "", window.location.pathname);
+  } catch (e) {
+    msg("signInMsg","bad","Sign-in link didn't work: " + e.message);
+  }
+}
+
+auth.onAuthStateChanged(async user => {
+  if (!user || !user.email) { me = null; $("whoBox").innerHTML=""; show("scrSignIn"); return; }
+  const key = emailKey(user.email);
+  const memberSnap = await db.ref(`${MEMBERS_PATH}/${key}`).get();
+  let member = memberSnap.val();
+  if (!member) {
+    member = { name: localStorage.getItem("ergName") || user.email, email: user.email,
+               status: "pending", requestedAt: firebase.database.ServerValue.TIMESTAMP };
+    await db.ref(`${MEMBERS_PATH}/${key}`).set(member);
+  }
+  const coachSnap = await db.ref(`${COACHES_PATH}/${key}`).get();
+  me = { email: user.email, key, name: member.name || user.email, isCoach: !!coachSnap.val() };
+  $("whoBox").innerHTML = `${me.name} · <button id="btnOut">sign out</button>`;
+  $("btnOut").onclick = () => auth.signOut();
+
+  if (member.status !== "approved" && !me.isCoach) { show("scrPending"); return; }
+  show("scrHome");
+  loadMyScores();
+  if (me.isCoach) { $("coachPanel").style.display="block"; loadCoachQueue(); }
+});
+
+/* ============================================================
+   PHOTO — client-side downscale, never stored anywhere
+============================================================ */
+$("photoDrop").onclick = () => $("photoInput").click();
+$("photoInput").onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  photoBlob = await downscale(file, 1568, 0.85);
+  $("photoPreview").src = URL.createObjectURL(photoBlob);
+  $("photoPreview").style.display = "block";
+  $("btnExtract").disabled = false;
+  msg("extractMsg","","");
+};
+
+function downscale(file, maxEdge, quality){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? res(b) : rej(new Error("Couldn't process the photo")), "image/jpeg", quality);
+    };
+    img.onerror = () => rej(new Error("Couldn't open that file as an image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ============================================================
+   EXTRACTION — send to worker, receive strict JSON
+============================================================ */
+$("btnExtract").onclick = async () => {
+  if (!photoBlob) return;
+  $("btnExtract").disabled = true;
+  msg("extractMsg","info",`<span class="spinner"></span>Reading the screen…`);
+  try {
+    const b64 = await blobToB64(photoBlob);
+    const r = await fetch(EXTRACT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: b64, mediaType: "image/jpeg" })
+    });
+    if (!r.ok) throw new Error("extraction service returned " + r.status);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    extracted = data;
+    fillConfirm(data);
+    msg("extractMsg","","");
+    show("scrConfirm");
+  } catch (e) {
+    msg("extractMsg","bad","Couldn't read the screen: " + e.message +
+        "<br>Try again with the screen filling the frame and no glare — or fill the numbers in by hand.");
+    extracted = null;
+    fillConfirm(emptyExtraction());
+    show("scrConfirm");
+  } finally {
+    $("btnExtract").disabled = false;
+  }
+};
+
+const blobToB64 = blob => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onload = () => res(r.result.split(",")[1]);
+  r.onerror = () => rej(new Error("read failed"));
+  r.readAsDataURL(blob);
+});
+
+const emptyExtraction = () => ({ sessionFormat:"", screenDate:null, totalTime:null,
+  work:{time:"",distance:"",avgSplit:"",avgRate:""}, pieces:[] });
+
+/* ============================================================
+   CONFIRMATION SCREEN
+============================================================ */
+function fillConfirm(d){
+  $("cFormat").value = d.sessionFormat || "";
+  $("cDate").value = todayISO();
+  $("cWorkTime").value = d.work?.time || "";
+  $("cWorkDist").value = d.work?.distance ?? "";
+  $("cAvgSplit").value = d.work?.avgSplit || "";
+  $("cAvgRate").value = d.work?.avgRate ?? "";
+  $("cTotalTime").value = d.totalTime || "";
+  $("piecesBody").innerHTML = "";
+  (d.pieces || []).forEach(addPieceRow);
+  if (!d.pieces || !d.pieces.length) addPieceRow({});
+  // screen date provenance — never used for analysis, surfaced if it disagrees
+  if (d.screenDate && d.screenDate !== todayISO()) {
+    $("screenDateNote").innerHTML =
+      `<div class="banner warn">The erg screen shows <span class="mono-ref">${d.screenDate}</span>. ` +
+      `If you rowed on a different day than today, change the date above — otherwise the machine's clock is probably wrong and today's date will be used.</div>`;
+  } else {
+    $("screenDateNote").innerHTML = "";
+  }
+  msg("saveMsg","","");
+  runChecks();
+}
+
+function addPieceRow(p){
+  const tb = $("piecesBody");
+  const tr = document.createElement("tr");
+  const n = tb.children.length + 1;
+  tr.innerHTML = `
+    <td class="mono-ref">${n}</td>
+    <td><input type="text" data-f="time" value="${p.time||""}" placeholder="2:28.8" inputmode="decimal"></td>
+    <td><input type="text" data-f="distance" value="${p.distance??""}" placeholder="675" inputmode="numeric"></td>
+    <td><input type="text" data-f="split" value="${p.split||""}" placeholder="1:50.2" inputmode="decimal"></td>
+    <td><input type="text" data-f="rate" value="${p.rate??""}" placeholder="26" inputmode="numeric"></td>
+    <td><input type="text" data-f="hr" value="${p.hr??""}" placeholder="—" inputmode="numeric"></td>
+    <td><button class="btn ghost" style="padding:4px 8px;font-size:12px" title="Remove piece">×</button></td>`;
+  tr.querySelector("button").onclick = () => { tr.remove(); renumber(); runChecks(); };
+  tr.querySelectorAll("input").forEach(i => i.addEventListener("input", runChecks));
+  tb.appendChild(tr);
+}
+function renumber(){
+  [...$("piecesBody").children].forEach((tr,i) => tr.firstElementChild.textContent = i+1);
+}
+$("btnAddPiece").onclick = () => { addPieceRow({}); runChecks(); };
+["cWorkTime","cWorkDist","cAvgSplit","cAvgRate","cFormat","cDate"].forEach(id =>
+  $(id).addEventListener("input", runChecks));
+
+function readPieces(){
+  return [...$("piecesBody").children].map(tr => {
+    const g = f => tr.querySelector(`[data-f=${f}]`).value.trim();
+    return { time:g("time"), distance:g("distance"), split:g("split"), rate:g("rate"), hr:g("hr") };
+  }).filter(p => p.time || p.distance || p.split);
+}
+
+/* soft sanity checks — warnings only, athlete's confirmation wins */
+function runChecks(){
+  const warns = [];
+  const pieces = readPieces();
+  const workT = toSec($("cWorkTime").value);
+  const workD = parseFloat($("cWorkDist").value);
+
+  const sumT = pieces.reduce((a,p)=>a+(toSec(p.time)||0),0);
+  const sumD = pieces.reduce((a,p)=>a+(parseFloat(p.distance)||0),0);
+  if (workT && sumT && Math.abs(workT-sumT) > 2)
+    warns.push(`Piece times add up to ${fmtSec(sumT)}, but work time says ${fmtSec(workT)}.`);
+  if (workD && sumD && Math.abs(workD-sumD) > 1)
+    warns.push(`Piece distances add up to ${sumD}m, but total distance says ${workD}m.`);
+  pieces.forEach((p,i)=>{
+    const r = parseFloat(p.rate);
+    if (p.rate && (r < 14 || r > 45)) warns.push(`Piece ${i+1}: rate ${p.rate} looks unusual.`);
+    const t = toSec(p.time), s = toSec(p.split), d = parseFloat(p.distance);
+    if (t && s && d) {
+      const expect = d/500*s;
+      if (Math.abs(expect-t) > Math.max(2, t*0.02))
+        warns.push(`Piece ${i+1}: ${p.distance}m at ${p.split} would take about ${fmtSec(expect)}, not ${p.time}.`);
+    }
+  });
+  const dt = $("cDate").value;
+  if (dt) {
+    const age = (Date.parse(todayISO()) - Date.parse(dt)) / 86400000;
+    if (age > BACKDATE_LIMIT_DAYS) warns.push(`Session date is ${Math.round(age)} days ago — double-check it's right.`);
+    if (age < 0) warns.push("Session date is in the future.");
+  }
+  $("checksBox").innerHTML = warns.length
+    ? `<div class="banner warn"><b>Worth a look:</b><br>${warns.join("<br>")}</div>`
+    : "";
+  return warns;
+}
+
+/* ============================================================
+   SAVE — duplicate check, server timestamp, screen date as provenance
+============================================================ */
+$("btnBack").onclick = () => show("scrHome");
+$("btnSave").onclick = async () => {
+  const format = $("cFormat").value.trim();
+  const sessionDate = $("cDate").value;
+  const pieces = readPieces();
+  if (!format) return msg("saveMsg","bad","Give the session a format (e.g. 4x675m/1:40r).");
+  if (!sessionDate) return msg("saveMsg","bad","Set the session date.");
+  if (!pieces.length) return msg("saveMsg","bad","Add at least one piece.");
+
+  // duplicate: same athlete + same date + same format
+  const dup = myScoreCache.find(s => s.sessionDate === sessionDate && s.format === format);
+  if (dup && !$("btnSave").dataset.confirmedDup) {
+    $("btnSave").dataset.confirmedDup = "1";
+    $("btnSave").textContent = "Save anyway";
+    return msg("saveMsg","warn",`You've already submitted <span class="mono-ref">${format}</span> for ${sessionDate}. If this is a genuine second session, press "Save anyway".`);
+  }
+
+  $("btnSave").disabled = true;
+  const record = {
+    emailKey: me.key, email: me.email, name: me.name,
+    sessionDate, format,
+    screenDate: extracted?.screenDate || null,        // provenance only
+    submittedAt: firebase.database.ServerValue.TIMESTAMP,
+    work: {
+      time: $("cWorkTime").value.trim() || null,
+      timeSec: toSec($("cWorkTime").value),
+      distance: parseFloat($("cWorkDist").value) || null,
+      avgSplit: $("cAvgSplit").value.trim() || null,
+      avgSplitSec: toSec($("cAvgSplit").value),
+      avgRate: parseFloat($("cAvgRate").value) || null
+    },
+    totalTime: $("cTotalTime").value.trim() || null,
+    pieces: pieces.map((p,i) => ({
+      n: i+1,
+      time: p.time || null, timeSec: toSec(p.time),
+      distance: parseFloat(p.distance) || null,
+      split: p.split || null, splitSec: toSec(p.split),
+      rate: parseFloat(p.rate) || null,
+      hr: parseFloat(p.hr) || null
+    })),
+    edited: extracted ? wasEdited(extracted, pieces) : true,
+    warnings: runChecks()
+  };
+  try {
+    await db.ref(SCORES_PATH).push(record);
+    $("savedSummary").textContent =
+      `${format} · ${record.work.distance ?? "?"}m · avg ${record.work.avgSplit ?? "?"} @ ${record.work.avgRate ?? "?"} — saved for ${sessionDate}.`;
+    resetSubmission();
+    show("scrSaved");
+    loadMyScores();
+    if (me.isCoach) loadCoachQueue();
+  } catch (e) {
+    msg("saveMsg","bad","Couldn't save: " + e.message);
+  } finally {
+    $("btnSave").disabled = false;
+    $("btnSave").textContent = "Save score";
+    delete $("btnSave").dataset.confirmedDup;
+  }
+};
+
+function wasEdited(orig, pieces){
+  const o = orig.pieces || [];
+  if (o.length !== pieces.length) return true;
+  return pieces.some((p,i) =>
+    p.time !== (o[i].time||"") || String(p.distance) !== String(o[i].distance??"") ||
+    p.split !== (o[i].split||"") || String(p.rate) !== String(o[i].rate??""));
+}
+
+function resetSubmission(){
+  photoBlob = null; extracted = null;
+  $("photoInput").value = "";
+  $("photoPreview").style.display = "none";
+  $("btnExtract").disabled = true;
+}
+$("btnAnother").onclick = () => show("scrHome");
+$("btnDone").onclick = () => show("scrHome");
+
+/* ============================================================
+   LISTS + CSV
+============================================================ */
+async function loadMyScores(){
+  const snap = await db.ref(SCORES_PATH).orderByChild("emailKey").equalTo(me.key).limitToLast(20).get();
+  const rows = [];
+  snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
+  rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
+  myScoreCache = rows;
+  $("myScores").innerHTML = rows.length ? rows.map(scoreCard).join("") :
+    `<p class="note">Nothing submitted yet.</p>`;
+}
+
+async function loadCoachQueue(){
+  const snap = await db.ref(SCORES_PATH).orderByChild("submittedAt").limitToLast(200).get();
+  const rows = [];
+  snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
+  rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
+  coachScoreCache = rows;
+  $("coachQueue").innerHTML = rows.slice(0,30).map(s => scoreCard(s,true)).join("") ||
+    `<p class="note">No submissions yet.</p>`;
+}
+
+function scoreCard(s, showName){
+  const sub = s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-GB",
+    {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
+  const flags = (s.warnings||[]).length ? `<div class="flag">⚠ ${(s.warnings||[]).length} check${s.warnings.length>1?"s":""} flagged at submission</div>` : "";
+  return `<div class="score-card">
+    <div class="fmt">${s.format}</div>
+    <div class="meta">${showName ? s.name + " · " : ""}rowed ${s.sessionDate} · submitted ${sub}${s.edited?" · edited by athlete":""}</div>
+    <div class="nums"><b>${s.work?.time??""}</b> · ${s.work?.distance??""}m · <b>${s.work?.avgSplit??""}</b>/500m @ ${s.work?.avgRate??""}</div>
+    ${flags}</div>`;
+}
+
+$("btnCsv").onclick = () => {
+  const head = ["scoreId","athlete","email","sessionDate","screenDate","submittedAt","format",
+    "workTime","workTimeSec","workDistance","avgSplit","avgSplitSec","avgRate","totalTime",
+    "pieceNo","pieceTime","pieceTimeSec","pieceDistance","pieceSplit","pieceSplitSec","pieceRate","pieceHR","edited"];
+  const lines = [head.join(",")];
+  coachScoreCache.forEach(s => (s.pieces||[]).forEach(p => lines.push([
+    s.id, csv(s.name), s.email, s.sessionDate, s.screenDate||"", s.submittedAt?new Date(s.submittedAt).toISOString():"",
+    csv(s.format), s.work?.time||"", s.work?.timeSec??"", s.work?.distance??"", s.work?.avgSplit||"",
+    s.work?.avgSplitSec??"", s.work?.avgRate??"", s.totalTime||"",
+    p.n, p.time||"", p.timeSec??"", p.distance??"", p.split||"", p.splitSec??"", p.rate??"", p.hr??"", s.edited?1:0
+  ].join(","))));
+  const blob = new Blob([lines.join("\n")], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `eubc-erg-scores-${todayISO()}.csv`;
+  a.click();
+};
+const csv = v => `"${String(v??"").replace(/"/g,'""')}"`;
+
+/* ---------------- boot ---------------- */
+completeLinkSignIn();
+show("scrSignIn");
+</script>
+</body>
+</html>
