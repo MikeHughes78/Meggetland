@@ -365,6 +365,28 @@ table.roster tr.inactive td{opacity:.5}
 .home-foot{margin-top:22px;color:var(--ink-3);font-size:12.5px}
 .home-foot b{color:var(--accent);font-weight:600}
 
+/* ---------- timing ---------- */
+.tag.st-pub{background:#e7f0fa;color:#2b62a8}
+.tag.st-done{background:#e9f5ee;color:#2f7a4f}
+.tm-clock{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;font-weight:700;
+  letter-spacing:.02em;color:var(--ink);padding:2px 12px;border-radius:8px;background:#eef0f3}
+.tm-rows{display:flex;flex-direction:column;gap:9px}
+.tm-row{display:flex;align-items:center;gap:14px;padding:12px 15px;flex-wrap:wrap}
+.tm-crew{flex:1;min-width:180px}
+.tm-crew b{font-size:14px}
+.tm-sub{display:block;font-size:11px;color:var(--ink-3);margin-top:1px}
+.tm-elapsed{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:21px;font-weight:700;min-width:96px;text-align:right}
+.tm-gmt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;color:var(--accent);min-width:64px;text-align:right}
+.cv-rank{font-size:11px;font-weight:800;color:#fff;background:var(--accent);border-radius:5px;padding:0 6px;line-height:16px}
+.tm-btns{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.tm-manual{width:88px;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);
+  background:var(--surface);font-size:12.5px;font-family:ui-monospace,monospace}
+.cv-time{margin-left:auto;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:700;color:var(--ink)}
+.cv-crew .cv-title{display:flex;align-items:center;gap:6px}
+.viewpieces{margin-top:4px;border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:5px 8px;
+  font-size:11.5px;font-weight:600;color:var(--accent);background:var(--surface);width:100%;text-align:center}
+.viewpieces:hover{background:var(--accent-soft)}
+
 /* ---------- crew PDF ---------- */
 @media print{
   .p-crewpage{padding:4px 0}
@@ -382,6 +404,7 @@ table.roster tr.inactive td{opacity:.5}
   .p-crewbox td.oar{width:36px;color:#5a6472;text-align:right;font-size:9px}
   .p-crewfoot{margin-top:10px;font-size:8.5px;color:#8b94a1}
   .p-oars{margin-top:5px;font-size:9px;color:#5a6472}
+  .p-time{float:right;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#1d2530}
 }
 
 /* ---------- modals ---------- */
@@ -515,6 +538,7 @@ table.roster tr.inactive td{opacity:.5}
       <button class="tab" data-view="month">Month</button>
       <button class="tab" data-view="eight">8 weeks</button>
       <button class="tab" data-view="overview">Season</button>
+      <button class="tab" data-view="crews" id="tabCrewsAth">Crews</button>
       <button class="tab" data-view="analytics" id="tabAnalytics">Analytics</button>
     </div>
     <div class="spacer"></div>
@@ -641,6 +665,12 @@ const RIG_OPTS = {
   "2":[["stroke","Stroke rig"],["bow","Bow rig"]]
 };
 const REQ_SIDE_LABEL = { S:"stroke", B:"bow" };
+/* 2k Gold Medal Times (seconds) — same table as the EUBC timer; editable in Settings */
+const DEFAULT_GMTS = {
+  "M1x":390.74,"F1x":427.71,"M2-":368.50,"F2-":407.41,"M2x":359.72,"F2x":397.31,
+  "M4-":337.86,"F4-":374.36,"M4x":332.26,"F4x":366.84,"M4+":358.96,"F4+":393.38,
+  "M8+":318.68,"F8+":352.99
+};
 const isScullClass = cls => /x$/.test(cls||"");
 function crewSpec(bt, cls, rig){
   const labels = SEAT_LABELS[bt] || [];
@@ -795,7 +825,7 @@ function visibleSquads(){
 }
 function toggleViewAs(){
   viewAsAthlete = !viewAsAthlete;
-  if(viewAsAthlete && (curView==="home"||curView==="crews")) curView="week";
+  if(viewAsAthlete && (curView==="home"||curView==="timing"||curView==="analysis")) curView="week";
   enterApp();
   toast(viewAsAthlete ? "Viewing as an athlete" : "Back to coach view");
 }
@@ -877,6 +907,7 @@ function normalise(v){
   v.settings.t2.mode = Object.assign({}, DEFAULT_T2_MODE, v.settings.t2.mode||{});
   v.settings.t2.intensity = Object.assign({}, DEFAULT_T2_INT, v.settings.t2.intensity||{});
   v.settings.loadTargets = Object.assign({}, DEFAULT_LOAD_TARGETS, v.settings.loadTargets||{});
+  v.settings.gmts = Object.assign({}, DEFAULT_GMTS, v.settings.gmts||{});
   v.settings.loadType = v.settings.loadType || {};
   for(const s in SQUADS) v.settings.loadType[s] = v.settings.loadType[s] || {};
   v.athletes = v.athletes || {};
@@ -1061,8 +1092,9 @@ function enterApp(){
   document.getElementById("btnViewAs").style.display = realCoach?"":"none";
   document.getElementById("btnViewAs").textContent = viewAsAthlete ? "Back to coach view" : "View as athlete";
   document.getElementById("tabAnalytics").style.display = isCoach?"":"none";
+  document.getElementById("tabCrewsAth").style.display = isCoach?"none":"";
   document.getElementById("brand").classList.toggle("home-link", isCoach);
-  if(!isCoach && (curView==="analytics"||curView==="crews"||curView==="home")) curView="week";
+  if(!isCoach && (curView==="analytics"||curView==="home"||curView==="timing"||curView==="analysis")) curView="week";
   const m = myMember();
   document.getElementById("roleBadge").textContent = isCoach ? "Coach" : (m && m.name ? m.name : auth.email.split("@")[0]);
   const squads = visibleSquads();
@@ -1078,11 +1110,11 @@ function enterApp(){
   if(!weekVisible(curSquad, curWeek)) curWeek = lastVisibleWeek(curSquad);
   renderAll();
 }
-function goHome(){ if(role()!=="coach") return; crewEditId=null; curView="home"; renderAll(); window.scrollTo({top:0}); }
+function goHome(){ if(role()!=="coach") return; crewEditId=null; timingOpenId=null; curView="home"; renderAll(); window.scrollTo({top:0}); }
 function setChrome(){
   const coach = role()==="coach";
   const home = coach && curView==="home";
-  const solo = coach && curView==="crews";     // water session maker = its own screen
+  const solo = coach && (curView==="crews"||curView==="timing"||curView==="analysis");   // own screens
   const planner = !home && !solo;
   const disp=(id,on)=>{ const e=document.getElementById(id); if(e) e.style.display = on ? "" : "none"; };
   disp("squadTabs", planner);
@@ -1113,10 +1145,13 @@ function renderAll(){
   const coach = role()==="coach";
   if(coach && curView==="home"){ renderHome(); return; }
   if(coach && curView==="crews"){ renderCrews(); return; }
+  if(coach && curView==="timing"){ renderTiming(); return; }
+  if(coach && curView==="analysis"){ renderAnalysisAth(); return; }
   renderRibbon();
   if(curView==="week") renderWeek();
   else if(curView==="month") renderMulti(4);
   else if(curView==="eight") renderMulti(8);
+  else if(curView==="crews") renderCrewsAthlete();
   else if(curView==="analytics" && coach) renderAnalytics();
   else renderOverview();
 }
@@ -1127,6 +1162,8 @@ const HOME_ICONS = {
   water:'<path d="M3 15c1.5 0 2-1 3.5-1s2 1 3.5 1 2-1 3.5-1 2 1 3.5 1 2-1 3.5-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 20c1.5 0 2-1 3.5-1s2 1 3.5 1 2-1 3.5-1 2 1 3.5 1 2-1 3.5-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 4v6M9 6l3-2 3 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
   athletes:'<circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="2"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   boats:'<path d="M4 13h16l-2.5 5.5a2 2 0 0 1-1.8 1.2H8.3a2 2 0 0 1-1.8-1.2L4 13Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 13V5m0 0 4 3M12 5 8 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
+  timing:'<circle cx="12" cy="13" r="7" stroke="currentColor" stroke-width="2"/><path d="M12 13V9.5M10 3h4M12 3v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
+  analysis:'<path d="M4 20V10M10 20V4M16 20v-7M21 20H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>',
   settings:'<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6l1.4 1.4m10 10 1.4 1.4m0-12.8-1.4 1.4m-10 10-1.4 1.4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
 };
 function homeCard(icon, title, sub, action, primary){
@@ -1144,13 +1181,15 @@ function renderHome(){
     + '<div class="home-cards">'
     + homeCard("planner","Training planner","Week-by-week programme, blocks &amp; analytics","goView('week')", true)
     + homeCard("water","Water session maker","Build crews, rigs &amp; crew-list PDFs","goView('crews')")
+    + homeCard("timing","Timing","Time published crews and publish results","goView('timing')")
+    + homeCard("analysis","Athlete analysis","Piece history &amp; GMT% side rankings","goView('analysis')")
     + homeCard("athletes","Athletes","Add and edit the squad roster","openAthletes()")
     + homeCard("boats","Boats","Manage the boat fleet","openBoats()")
     + homeCard("settings","Settings","Targets, weightings, coaches &amp; publishing","openSettings()")
     + '</div>'
     + '<div class="home-foot">Season 2026–27 · <b>Week '+(wk+1)+'</b> of '+N_WEEKS+'</div></div>';
 }
-function goView(v){ crewEditId=null; curView=v; renderAll(); window.scrollTo({top:0}); }
+function goView(v){ crewEditId=null; timingOpenId=null; curView=v; renderAll(); window.scrollTo({top:0}); }
 
 /* ---------------- render: ribbon ---------------- */
 function renderRibbon(){
@@ -1283,6 +1322,9 @@ function renderWeek(){
         + '<span class="s-vol">'+volLabel(s, state.settings.splits)+'</span></div>'
         + (s.notes ? '<div class="s-notes">'+esc(s.notes)+'</div>' : "")
         + '</div>';
+    }
+    for(const cs of piecesOnDate(dIso)){
+      html += '<button class="viewpieces" onclick="viewCrewSession(\''+cs.id+'\')">View pieces · '+CREW_CATS[cs.category]+(cs.sessionNo?' S'+cs.sessionNo:'')+'</button>';
     }
     if(isCoach) html += '<button class="addbtn" onclick="openSession(\''+dIso+'\')">+ Add session</button>';
     html += '</div>';
@@ -2115,6 +2157,13 @@ function openSettings(){
         + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.05" min="0" id="t2i_'+ZKEY(z)+'" value="'+F.intensity[z]+'"></div></div>').join("")
     + '</div>';
 
+  // ---- gold medal times (drive GMT%) ----
+  const gm = state.settings.gmts;
+  html += '<div class="field" style="margin-top:20px"><label>Gold medal times — 2k, seconds</label></div><div class="splits-grid">'
+    + Object.keys(DEFAULT_GMTS).map(k=>'<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+k+'</div>'
+        + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.01" min="200" max="600" data-gmt="'+k+'" value="'+(gm[k]||DEFAULT_GMTS[k])+'"></div></div>').join("")
+    + '</div>';
+
   const myKey = emailKey(auth.email);
   const coachKeys = Object.keys(state.coaches||{}).sort();
   html += '<div class="field" style="margin-top:18px"><label>Coaches — edit access</label></div>'
@@ -2158,6 +2207,10 @@ function saveSettings(){
     const el = document.getElementById("t2i_"+ZKEY(z));
     if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0) state.settings.t2.intensity[z]=v; }
   }
+  document.querySelectorAll("[data-gmt]").forEach(el=>{
+    const v=parseFloat(el.value);
+    if(!isNaN(v)&&v>=200&&v<=600) state.settings.gmts[el.dataset.gmt]=v;
+  });
   persist("settings", state.settings);
   hide("ovSettings"); toast("Settings saved"); renderAll();
 }
@@ -2464,27 +2517,92 @@ function sideOk(athleteId, reqSide){        // reqSide "S"/"B"/null
 function crewSessTitle(s){
   return CREW_CATS[s.category]+' · '+(s.date?fmtDateY(fromIso(s.date)):"no date")+(s.sessionNo?' · Session '+s.sessionNo:"");
 }
-function crewViewCard(c){
+/* ---- timing helpers ---- */
+function fmtElapsedMs(ms){
+  if(ms==null) return "—";
+  ms=Math.max(0,Math.round(ms/100)*100);
+  const m=Math.floor(ms/60000), s=Math.floor((ms%60000)/1000), t=Math.floor((ms%1000)/100);
+  return m+":"+String(s).padStart(2,"0")+"."+t;
+}
+function parseTimeInput(str){
+  str=String(str||"").trim(); if(!str) return null;
+  const m=str.match(/^(?:(\d+):)?(\d{1,2})(?:[.,](\d{1,2}))?$/);
+  if(!m) return null;
+  const min=+(m[1]||0), sec=+m[2], frac=m[3]?+("0."+m[3]):0;
+  if(sec>=60 && m[1]) return null;
+  return Math.round(((min*60)+sec+frac)*1000);
+}
+function crewElapsed(s,c){
+  const t=c.t||{};
+  if(t.manualMs!=null && t.manualMs!=="") return +t.manualMs;
+  const st = t.startTs!=null ? t.startTs : (s.timing && s.timing.startTs);
+  if(st!=null && t.finishTs!=null) return t.finishTs-st;
+  return null;
+}
+function sessionTimesVisible(s){ return !!s.timesPublished || role()==="coach"; }
+/* ---- GMT% ---- */
+function crewCat(s,c){
+  // sex from the seated rowers (cox excluded): all-M → M, all-F → F, mixed crew → no category
+  const sexes=[...new Set(Object.values(c.seats||{}).map(id=>{const a=athById(id);return a?a.sex:null;}).filter(Boolean))];
+  let sex = sexes.length===1 ? sexes[0] : (sexes.length>1 ? null : (s.category==="men"?"M":s.category==="women"?"F":null));
+  return sex ? sex+c.boatClass : null;
+}
+function sessionDistance(s){ return +s.distanceM || 2000; }
+function crewGmtPct(s,c){
+  const el=crewElapsed(s,c); if(el==null||el<=0) return null;
+  const cat=crewCat(s,c); if(!cat) return null;
+  const g=(state.settings.gmts||{})[cat]; if(!g) return null;
+  return (g*1000*(sessionDistance(s)/2000))/el*100;
+}
+function fmtGmt(p){ return p==null ? "—" : p.toFixed(1)+"%"; }
+function piecesOnDate(dIso){
+  return crewSessionList().filter(s=>{
+    if(!s.timesPublished || s.date!==dIso) return false;
+    if(curSquad==="men") return s.category==="men"||s.category==="mixed";
+    if(curSquad==="women") return s.category==="women"||s.category==="mixed";
+    return true;   // beginner / all / cox views see everything
+  }).sort((a,b)=>(a.sessionNo||"9").localeCompare(b.sessionNo||"9"));
+}
+function crewViewCard(s,c,rank){
   const spec=crewSpec(c.boatType,c.boatClass,c.rig);
   const boat=c.boatRef?state.boats[c.boatRef]:null;
   const rigTxt=spec.scull?"":((RIG_OPTS[c.boatType]||[]).filter(r=>r[0]===c.rig).map(r=>r[1])[0]||"");
+  const el=crewElapsed(s,c), gp=crewGmtPct(s,c);
+  const showT = el!=null && sessionTimesVisible(s);
+  const timeChip = showT ? '<span class="cv-time">'+fmtElapsedMs(el)+(gp!=null?' · '+fmtGmt(gp):'')+'</span>' : "";
+  const rankChip = (showT && rank) ? '<span class="cv-rank">'+rank+'</span>' : "";
   const seatLine=(lbl,aid,side)=>{ const a=athById(aid);
     return '<div class="cv-seat"><span class="cv-lbl">'+lbl+'</span><span class="cv-nm">'+esc(a?athShort(a):"—")+'</span>'
       + '<span class="cv-side '+(side||"")+'">'+(side||"")+'</span></div>'; };
   let rows="";
   if(spec.cox) rows+=seatLine("Cox", c.cox, "");
   spec.seats.forEach((st,i)=> rows+=seatLine(st.label, c.seats?c.seats[i]:"", st.side));
-  return '<div class="cv-crew"><div class="cv-title">'+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+'</div>'
+  return '<div class="cv-crew"><div class="cv-title">'+rankChip+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+timeChip+'</div>'
     + '<div class="cv-boat">'+(boat?esc(boat.boatId)+(boat.boatName?" · "+esc(boat.boatName):""):"boat TBC")+'</div>'+rows
     + (c.oarSet?'<div class="cv-oarset">Oars: '+esc(c.oarSet)+'</div>':"")+'</div>';
 }
+function rankedCrews(s){
+  const crews=crewList(s);
+  if(!s.timesPublished && role()!=="coach") return crews.map(c=>({c,rank:null}));
+  const withG=crews.map(c=>({c,g:crewGmtPct(s,c),e:crewElapsed(s,c)}));
+  if(!withG.some(x=>x.g!=null||x.e!=null)) return crews.map(c=>({c,rank:null}));
+  withG.sort((a,b)=>{
+    if(a.g!=null||b.g!=null) return (b.g??-1)-(a.g??-1);   // GMT% desc, nulls last
+    return (a.e??1e15)-(b.e??1e15);                        // else time asc
+  });
+  let r=0;
+  return withG.map(x=>({c:x.c, rank:(x.g!=null||x.e!=null)?(++r):null}));
+}
 function viewCrewSession(id){
   const s=state.crewSessions[id]; if(!s) return;
-  const crews=crewList(s);
-  let html='<button class="x" onclick="hide(\'ovCrewView\')">✕</button><h3>'+crewSessTitle(s)+'</h3>'
-    + '<div class="cv-grid">'+(crews.length?crews.map(crewViewCard).join(""):'<div class="empty-day">No crews.</div>')+'</div>'
+  if(role()!=="coach" && !s.published) return;
+  const ranked=rankedCrews(s);
+  const dist=sessionDistance(s);
+  let html='<button class="x" onclick="hide(\'ovCrewView\')">✕</button><h3>'+crewSessTitle(s)
+    + (s.timesPublished?' <span class="tag st-done" style="vertical-align:2px">Completed · '+dist+'m</span>':'')+'</h3>'
+    + '<div class="cv-grid">'+(ranked.length?ranked.map(x=>crewViewCard(s,x.c,x.rank)).join(""):'<div class="empty-day">No crews.</div>')+'</div>'
     + '<div class="modal-actions"><button class="btn" onclick="crewPdf(\''+id+'\')">PDF</button>'
-    + '<button class="btn primary" onclick="hide(\'ovCrewView\');openCrewSession(\''+id+'\')">Edit</button></div>';
+    + (role()==="coach"?'<button class="btn primary" onclick="hide(\'ovCrewView\');openCrewSession(\''+id+'\')">Edit</button>':'')+'</div>';
   document.getElementById("mdCrewView").innerHTML=html; show("ovCrewView");
 }
 
@@ -2498,14 +2616,16 @@ function renderCrews(){
   html += '<div class="crew-sess-list">'
     + (list.length ? list.map(s=>{
         const crews=crewList(s); const bad=crews.filter(c=>crewHasSideError(s,c)).length;
-        return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+'</h4>'
+        const status = s.timesPublished ? '<span class="tag st-done">Completed</span>'
+          : s.published ? '<span class="tag st-pub">Published</span>' : '<span class="tag">Draft</span>';
+        return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+' '+status+'</h4>'
           + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")
           + (bad?' · <span style="color:var(--danger);font-weight:600">'+bad+' with a side issue</span>':(crews.length?' · all sides valid':""))+'</div></div>'
           + '<button class="btn small" onclick="viewCrewSession(\''+s.id+'\')">View</button>'
           + '<button class="btn small" onclick="openCrewSession(\''+s.id+'\')">Edit</button>'
           + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button>'
           + '<button class="btn small danger" onclick="deleteCrewSession(\''+s.id+'\')">Delete</button>'
-          + (crews.length?'<div class="cs-pop"><div class="cv-grid">'+crews.map(crewViewCard).join("")+'</div></div>':"")
+          + (crews.length?'<div class="cs-pop"><div class="cv-grid">'+rankedCrews(s).map(x=>crewViewCard(s,x.c,x.rank)).join("")+'</div></div>':"")
           + '</div>';
       }).join("") : '<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">No crews yet — hit “Create a crew” to start.</div>')
     + '</div>';
@@ -2559,6 +2679,9 @@ function renderCrewEditor(main){
     + '<div class="navbtns"><button class="btn small" onclick="crewEditId=null;renderCrews()">← All sessions</button></div>'
     + '<div class="spacer"></div>'
     + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">Generate PDF</button>'
+    + (s.published
+        ? '<button class="btn small" onclick="unpublishCrews(\''+s.id+'\')">Published ✓</button>'
+        : '<button class="btn small" onclick="publishCrews(\''+s.id+'\')">Publish</button>')
     + '<button class="btn primary small" onclick="finishCrews()">Finished</button></div>';
 
   html += '<div class="glass" style="padding:12px 15px;margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">'
@@ -2682,22 +2805,319 @@ function assignOarSet(sid,cid,text){
 }
 function finishCrews(){ const s=_sess(crewEditId); crewEditId=null; renderCrews(); toast("Crews saved"+(s?" · "+CREW_CATS[s.category]:"")); }
 
+/* =====================================================================
+   PUBLISH FLOW
+===================================================================== */
+function publishCrews(sid){
+  const s=_sess(sid); if(!s) return;
+  if(!crewList(s).length){ toast("Add at least one crew first"); return; }
+  s.published=true; s.publishedAt=Date.now();
+  persist("crewSessions/"+sid, s); renderCrews();
+  toast("Published — visible to athletes and in Timing");
+}
+function unpublishCrews(sid){
+  const s=_sess(sid); if(!s) return;
+  if(s.timesPublished){ toast("Times are published — unpublish times first in Timing"); return; }
+  if(!confirm("Unpublish these crews? Athletes will no longer see them.")) return;
+  s.published=false; persist("crewSessions/"+sid, s); renderCrews(); toast("Unpublished");
+}
+
+/* =====================================================================
+   TIMING (coach) — stopwatch + manual entry per crew
+===================================================================== */
+let timingOpenId = null;
+function crewShortLabel(s,c,idx){
+  const stroke = athById(c.seats?c.seats[0]:"") || athById(c.cox);
+  const boat = c.boatRef?state.boats[c.boatRef]:null;
+  return c.boatClass+(boat?' · '+boat.boatId:'')+(stroke?' · '+athShort(stroke):' · crew '+(idx+1));
+}
+function renderTiming(){
+  const main=document.getElementById("main");
+  if(timingOpenId && state.crewSessions[timingOpenId] && state.crewSessions[timingOpenId].published){
+    renderTimingSession(main); return;
+  }
+  timingOpenId=null;
+  const list=crewSessionList().filter(s=>s.published);
+  let html='<div class="week-top"><div class="week-title"><h2>Timing</h2></div></div>'
+    + '<div class="crew-sess-list">'
+    + (list.length ? list.map(s=>{
+        const crews=crewList(s);
+        const timed=crews.filter(c=>crewElapsed(s,c)!=null).length;
+        const status=s.timesPublished?'<span class="tag st-done">Times published</span>'
+          : timed?'<span class="tag st-pub">'+timed+'/'+crews.length+' timed</span>':'<span class="tag">Awaiting times</span>';
+        return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+' '+status+'</h4>'
+          + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")+'</div></div>'
+          + '<button class="btn small primary" onclick="timingOpenId=\''+s.id+'\';renderTiming()">'+(s.timesPublished?'Review':'Time')+'</button>'
+          + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button></div>';
+      }).join("") : '<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">No published crews yet — publish a water session first.</div>')
+    + '</div>';
+  main.innerHTML=html;
+}
+function renderTimingSession(main){
+  const s=state.crewSessions[timingOpenId];
+  const crews=crewList(s);
+  const massTs=s.timing&&s.timing.startTs;
+  const allTimed=crews.length && crews.every(c=>crewElapsed(s,c)!=null);
+  let html='<div class="week-top"><div class="week-title"><h2>'+crewSessTitle(s)+'</h2></div>'
+    + '<div class="navbtns"><button class="btn small" onclick="timingOpenId=null;renderTiming()">← Timing</button></div>'
+    + '<div class="spacer"></div>'
+    + '<label style="font-size:12px;font-weight:500;color:var(--ink-2)">Distance</label>'
+    + '<input type="number" step="250" min="250" value="'+sessionDistance(s)+'" onchange="setSessionDistance(this.value)" style="width:84px;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px"><span style="font-size:12px;color:var(--ink-3)">m</span>'
+    + '<div class="tm-clock" id="tmClock">'+(massTs?fmtElapsedMs(Date.now()-massTs):"0:00.0")+'</div>'
+    + (massTs
+        ? '<button class="btn small" onclick="clearMassStart()">Clear start</button>'
+        : '<button class="btn primary" onclick="massStart()">Start all</button>')
+    + (s.timesPublished
+        ? '<button class="btn small" onclick="unpublishTimes()">Unpublish times</button>'
+        : '<button class="btn primary small" '+(allTimed?'':'style="opacity:.55" ')+'onclick="publishTimes()">Publish these times</button>')
+    + '</div>';
+
+  html+='<div class="tm-rows">';
+  crews.forEach((c,idx)=>{
+    const el=crewElapsed(s,c), gp=crewGmtPct(s,c);
+    const cat=crewCat(s,c);
+    const t=c.t||{};
+    const ownStart=t.startTs!=null;
+    const started=ownStart||massTs!=null;
+    const manual=t.manualMs!=null&&t.manualMs!=="";
+    html+='<div class="glass tm-row">'
+      + '<div class="tm-crew"><b>'+esc(crewShortLabel(s,c,idx))+'</b>'
+      + '<span class="tm-sub">'+(cat?cat:'no GMT category')+' · '+(manual?'manual':ownStart?'own start':massTs?'mass start':'not started')+'</span></div>'
+      + '<div class="tm-gmt" id="tmG_'+c.id+'">'+fmtGmt(gp)+'</div>'
+      + '<div class="tm-elapsed" id="tmE_'+c.id+'">'+(el!=null?fmtElapsedMs(el):(started&&!t.finishTs?"…":"—"))+'</div>'
+      + '<div class="tm-btns">'
+      + (!massTs && !ownStart ? '<button class="btn small" onclick="crewStart(\''+c.id+'\')">Start</button>' : '')
+      + (started && t.finishTs==null && !manual ? '<button class="btn small primary" onclick="crewFinish(\''+c.id+'\')">Finish</button>' : '')
+      + '<input class="tm-manual" placeholder="m:ss.t" value="'+(manual?fmtElapsedMs(+t.manualMs):"")+'" onchange="crewManual(\''+c.id+'\',this.value)">'
+      + ((el!=null||ownStart)?'<button class="btn small danger" onclick="crewClearTime(\''+c.id+'\')">Clear</button>':'')
+      + '</div></div>';
+  });
+  html+='</div>';
+  main.innerHTML=html;
+}
+function setSessionDistance(v){
+  const s=_tSess(); if(!s) return;
+  const d=Math.max(250, Math.round(+v||2000));
+  s.distanceM=d; persist("crewSessions/"+s.id, s); renderTiming();
+}
+function _tSess(){ return timingOpenId?state.crewSessions[timingOpenId]:null; }
+function saveTiming(){ const s=_tSess(); if(s){ persist("crewSessions/"+s.id, s); } renderTiming(); }
+function massStart(){ const s=_tSess(); if(!s) return; s.timing={startTs:Date.now()}; saveTiming(); }
+function clearMassStart(){
+  const s=_tSess(); if(!s) return;
+  if(!confirm("Clear the mass start? Crews with a finish keep no time unless entered manually.")) return;
+  s.timing=null; saveTiming();
+}
+function crewStart(cid){ const s=_tSess(); const c=s&&s.crews[cid]; if(!c) return; c.t=c.t||{}; c.t.startTs=Date.now(); saveTiming(); }
+function crewFinish(cid){
+  const s=_tSess(); const c=s&&s.crews[cid]; if(!c) return; c.t=c.t||{};
+  const st=c.t.startTs!=null?c.t.startTs:(s.timing&&s.timing.startTs);
+  if(st==null) return;
+  c.t.finishTs=Date.now(); saveTiming();
+}
+function crewManual(cid,val){
+  const s=_tSess(); const c=s&&s.crews[cid]; if(!c) return; c.t=c.t||{};
+  if(!String(val||"").trim()){ delete c.t.manualMs; saveTiming(); return; }
+  const ms=parseTimeInput(val);
+  if(ms==null){ toast("Time format: m:ss.t"); renderTiming(); return; }
+  c.t.manualMs=ms; saveTiming();
+}
+function crewClearTime(cid){ const s=_tSess(); const c=s&&s.crews[cid]; if(!c) return; c.t=null; saveTiming(); }
+function publishTimes(){
+  const s=_tSess(); if(!s) return;
+  const missing=crewList(s).filter(c=>crewElapsed(s,c)==null).length;
+  if(missing && !confirm(missing+" crew"+(missing===1?" has":"s have")+" no time yet — publish anyway?")) return;
+  s.timesPublished=true; s.timesPublishedAt=Date.now();
+  persist("crewSessions/"+s.id, s);
+  timingOpenId=null; renderTiming();
+  toast("Times published — visible in the planner and to athletes");
+}
+function unpublishTimes(){
+  const s=_tSess(); if(!s) return;
+  if(!confirm("Unpublish these times?")) return;
+  s.timesPublished=false; persist("crewSessions/"+s.id, s); renderTiming();
+}
+/* live clock tick — updates only, no re-render */
+setInterval(()=>{
+  if(curView!=="timing" || !timingOpenId || !state) return;
+  const s=state.crewSessions[timingOpenId]; if(!s) return;
+  const massTs=s.timing&&s.timing.startTs;
+  const ck=document.getElementById("tmClock");
+  if(ck && massTs) ck.textContent=fmtElapsedMs(Date.now()-massTs);
+  crewList(s).forEach(c=>{
+    const t=c.t||{};
+    if(t.manualMs!=null&&t.manualMs!=="") return;
+    if(t.finishTs!=null) return;
+    const st=t.startTs!=null?t.startTs:massTs;
+    if(st==null) return;
+    const el=document.getElementById("tmE_"+c.id);
+    if(el) el.textContent=fmtElapsedMs(Date.now()-st);
+  });
+}, 100);
+
+/* =====================================================================
+   ATHLETE CREWS VIEW — published crews + completed pieces
+===================================================================== */
+function renderCrewsAthlete(){
+  const main=document.getElementById("main");
+  const all=crewSessionList().filter(s=>s.published);
+  const upcoming=all.filter(s=>!s.timesPublished);
+  const done=all.filter(s=>s.timesPublished);
+  const row=s=>{
+    const crews=crewList(s);
+    return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+'</h4>'
+      + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")+'</div></div>'
+      + '<button class="btn small" onclick="viewCrewSession(\''+s.id+'\')">View</button>'
+      + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button>'
+      + (crews.length?'<div class="cs-pop"><div class="cv-grid">'+rankedCrews(s).map(x=>crewViewCard(s,x.c,x.rank)).join("")+'</div></div>':"")
+      + '</div>';
+  };
+  let html='<div class="week-top"><div class="week-title"><h2>Crews</h2></div></div>';
+  html+='<div class="lib-group" style="margin:2px 4px 8px">Published crews<span>'+upcoming.length+'</span></div>'
+    + '<div class="crew-sess-list" style="margin-bottom:18px">'
+    + (upcoming.length?upcoming.map(row).join(""):'<div class="glass" style="padding:18px;text-align:center;color:var(--ink-3);font-weight:500">No crews published yet.</div>')+'</div>';
+  html+='<div class="lib-group" style="margin:2px 4px 8px">Completed pieces<span>'+done.length+'</span></div>'
+    + '<div class="crew-sess-list">'
+    + (done.length?done.map(row).join(""):'<div class="glass" style="padding:18px;text-align:center;color:var(--ink-3);font-weight:500">No completed pieces yet.</div>')+'</div>';
+  main.innerHTML=html;
+}
+
+/* =====================================================================
+   ATHLETE ANALYSIS (coach) — piece history + side rankings by GMT%
+===================================================================== */
+let anaAthleteId = null, anaTab = "rankings";
+/* every timed appearance of every athlete: one record per seat */
+function athletePieceRecords(){
+  const recs=[];
+  crewSessionList().forEach(s=>{
+    crewList(s).forEach(c=>{
+      const el=crewElapsed(s,c); if(el==null) return;
+      const gp=crewGmtPct(s,c);
+      const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+      spec.seats.forEach((st,i)=>{
+        const aid=c.seats?c.seats[i]:""; if(!aid) return;
+        recs.push({ aid, sid:s.id, date:s.date||"", sessionNo:s.sessionNo||"", category:s.category,
+          boatClass:c.boatClass, seat:st.label, side: spec.scull?"X":(st.side||""),
+          scull:spec.scull, elapsed:el, gmt:gp, published:!!s.timesPublished, dist:sessionDistance(s) });
+      });
+    });
+  });
+  return recs.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+}
+function sideRankings(recs){
+  const buckets={ S:{}, B:{}, X:{} };
+  recs.forEach(r=>{
+    if(r.gmt==null) return;
+    const bk = r.scull ? "X" : (r.side==="S"?"S":r.side==="B"?"B":null);
+    if(!bk) return;
+    const e = buckets[bk][r.aid] = buckets[bk][r.aid] || {aid:r.aid,n:0,sum:0,best:null};
+    e.n++; e.sum+=r.gmt; if(e.best==null||r.gmt>e.best) e.best=r.gmt;
+  });
+  const table=b=>Object.values(b).map(e=>({...e,avg:e.sum/e.n})).sort((x,y)=>y.avg-x.avg);
+  return { S:table(buckets.S), B:table(buckets.B), X:table(buckets.X) };
+}
+function renderAnalysisAth(){
+  const main=document.getElementById("main");
+  const recs=athletePieceRecords();
+  const pool=athleteList().filter(a=>a.role==="rower");
+  const lm=labelMap(pool);
+  let html='<div class="week-top"><div class="week-title"><h2>Athlete analysis</h2></div>'
+    + '<div class="navbtns"><button class="btn small" onclick="goHome()">← Home</button></div>'
+    + '<div class="spacer"></div>'
+    + '<div class="seg-ctrl" style="flex:0 0 auto">'
+    + '<button class="'+(anaTab==="rankings"?"on":"")+'" onclick="anaTab=\'rankings\';renderAnalysisAth()">Rankings</button>'
+    + '<button class="'+(anaTab==="athlete"?"on":"")+'" onclick="anaTab=\'athlete\';renderAnalysisAth()">Athlete</button></div>'
+    + '<button class="btn small" onclick="exportPieceRecordsCsv()">CSV</button></div>';
+
+  if(anaTab==="athlete"){
+    const cur=athById(anaAthleteId);
+    html+='<div class="glass" style="padding:12px 15px;margin-bottom:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+      + '<input list="dlAllRowers" id="anaSearch" placeholder="search athlete" value="'+escAttr(cur?lm.byId.get(cur.athleteId)||athFull(cur):"")+'"'
+      + ' onchange="anaPick(this.value)" style="flex:1;min-width:220px;padding:8px 11px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13.5px">'
+      + (cur?'<span class="tag '+(cur.sex==="F"?"f":"m")+'">'+cur.sex+'</span><span class="tag side-'+(cur.sweepSide||"both")+'">'+SIDE_LABEL[cur.sweepSide||"both"]+'</span>':'')
+      + '</div><datalist id="dlAllRowers">'+[...lm.byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
+    if(cur){
+      const mine=recs.filter(r=>r.aid===cur.athleteId);
+      const g=mine.filter(r=>r.gmt!=null);
+      const avg=g.length?g.reduce((a,r)=>a+r.gmt,0)/g.length:null;
+      const best=g.length?Math.max(...g.map(r=>r.gmt)):null;
+      html+='<div class="stats" style="margin-bottom:14px">'
+        + '<div class="glass stat"><div class="lab">Pieces</div><div class="val">'+mine.length+'</div></div>'
+        + '<div class="glass stat"><div class="lab">Avg GMT%</div><div class="val">'+fmtGmt(avg)+'</div></div>'
+        + '<div class="glass stat"><div class="lab">Best GMT%</div><div class="val">'+fmtGmt(best)+'</div></div></div>';
+      html+='<div class="glass" style="padding:6px 4px;overflow-x:auto"><table class="weeks"><thead><tr>'
+        + '<th>Date</th><th>Session</th><th>Class</th><th>Seat</th><th>Side</th><th class="num">Dist</th><th class="num">Time</th><th class="num">GMT%</th><th></th></tr></thead><tbody>'
+        + (mine.length?mine.map(r=>'<tr class="clickable" onclick="viewCrewSession(\''+r.sid+'\')">'
+            + '<td>'+(r.date?fmtDateY(fromIso(r.date)):"—")+'</td>'
+            + '<td>'+CREW_CATS[r.category]+(r.sessionNo?' S'+r.sessionNo:'')+(r.published?'':' <span class="tag">unpub</span>')+'</td>'
+            + '<td>'+r.boatClass+'</td><td>'+r.seat+'</td>'
+            + '<td>'+(r.scull?'Scull':r.side==="S"?'<span class="tag side-stroke">Stroke</span>':'<span class="tag side-bow">Bow</span>')+'</td>'
+            + '<td class="num">'+r.dist+'m</td>'
+            + '<td class="num" style="font-family:ui-monospace,monospace">'+fmtElapsedMs(r.elapsed)+'</td>'
+            + '<td class="num" style="font-weight:700">'+fmtGmt(r.gmt)+'</td><td></td></tr>').join("")
+          :'<tr><td colspan="9" class="empty-day">No timed pieces yet for this athlete.</td></tr>')
+        + '</tbody></table></div>';
+    } else {
+      html+='<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">Search for an athlete to see every water piece they\'ve rowed, with times and GMT%.</div>';
+    }
+  } else {
+    const rk=sideRankings(recs);
+    const tbl=(title,rows)=>'<div class="glass" style="padding:6px 4px;overflow-x:auto">'
+      + '<div class="lib-group" style="margin:8px 10px 2px">'+title+'<span>'+rows.length+'</span></div>'
+      + '<table class="weeks"><thead><tr><th></th><th>Athlete</th><th class="num">Pieces</th><th class="num">Avg GMT%</th><th class="num">Best</th></tr></thead><tbody>'
+      + (rows.length?rows.map((e,i)=>{ const a=athById(e.aid);
+          return '<tr class="clickable" onclick="anaAthleteId=\''+e.aid+'\';anaTab=\'athlete\';renderAnalysisAth()">'
+            + '<td class="num" style="width:34px">'+(i+1)+'</td>'
+            + '<td style="font-weight:600">'+esc(a?athFull(a):"?")+(a&&a.active===false?' <span class="tag">inactive</span>':'')+'</td>'
+            + '<td class="num">'+e.n+'</td><td class="num" style="font-weight:700">'+fmtGmt(e.avg)+'</td>'
+            + '<td class="num">'+fmtGmt(e.best)+'</td></tr>'; }).join("")
+        :'<tr><td colspan="5" class="empty-day">No timed pieces yet.</td></tr>')
+      + '</tbody></table></div>';
+    html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px">'
+      + tbl('Sweep · stroke side', rk.S)
+      + tbl('Sweep · bow side', rk.B)
+      + tbl('Sculling', rk.X)
+      + '</div>';
+  }
+  main.innerHTML=html;
+}
+function anaPick(text){
+  const pool=athleteList().filter(a=>a.role==="rower");
+  anaAthleteId = resolveAthlete(text, pool) || null;
+  renderAnalysisAth();
+}
+function exportPieceRecordsCsv(){
+  const rows=[["athlete_id","athlete_name","date","session_id","session_no","session_category","boat_class","seat","side","discipline","distance_m","elapsed_ms","elapsed","gmt_pct","times_published"]];
+  athletePieceRecords().forEach(r=>{ const a=athById(r.aid);
+    rows.push([r.aid,a?athFull(a):"",r.date,r.sid,r.sessionNo,r.category,r.boatClass,r.seat,
+      r.scull?"":(r.side==="S"?"stroke":"bow"), r.scull?"scull":"sweep", r.dist, r.elapsed,
+      fmtElapsedMs(r.elapsed), r.gmt!=null?r.gmt.toFixed(2):"", r.published?"TRUE":"FALSE"]);
+  });
+  downloadCsv("eubc_piece_records.csv", rows); toast("Piece records CSV downloaded ("+(rows.length-1)+")");
+}
+
 /* crew PDF — all crews on one A4 */
 function crewPdf(sid){
   const s=state.crewSessions[sid]; if(!s) return;
+  if(role()!=="coach" && !s.published) return;
   const crews=crewList(s);
-  let html='<div class="p-crewpage"><div class="p-crewhead"><div><h2>'+CREW_CATS[s.category]+' crews</h2>'
-    + '<div class="p-sub">Edinburgh University Boat Club · '+(s.date?fmtDateY(fromIso(s.date)):"")+(s.sessionNo?" · Session "+s.sessionNo:"")+'</div></div>'
+  const showTimes = crews.some(c=>crewElapsed(s,c)!=null) && sessionTimesVisible(s);
+  const ranked = showTimes ? rankedCrews(s) : crews.map(c=>({c,rank:null}));
+  let html='<div class="p-crewpage"><div class="p-crewhead"><div><h2>'+CREW_CATS[s.category]+(s.timesPublished?' — completed pieces':' crews')+'</h2>'
+    + '<div class="p-sub">Edinburgh University Boat Club · '+(s.date?fmtDateY(fromIso(s.date)):"")+(s.sessionNo?" · Session "+s.sessionNo:"")+(showTimes?" · "+sessionDistance(s)+"m":"")+'</div></div>'
     + '<img class="p-logo" src="eubc-logo.png" alt="" style="height:38px"></div><div class="p-crewgrid">';
-  crews.forEach(c=>{
+  ranked.forEach(x=>{
+    const c=x.c;
     const spec=crewSpec(c.boatType,c.boatClass,c.rig);
     const boat=c.boatRef?state.boats[c.boatRef]:null;
     const rigTxt = spec.scull ? "" : (RIG_OPTS[c.boatType]||[]).filter(r=>r[0]===c.rig).map(r=>r[1])[0]||"";
+    const el=crewElapsed(s,c), gp=crewGmtPct(s,c);
     let rows="";
     if(spec.cox){ const ca=athById(c.cox); rows+='<tr><td class="s">Cox</td><td>'+esc(ca?athShort(ca):"—")+'</td><td class="side"></td></tr>'; }
     spec.seats.forEach((st,i)=>{ const a=athById(c.seats?c.seats[i]:"");
       rows+='<tr><td class="s">'+st.label+'</td><td>'+esc(a?athShort(a):"—")+'</td><td class="side">'+(st.side||"")+'</td></tr>'; });
-    html+='<div class="p-crewbox"><h3>'+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+'</h3>'
+    html+='<div class="p-crewbox"><h3>'+(showTimes&&x.rank?x.rank+'. ':'')+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")
+      + (showTimes && el!=null ? '<span class="p-time">'+fmtElapsedMs(el)+(gp!=null?' · '+fmtGmt(gp):'')+'</span>' : '')+'</h3>'
       + '<div class="p-boat">'+(boat?esc(boat.boatId)+(boat.boatName?" · "+esc(boat.boatName):""):"boat TBC")+'</div>'
       + '<table>'+rows+'</table>'+(c.oarSet?'<div class="p-oars">Oars: '+esc(c.oarSet)+'</div>':"")+'</div>';
   });
@@ -2706,11 +3126,12 @@ function crewPdf(sid){
   setTimeout(()=>window.print(),120);
 }
 function exportCrewsCsv(){
-  const rows=[["session_id","date","session_no","category","crew_id","boat_type","boat_class","rig","boat_id","boat_name","seat","required_side","athlete_id","athlete_name","athlete_side","side_ok","oar_set"]];
+  const rows=[["session_id","date","session_no","category","published","times_published","crew_id","boat_type","boat_class","crew_category","distance_m","rig","boat_id","boat_name","crew_elapsed_ms","crew_elapsed","gmt_pct","seat","required_side","athlete_id","athlete_name","athlete_side","side_ok","oar_set"]];
   crewSessionList().forEach(s=>crewList(s).forEach(c=>{
     const spec=crewSpec(c.boatType,c.boatClass,c.rig);
     const boat=c.boatRef?state.boats[c.boatRef]:null;
-    const push=(seat,req,aid)=>{ const a=athById(aid); rows.push([s.id,s.date||"",s.sessionNo||"",s.category,c.id,c.boatType,c.boatClass,c.rig||"",boat?boat.boatId:"",boat?boat.boatName||"":"",seat,req?REQ_SIDE_LABEL[req]:"",aid||"",a?athFull(a):"",a?(a.sweepSide||""):"",req?(sideOk(aid,req)?"TRUE":"FALSE"):"",c.oarSet||""]); };
+    const el=crewElapsed(s,c), gp=crewGmtPct(s,c), cat=crewCat(s,c);
+    const push=(seat,req,aid)=>{ const a=athById(aid); rows.push([s.id,s.date||"",s.sessionNo||"",s.category,s.published?"TRUE":"FALSE",s.timesPublished?"TRUE":"FALSE",c.id,c.boatType,c.boatClass,cat||"",sessionDistance(s),c.rig||"",boat?boat.boatId:"",boat?boat.boatName||"":"",el!=null?el:"",el!=null?fmtElapsedMs(el):"",gp!=null?gp.toFixed(2):"",seat,req?REQ_SIDE_LABEL[req]:"",aid||"",a?athFull(a):"",a?(a.sweepSide||""):"",req?(sideOk(aid,req)?"TRUE":"FALSE"):"",c.oarSet||""]); };
     if(spec.cox) push("Cox","",c.cox);
     spec.seats.forEach((st,i)=>push(st.label, st.side, c.seats?c.seats[i]:""));
   }));
