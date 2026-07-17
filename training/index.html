@@ -378,6 +378,10 @@ table.roster tr.inactive td{opacity:.5}
 .tm-elapsed{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:21px;font-weight:700;min-width:96px;text-align:right}
 .tm-gmt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:700;color:var(--accent);min-width:64px;text-align:right}
 .cv-rank{font-size:11px;font-weight:800;color:#fff;background:var(--accent);border-radius:5px;padding:0 6px;line-height:16px}
+.tm-row.adhoc{flex-wrap:wrap}
+.tm-entry{flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:9px;border-top:1px dashed var(--line);padding-top:9px}
+.tm-entry select{padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12px;font-weight:500}
+.tm-entry .tm-name{width:128px;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12px}
 .tm-btns{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
 .tm-manual{width:88px;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);
   background:var(--surface);font-size:12.5px;font-family:ui-monospace,monospace}
@@ -667,9 +671,9 @@ const RIG_OPTS = {
 const REQ_SIDE_LABEL = { S:"stroke", B:"bow" };
 /* 2k Gold Medal Times (seconds) — same table as the EUBC timer; editable in Settings */
 const DEFAULT_GMTS = {
-  "M1x":390.74,"F1x":427.71,"M2-":368.50,"F2-":407.41,"M2x":359.72,"F2x":397.31,
-  "M4-":337.86,"F4-":374.36,"M4x":332.26,"F4x":366.84,"M4+":358.96,"F4+":393.38,
-  "M8+":318.68,"F8+":352.99
+  "M1x":390.74,"W1x":427.71,"M2-":368.50,"W2-":407.41,"M2x":359.72,"W2x":397.31,
+  "M4-":337.86,"W4-":374.36,"M4x":332.26,"W4x":366.84,"M4+":358.96,"W4+":393.38,
+  "M8+":318.68,"W8+":352.99
 };
 const isScullClass = cls => /x$/.test(cls||"");
 function crewSpec(bt, cls, rig){
@@ -907,7 +911,9 @@ function normalise(v){
   v.settings.t2.mode = Object.assign({}, DEFAULT_T2_MODE, v.settings.t2.mode||{});
   v.settings.t2.intensity = Object.assign({}, DEFAULT_T2_INT, v.settings.t2.intensity||{});
   v.settings.loadTargets = Object.assign({}, DEFAULT_LOAD_TARGETS, v.settings.loadTargets||{});
-  v.settings.gmts = Object.assign({}, DEFAULT_GMTS, v.settings.gmts||{});
+  const _g=v.settings.gmts||{};
+  Object.keys(_g).forEach(k=>{ if(k[0]==="F"){ const wk="W"+k.slice(1); if(_g[wk]==null) _g[wk]=_g[k]; delete _g[k]; } });
+  v.settings.gmts = Object.assign({}, DEFAULT_GMTS, _g);
   v.settings.loadType = v.settings.loadType || {};
   for(const s in SQUADS) v.settings.loadType[s] = v.settings.loadType[s] || {};
   v.athletes = v.athletes || {};
@@ -2159,9 +2165,9 @@ function openSettings(){
 
   // ---- gold medal times (drive GMT%) ----
   const gm = state.settings.gmts;
-  html += '<div class="field" style="margin-top:20px"><label>Gold medal times — 2k, seconds</label></div><div class="splits-grid">'
+  html += '<div class="field" style="margin-top:20px"><label>Gold medal times — 2k, m:ss</label></div><div class="splits-grid">'
     + Object.keys(DEFAULT_GMTS).map(k=>'<div class="frow" style="align-items:center"><div style="width:52px;font-weight:700">'+k+'</div>'
-        + '<div class="field" style="flex:1;margin:0"><input type="number" step="0.01" min="200" max="600" data-gmt="'+k+'" value="'+(gm[k]||DEFAULT_GMTS[k])+'"></div></div>').join("")
+        + '<div class="field" style="flex:1;margin:0"><input data-gmt="'+k+'" value="'+fmtGmtSec(gm[k]||DEFAULT_GMTS[k])+'" style="font-family:ui-monospace,monospace"></div></div>').join("")
     + '</div>';
 
   const myKey = emailKey(auth.email);
@@ -2208,8 +2214,8 @@ function saveSettings(){
     if(el){ const v=parseFloat(el.value); if(!isNaN(v)&&v>=0) state.settings.t2.intensity[z]=v; }
   }
   document.querySelectorAll("[data-gmt]").forEach(el=>{
-    const v=parseFloat(el.value);
-    if(!isNaN(v)&&v>=200&&v<=600) state.settings.gmts[el.dataset.gmt]=v;
+    const ms=parseTimeInput(el.value);
+    if(ms!=null){ const v=ms/1000; if(v>=200&&v<=600) state.settings.gmts[el.dataset.gmt]=v; }
   });
   persist("settings", state.settings);
   hide("ovSettings"); toast("Settings saved"); renderAll();
@@ -2515,6 +2521,7 @@ function sideOk(athleteId, reqSide){        // reqSide "S"/"B"/null
 }
 
 function crewSessTitle(s){
+  if(s.adhoc) return 'Quick piece · '+(s.date?fmtDateY(fromIso(s.date)):"no date");
   return CREW_CATS[s.category]+' · '+(s.date?fmtDateY(fromIso(s.date)):"no date")+(s.sessionNo?' · Session '+s.sessionNo:"");
 }
 /* ---- timing helpers ---- */
@@ -2545,7 +2552,7 @@ function crewCat(s,c){
   // sex from the seated rowers (cox excluded): all-M → M, all-F → F, mixed crew → no category
   const sexes=[...new Set(Object.values(c.seats||{}).map(id=>{const a=athById(id);return a?a.sex:null;}).filter(Boolean))];
   let sex = sexes.length===1 ? sexes[0] : (sexes.length>1 ? null : (s.category==="men"?"M":s.category==="women"?"F":null));
-  return sex ? sex+c.boatClass : null;
+  return sex ? (sex==="F"?"W":"M")+c.boatClass : null;
 }
 function sessionDistance(s){ return +s.distanceM || 2000; }
 function crewGmtPct(s,c){
@@ -2555,6 +2562,7 @@ function crewGmtPct(s,c){
   return (g*1000*(sessionDistance(s)/2000))/el*100;
 }
 function fmtGmt(p){ return p==null ? "—" : p.toFixed(1)+"%"; }
+function fmtGmtSec(sec){ const m=Math.floor(sec/60); return m+":"+(sec-m*60).toFixed(2).padStart(5,"0"); }
 function piecesOnDate(dIso){
   return crewSessionList().filter(s=>{
     if(!s.timesPublished || s.date!==dIso) return false;
@@ -2610,7 +2618,7 @@ function renderCrews(){
   const main=document.getElementById("main");
   if(crewEditId && state.crewSessions[crewEditId]) { renderCrewEditor(main); return; }
   crewEditId=null;
-  const list=crewSessionList();
+  const list=crewSessionList().filter(x=>!x.adhoc);
   let html='<div class="week-top"><div class="week-title"><h2>Water sessions · crews</h2></div>'
     + '<div class="spacer"></div><button class="btn primary" onclick="openNewCrew()">+ Create a crew</button></div>';
   html += '<div class="crew-sess-list">'
@@ -2661,7 +2669,8 @@ function deleteCrewSession(id){
   const s=state.crewSessions[id]; if(!s) return;
   if(!confirm("Delete this "+CREW_CATS[s.category]+" session and its crews?")) return;
   delete state.crewSessions[id]; persist("crewSessions/"+id, null);
-  crewEditId=null; renderCrews(); toast("Session deleted");
+  crewEditId=null; if(timingOpenId===id) timingOpenId=null;
+  renderCrewScreen(); toast("Session deleted");
 }
 function crewHasSideError(sess,c){
   const spec=crewSpec(c.boatType,c.boatClass,c.rig);
@@ -2754,14 +2763,16 @@ function crewCardHtml(s,c){
 /* crew mutations */
 function _sess(sid){ return state.crewSessions[sid]; }
 function _crew(sid,cid){ const s=_sess(sid); return s && s.crews ? s.crews[cid] : null; }
-function saveSess(sid){ persist("crewSessions/"+sid, _sess(sid)); renderCrews(); }
+function renderCrewScreen(){ if(curView==="timing") renderTiming(); else renderCrews(); }
+function saveSess(sid){ persist("crewSessions/"+sid, _sess(sid)); renderCrewScreen(); }
 function setSessionCat(sid,cat){ _sess(sid).category=cat; saveSess(sid); }
 function setSessionDate(sid,date){ _sess(sid).date=date; persist("crewSessions/"+sid, _sess(sid)); }
 function setSessionNo(sid,no){ _sess(sid).sessionNo=no||""; saveSess(sid); }
-function addCrew(sid){
+function addCrew(sid, quick){
   const s=_sess(sid); s.crews=s.crews||{};
   const id=uid(); const order=Object.keys(s.crews).length;
-  s.crews[id]={id, order, boatType:"8", boatClass:DEFAULT_CLASS["8"], rig:"stroke", boatRef:"", steer:"bow", seats:{}, cox:"", oarSet:""};
+  const bt=quick?"1":"8";
+  s.crews[id]={id, order, boatType:bt, boatClass:DEFAULT_CLASS[bt], rig:"stroke", boatRef:"", steer:"bow", seats:{}, cox:"", oarSet:""};
   saveSess(sid);
 }
 function removeCrew(sid,cid){ const s=_sess(sid); if(s&&s.crews){ delete s.crews[cid]; saveSess(sid); } }
@@ -2788,14 +2799,14 @@ function crewHasAthlete(c, id, exceptKind, exceptIdx){
 function assignSeat(sid,cid,i,text){
   const c=_crew(sid,cid); if(!c) return; c.seats=c.seats||{};
   const id=resolveAthlete(text, eligibleRowers(_sess(sid).category));
-  if(id && crewHasAthlete(c, id, "seat", i)){ toast("Already in this crew"); renderCrews(); return; }
+  if(id && crewHasAthlete(c, id, "seat", i)){ toast("Already in this crew"); renderCrewScreen(); return; }
   if(id) c.seats[i]=id; else delete c.seats[i];
   saveSess(sid);
 }
 function assignCox(sid,cid,text){
   const c=_crew(sid,cid); if(!c) return;
   const id=resolveAthlete(text, eligibleCoxes())||"";
-  if(id && crewHasAthlete(c, id, "cox", null)){ toast("Already in this crew"); renderCrews(); return; }
+  if(id && crewHasAthlete(c, id, "cox", null)){ toast("Already in this crew"); renderCrewScreen(); return; }
   c.cox=id; saveSess(sid);
 }
 function assignOarSet(sid,cid,text){
@@ -2833,25 +2844,43 @@ function crewShortLabel(s,c,idx){
 }
 function renderTiming(){
   const main=document.getElementById("main");
-  if(timingOpenId && state.crewSessions[timingOpenId] && state.crewSessions[timingOpenId].published){
+  if(timingOpenId && state.crewSessions[timingOpenId] && (state.crewSessions[timingOpenId].published || state.crewSessions[timingOpenId].adhoc)){
     renderTimingSession(main); return;
   }
   timingOpenId=null;
-  const list=crewSessionList().filter(s=>s.published);
-  let html='<div class="week-top"><div class="week-title"><h2>Timing</h2></div></div>'
+  const all=crewSessionList();
+  const sessRow=s=>{
+    const crews=crewList(s);
+    const timed=crews.filter(c=>crewElapsed(s,c)!=null).length;
+    const status=s.timesPublished?'<span class="tag st-done">Times published</span>'
+      : timed?'<span class="tag st-pub">'+timed+'/'+crews.length+' timed</span>':'<span class="tag">Awaiting times</span>';
+    return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+' '+status+'</h4>'
+      + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")+'</div></div>'
+      + '<button class="btn small primary" onclick="timingOpenId=\''+s.id+'\';renderTiming()">'+(s.timesPublished?'Review':'Time')+'</button>'
+      + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button>'
+      + (s.adhoc?'<button class="btn small danger" onclick="deleteCrewSession(\''+s.id+'\')">Delete</button>':'')
+      + '</div>';
+  };
+  const pub=all.filter(s=>s.published && !s.adhoc);
+  const quick=all.filter(s=>s.adhoc);
+  let html='<div class="week-top"><div class="week-title"><h2>Timing</h2></div></div>';
+  html+='<div class="lib-group" style="margin:2px 4px 8px">Published sessions<span>'+pub.length+'</span></div>'
     + '<div class="crew-sess-list">'
-    + (list.length ? list.map(s=>{
-        const crews=crewList(s);
-        const timed=crews.filter(c=>crewElapsed(s,c)!=null).length;
-        const status=s.timesPublished?'<span class="tag st-done">Times published</span>'
-          : timed?'<span class="tag st-pub">'+timed+'/'+crews.length+' timed</span>':'<span class="tag">Awaiting times</span>';
-        return '<div class="glass crew-sess"><div class="grow"><h4>'+crewSessTitle(s)+' '+status+'</h4>'
-          + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")+'</div></div>'
-          + '<button class="btn small primary" onclick="timingOpenId=\''+s.id+'\';renderTiming()">'+(s.timesPublished?'Review':'Time')+'</button>'
-          + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button></div>';
-      }).join("") : '<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">No published crews yet — publish a water session first.</div>')
+    + (pub.length?pub.map(sessRow).join(""):'<div class="glass" style="padding:20px;text-align:center;color:var(--ink-3);font-weight:500">No published crews yet — publish a water session first.</div>')
+    + '</div>';
+  html+='<hr style="border:none;border-top:1px solid var(--line);margin:22px 0 16px">';
+  html+='<div class="week-top" style="margin-bottom:10px"><div class="lib-group" style="margin:0 4px">Quick pieces<span>'+quick.length+'</span></div>'
+    + '<div class="spacer"></div><button class="btn primary" onclick="newQuickPiece()">+ New quick piece</button></div>'
+    + '<div class="crew-sess-list">'
+    + (quick.length?quick.map(sessRow).join(""):'<div class="glass" style="padding:20px;text-align:center;color:var(--ink-3);font-weight:500">Standalone timing — no crew plan needed. Boats and athletes come from the databases.</div>')
     + '</div>';
   main.innerHTML=html;
+}
+function newQuickPiece(){
+  const id=uid();
+  state.crewSessions[id]={id, adhoc:true, category:"mixed", date:iso(new Date()), created:Date.now(), crews:{}};
+  persist("crewSessions/"+id, state.crewSessions[id]);
+  timingOpenId=id; renderTiming();
 }
 function renderTimingSession(main){
   const s=state.crewSessions[timingOpenId];
@@ -2861,6 +2890,7 @@ function renderTimingSession(main){
   let html='<div class="week-top"><div class="week-title"><h2>'+crewSessTitle(s)+'</h2></div>'
     + '<div class="navbtns"><button class="btn small" onclick="timingOpenId=null;renderTiming()">← Timing</button></div>'
     + '<div class="spacer"></div>'
+    + (s.adhoc?'<input type="date" value="'+(s.date||"")+'" onchange="setSessionDate(\''+s.id+'\',this.value)" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px">':'')
     + '<label style="font-size:12px;font-weight:500;color:var(--ink-2)">Distance</label>'
     + '<input type="number" step="250" min="250" value="'+sessionDistance(s)+'" onchange="setSessionDistance(this.value)" style="width:84px;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px"><span style="font-size:12px;color:var(--ink-3)">m</span>'
     + '<div class="tm-clock" id="tmClock">'+(massTs?fmtElapsedMs(Date.now()-massTs):"0:00.0")+'</div>'
@@ -2880,7 +2910,7 @@ function renderTimingSession(main){
     const ownStart=t.startTs!=null;
     const started=ownStart||massTs!=null;
     const manual=t.manualMs!=null&&t.manualMs!=="";
-    html+='<div class="glass tm-row">'
+    html+='<div class="glass tm-row'+(s.adhoc?' adhoc':'')+'">'
       + '<div class="tm-crew"><b>'+esc(crewShortLabel(s,c,idx))+'</b>'
       + '<span class="tm-sub">'+(cat?cat:'no GMT category')+' · '+(manual?'manual':ownStart?'own start':massTs?'mass start':'not started')+'</span></div>'
       + '<div class="tm-gmt" id="tmG_'+c.id+'">'+fmtGmt(gp)+'</div>'
@@ -2890,10 +2920,52 @@ function renderTimingSession(main){
       + (started && t.finishTs==null && !manual ? '<button class="btn small primary" onclick="crewFinish(\''+c.id+'\')">Finish</button>' : '')
       + '<input class="tm-manual" placeholder="m:ss.t" value="'+(manual?fmtElapsedMs(+t.manualMs):"")+'" onchange="crewManual(\''+c.id+'\',this.value)">'
       + ((el!=null||ownStart)?'<button class="btn small danger" onclick="crewClearTime(\''+c.id+'\')">Clear</button>':'')
-      + '</div></div>';
+      + (s.adhoc?'<button class="btn small danger" onclick="removeCrew(\''+s.id+'\',\''+c.id+'\')">✕</button>':'')
+      + '</div>'
+      + (s.adhoc?adhocEntryHtml(s,c):'')
+      + '</div>';
   });
   html+='</div>';
+  if(s.adhoc){
+    html+='<div class="crew-add"><button class="btn primary" onclick="addCrew(\''+s.id+'\',true)">+ Add boat</button></div>';
+    const rowers=eligibleRowers(s.category), coxes=eligibleCoxes();
+    html+='<datalist id="dlRowers">'+[...labelMap(rowers).byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>'
+      + '<datalist id="dlCoxes">'+[...labelMap(coxes).byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
+  }
   main.innerHTML=html;
+}
+/* inline crew entry for quick pieces: class, boat, seats, cox */
+const ADHOC_CLASSES=[["8","8+"],["4","4+"],["4","4-"],["4","4x"],["2","2-"],["2","2x"],["1","1x"]];
+function adhocEntryHtml(s,c){
+  const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+  const boats=boatsOfType(c.boatType);
+  const sid=s.id, cid=c.id;
+  const rowerLm=labelMap(eligibleRowers(s.category)), coxLm=labelMap(eligibleCoxes());
+  let h='<div class="tm-entry">'
+    + '<select onchange="adhocSetClass(\''+sid+'\',\''+cid+'\',this.value)">'
+    + ADHOC_CLASSES.map(x=>'<option value="'+x[0]+'|'+x[1]+'"'+(c.boatClass===x[1]?" selected":"")+'>'+x[1]+'</option>').join("")+'</select>'
+    + (spec.scull?'':'<select onchange="setCrewRig(\''+sid+'\',\''+cid+'\',this.value)">'
+        + (RIG_OPTS[c.boatType]||[]).map(r=>'<option value="'+r[0]+'"'+(c.rig===r[0]?" selected":"")+'>'+r[1]+'</option>').join("")+'</select>')
+    + '<select onchange="setCrewBoat(\''+sid+'\',\''+cid+'\',this.value)">'
+    + (boats.length?'<option value="">— boat —</option>'+boats.map(b=>'<option value="'+escAttr(b.boatId)+'"'+(c.boatRef===b.boatId?" selected":"")+'>'+esc(b.boatId)+'</option>').join("")
+                   :'<option value="">no boats</option>')+'</select>';
+  if(spec.cox){
+    const ca=athById(c.cox);
+    h+='<input list="dlCoxes" class="tm-name" placeholder="cox" value="'+escAttr(ca?coxLm.byId.get(c.cox)||athFull(ca):"")+'" onchange="assignCox(\''+sid+'\',\''+cid+'\',this.value)">';
+  }
+  spec.seats.forEach((st,i)=>{
+    const aid=c.seats?c.seats[i]:"", a=athById(aid);
+    h+='<input list="dlRowers" class="tm-name" placeholder="'+st.label+'" value="'+escAttr(a?rowerLm.byId.get(aid)||athFull(a):"")+'" onchange="assignSeat(\''+sid+'\',\''+cid+'\','+i+',this.value)">';
+  });
+  h+='</div>';
+  return h;
+}
+function adhocSetClass(sid,cid,val){
+  const c=_crew(sid,cid); if(!c) return;
+  const parts=val.split("|");
+  c.boatType=parts[0]; c.boatClass=parts[1]; c.rig="stroke"; c.boatRef="";
+  if(isScullClass(c.boatClass)) c.cox="";
+  clampSeats(c); saveSess(sid);
 }
 function setSessionDistance(v){
   const s=_tSess(); if(!s) return;
@@ -2928,6 +3000,7 @@ function publishTimes(){
   const missing=crewList(s).filter(c=>crewElapsed(s,c)==null).length;
   if(missing && !confirm(missing+" crew"+(missing===1?" has":"s have")+" no time yet — publish anyway?")) return;
   s.timesPublished=true; s.timesPublishedAt=Date.now();
+  if(s.adhoc) s.published=true;   // quick pieces become visible once results go out
   persist("crewSessions/"+s.id, s);
   timingOpenId=null; renderTiming();
   toast("Times published — visible in the planner and to athletes");
