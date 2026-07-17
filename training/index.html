@@ -271,6 +271,67 @@ svg .wkbar:hover rect{opacity:.82}
 .tcell{display:flex;align-items:center;gap:9px}
 .tcell .lchip{width:74px;text-align:center}
 
+/* ---------- roster tables ---------- */
+table.roster{width:100%;border-collapse:collapse}
+table.roster th{font-size:11px;font-weight:500;color:var(--ink-3);text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.roster td{padding:6px 9px;border-bottom:1px solid #eef0f3;font-size:12.5px;vertical-align:middle}
+table.roster tr:last-child td{border-bottom:none}
+table.roster tr.inactive td{opacity:.5}
+.tag{font-size:10px;font-weight:600;padding:2px 6px;border-radius:5px;background:#eef0f3;color:var(--ink-2)}
+.tag.m{background:#e7f0fa;color:#2b62a8}.tag.f{background:#fbeaf2;color:#b23a77}
+.tag.cox{background:#f0ecf9;color:#6b46b8}
+.tag.side{background:#eaf6ef;color:#2f7a4f}
+.roster-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 4px}
+.roster-tools .grow{flex:1}
+
+/* ---------- crew picker ---------- */
+.crew-sess-list{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.crew-sess{display:flex;align-items:center;gap:12px;padding:13px 15px}
+.crew-sess .grow{flex:1;min-width:0}
+.crew-sess h4{font-size:14.5px;font-weight:600}
+.crew-sess .meta{font-size:12px;color:var(--ink-2);margin-top:2px}
+.crew-cats{display:inline-flex;gap:2px;padding:2px;border-radius:8px;background:#eceef1}
+.crew-cats button{padding:6px 14px;border-radius:6px;font-size:12.5px;font-weight:500;color:var(--ink-2)}
+.crew-cats button.on{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:var(--sh)}
+.crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:12px;margin-top:14px}
+.crew-card{padding:14px 15px;position:relative}
+.crew-card .cc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.crew-card .cc-title{font-weight:700;font-size:14px}
+.crew-seg{display:inline-flex;gap:2px;padding:2px;border-radius:7px;background:#eceef1}
+.crew-seg button{padding:4px 10px;border-radius:5px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.crew-seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--sh)}
+.cc-selects{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}
+.cc-selects select{padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12px;font-weight:500}
+.seat{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.seat .lbl{width:58px;font-size:11.5px;font-weight:600;color:var(--ink-2);flex:none}
+.seat .side-req{width:16px;text-align:center;font-size:10px;font-weight:700;flex:none}
+.seat .side-req.S{color:#2b62a8}.seat .side-req.B{color:#e0873c}
+.seat input{flex:1;min-width:0;padding:6px 9px;border-radius:var(--r-sm);border:1px solid var(--line-strong);background:var(--surface);font-size:12.5px}
+.seat.cox-seat input{border-style:dashed}
+.seat .chk{width:18px;text-align:center;flex:none;font-size:13px;font-weight:700}
+.seat .chk.ok{color:#3a9d5b}.seat .chk.bad{color:var(--danger)}
+.seat.bad input{border-color:var(--danger);background:#fdf4f4}
+.cc-warn{font-size:11.5px;color:var(--danger);font-weight:600;margin-top:6px}
+.cc-remove{margin-left:auto}
+.crew-add{margin-top:6px}
+
+/* ---------- crew PDF ---------- */
+@media print{
+  .p-crewpage{padding:4px 0}
+  .p-crewhead{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #2b62a8;padding-bottom:8px;margin-bottom:12px}
+  .p-crewhead h2{font-size:17px;font-weight:700}
+  .p-crewhead .p-sub{font-size:11px;color:#5a6472}
+  .p-crewgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .p-crewbox{border:1px solid #cdd5de;border-radius:6px;padding:8px 10px;break-inside:avoid}
+  .p-crewbox h3{font-size:12px;font-weight:700;color:#2b62a8;margin-bottom:1px}
+  .p-crewbox .p-boat{font-size:9.5px;color:#5a6472;margin-bottom:5px}
+  .p-crewbox table{width:100%;border-collapse:collapse;font-size:10px}
+  .p-crewbox td{padding:1.5px 2px;border-bottom:1px solid #eef0f3}
+  .p-crewbox td.s{color:#8b94a1;width:42px;font-weight:600}
+  .p-crewbox td.side{width:16px;color:#99a;text-align:right}
+  .p-crewfoot{margin-top:10px;font-size:8.5px;color:#8b94a1}
+}
+
 /* ---------- modals ---------- */
 .overlay{position:fixed;inset:0;background:rgba(29,37,48,.35);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto}
 .overlay.open{display:flex}
@@ -402,6 +463,7 @@ svg .wkbar:hover rect{opacity:.82}
       <button class="tab" data-view="month">Month</button>
       <button class="tab" data-view="eight">8 weeks</button>
       <button class="tab" data-view="overview">Season</button>
+      <button class="tab" data-view="crews" id="tabCrews">Crews</button>
       <button class="tab" data-view="analytics" id="tabAnalytics">Analytics</button>
     </div>
     <div class="spacer"></div>
@@ -409,6 +471,8 @@ svg .wkbar:hover rect{opacity:.82}
     <span class="badge" id="roleBadge"></span>
     <button class="btn" id="btnViewAs" onclick="toggleViewAs()">View as athlete</button>
     <button class="btn" id="btnMembers" onclick="openMembers()">Members</button>
+    <button class="btn" id="btnAthletes" onclick="openAthletes()">Athletes</button>
+    <button class="btn" id="btnBoats" onclick="openBoats()">Boats</button>
     <button class="btn" id="btnEvents" onclick="openEvents()">Events</button>
     <button class="btn" id="btnLibrary" onclick="openLibrary()">Session library</button>
     <button class="btn" id="btnSettings" onclick="openSettings()">Settings</button>
@@ -437,6 +501,8 @@ svg .wkbar:hover rect{opacity:.82}
 <div class="overlay" id="ovEvents"><div class="glass modal wide" id="mdEvents"></div></div>
 <div class="overlay" id="ovBlocks"><div class="glass modal wide" id="mdBlocks"></div></div>
 <div class="overlay" id="ovMembers"><div class="glass modal wide" id="mdMembers"></div></div>
+<div class="overlay" id="ovAthletes"><div class="glass modal wide" id="mdAthletes"></div></div>
+<div class="overlay" id="ovBoats"><div class="glass modal wide" id="mdBoats"></div></div>
 <div class="overlay" id="ovPdf"><div class="glass modal" id="mdPdf"></div></div>
 <div class="glass toast" id="toast"></div>
 <div id="printRoot"></div>
@@ -492,6 +558,48 @@ const LOAD_TYPES  = ["camp","load","maintain","taper"];
 const LOAD_LABEL  = { camp:"Camp", load:"Load", maintain:"Maintain", taper:"Taper", "":"—" };
 const LOAD_COLOR  = { camp:"#2b62a8", load:"#4DA3E0", maintain:"#38B6A5", taper:"#7A8CA0" };
 const DEFAULT_LOAD_TARGETS = { camp:1300, load:1000, maintain:800, taper:600 };
+
+/* ---- roster / boat / crew conventions (Dataverse / Power BI friendly) ---- */
+const uid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+  : "id-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10);
+const SEX_LABEL = { M:"Male", F:"Female" };
+const CREW_CATS = { men:"Men's", women:"Women's", mixed:"Mixed" };
+const catSex = c => c==="men" ? "M" : c==="women" ? "F" : null;   // null = any (mixed)
+const SIDE_LABEL = { bow:"Bow", stroke:"Stroke", both:"Both" };
+
+const BOAT_TYPES = ["8","4","2","1"];
+const BOAT_TYPE_LABEL = { "8":"Eight", "4":"Four", "2":"Pair / double", "1":"Single" };
+const WEIGHT_CLASSES = { OM:"Openweight men", Mid:"Middleweight", OW:"Openweight women" };
+const BOAT_CLASSES = { "8":["8+"], "4":["4+","4-","4x"], "2":["2-","2x"], "1":["1x"] };
+const DEFAULT_CLASS = { "8":"8+", "4":"4-", "2":"2-", "1":"1x" };
+
+const SEAT_LABELS = {
+  "8":["Stroke","7","6","5","4","3","2","Bow"],
+  "4":["Stroke","Three","Two","Bow"],
+  "2":["Stroke","Bow"],
+  "1":["Single"]
+};
+/* side sequences stroke → bow. "S" = stroke side, "B" = bow side, null = unvalidated */
+const RIG_SEQ = {
+  "8":{ stroke:["S","B","S","B","S","B","S","B"], bow:["B","S","B","S","B","S","B","S"], other:[null,null,null,null,null,null,null,null] },
+  "4":{ stroke:["S","B","S","B"], bow:["B","S","B","S"], sbucket:["S","B","B","S"], bbucket:["B","S","S","B"] },
+  "2":{ stroke:["S","B"], bow:["B","S"] }
+};
+const RIG_OPTS = {
+  "8":[["stroke","Stroke rig"],["bow","Bow rig"],["other","Other"]],
+  "4":[["stroke","Stroke rig"],["bow","Bow rig"],["sbucket","Stroke bucket"],["bbucket","Bow bucket"]],
+  "2":[["stroke","Stroke rig"],["bow","Bow rig"]]
+};
+const REQ_SIDE_LABEL = { S:"stroke", B:"bow" };
+const isScullClass = cls => /x$/.test(cls||"");
+function crewSpec(bt, cls, rig){
+  const labels = SEAT_LABELS[bt] || [];
+  const scull  = isScullClass(cls) || bt==="1";
+  const cox    = cls==="4+" || bt==="8";
+  const seq = scull ? labels.map(()=>null) : ((RIG_SEQ[bt] && RIG_SEQ[bt][rig]) || labels.map(()=>null));
+  const seats = labels.map((label,i)=>({label, side:seq[i]||null}));
+  return { seats, cox, scull, steer: cls==="2-" };
+}
 
 const SEED_LIBRARY = [
   {name:"Steady state 60′", type:"Water", zone:"UT2", mode:"duration", minutes:60, notes:"Continuous paddling, rate 18–20"},
@@ -720,6 +828,9 @@ function normalise(v){
   v.settings.loadTargets = Object.assign({}, DEFAULT_LOAD_TARGETS, v.settings.loadTargets||{});
   v.settings.loadType = v.settings.loadType || {};
   for(const s in SQUADS) v.settings.loadType[s] = v.settings.loadType[s] || {};
+  v.athletes = v.athletes || {};
+  v.boats = v.boats || {};
+  v.crewSessions = v.crewSessions || {};
   return v;
 }
 function eventsOn(dIso, squad){
@@ -897,10 +1008,13 @@ function enterApp(){
   document.getElementById("btnLibrary").style.display = isCoach?"":"none";
   document.getElementById("btnSettings").style.display = isCoach?"":"none";
   document.getElementById("btnMembers").style.display = isCoach?"":"none";
+  document.getElementById("btnAthletes").style.display = isCoach?"":"none";
+  document.getElementById("btnBoats").style.display = isCoach?"":"none";
+  document.getElementById("tabCrews").style.display = isCoach?"":"none";
   document.getElementById("btnViewAs").style.display = realCoach?"":"none";
   document.getElementById("btnViewAs").textContent = viewAsAthlete ? "Back to coach view" : "View as athlete";
   document.getElementById("tabAnalytics").style.display = isCoach?"":"none";
-  if(!isCoach && curView==="analytics") curView="week";
+  if(!isCoach && (curView==="analytics"||curView==="crews")) curView="week";
   const m = myMember();
   document.getElementById("roleBadge").textContent = isCoach ? "Coach" : (m && m.name ? m.name : auth.email.split("@")[0]);
   const squads = visibleSquads();
@@ -938,6 +1052,7 @@ function renderAll(){
   else if(curView==="month") renderMulti(4);
   else if(curView==="eight") renderMulti(8);
   else if(curView==="analytics" && role()==="coach") renderAnalytics();
+  else if(curView==="crews" && role()==="coach") renderCrews();
   else renderOverview();
 }
 
@@ -2042,6 +2157,413 @@ function doPdf(){
   document.getElementById("printRoot").innerHTML = html;
   hide("ovPdf");
   setTimeout(()=>window.print(), 120);
+}
+
+/* =====================================================================
+   ATHLETE DATABASE
+===================================================================== */
+function athleteList(){
+  return Object.values(state.athletes||{})
+    .sort((a,b)=> (a.lastName||"").localeCompare(b.lastName||"") || (a.firstName||"").localeCompare(b.firstName||""));
+}
+function athFull(a){ return ((a.firstName||"")+" "+(a.lastName||"")).trim(); }
+function athShort(a){
+  if(a.shortName) return a.shortName;
+  const same = athleteList().filter(x=>x.active!==false && (x.lastName||"").toLowerCase()===(a.lastName||"").toLowerCase());
+  if(same.length>1 && a.firstName) return (a.lastName||"")+" "+a.firstName[0].toUpperCase();
+  return a.lastName || athFull(a);
+}
+function athAge(dob){
+  if(!dob) return "";
+  const d=fromIso(dob), n=new Date();
+  let age=n.getFullYear()-d.getFullYear();
+  if(n.getMonth()<d.getMonth() || (n.getMonth()===d.getMonth() && n.getDate()<d.getDate())) age--;
+  return age;
+}
+function athById(id){ return id ? (state.athletes||{})[id] : null; }
+
+let athEditId = null;
+function openAthletes(){ if(role()!=="coach") return; athEditId=null; renderAthletes(); show("ovAthletes"); }
+function renderAthletes(){
+  let html = '<button class="x" onclick="hide(\'ovAthletes\')">✕</button><h3>Athlete database</h3>'
+    + '<div class="hint" style="margin-top:-8px">Weight and date of birth are coach-only. Set an athlete inactive to keep their history for analytics without showing them in crew pickers.</div>';
+
+  if(athEditId!==null){
+    const a = athEditId==="new"
+      ? {firstName:"",lastName:"",sex:"M",role:"rower",sweepSide:"both",weightKg:"",dob:"",squad:"men",active:true,shortName:""}
+      : {...state.athletes[athEditId]};
+    html += '<div style="margin-top:14px">'
+      + '<div class="frow"><div class="field"><label>First name</label><input id="afFirst" value="'+escAttr(a.firstName||"")+'"></div>'
+      + '<div class="field"><label>Last name</label><input id="afLast" value="'+escAttr(a.lastName||"")+'"></div></div>'
+      + '<div class="frow"><div class="field"><label>Sex</label><select id="afSex"><option value="M"'+(a.sex==="M"?" selected":"")+'>Male</option><option value="F"'+(a.sex==="F"?" selected":"")+'>Female</option></select></div>'
+      + '<div class="field"><label>Role</label><select id="afRole" onchange="renderAthletes()"><option value="rower"'+(a.role==="rower"?" selected":"")+'>Rower</option><option value="cox"'+(a.role==="cox"?" selected":"")+'>Cox</option></select></div>'
+      + '<div class="field"><label>Sweep side</label><select id="afSide"'+(a.role==="cox"?" disabled":"")+'>'
+        + ['bow','stroke','both'].map(s=>'<option value="'+s+'"'+(a.sweepSide===s?" selected":"")+'>'+SIDE_LABEL[s]+'</option>').join("")+'</select></div></div>'
+      + '<div class="frow"><div class="field"><label>Weight (kg) · coach-only</label><input id="afWeight" type="number" step="0.1" min="0" value="'+(a.weightKg||"")+'"></div>'
+      + '<div class="field"><label>Date of birth · coach-only</label><input id="afDob" type="date" value="'+(a.dob||"")+'"></div>'
+      + '<div class="field"><label>Squad</label><select id="afSquad">'+Object.keys(SQUADS).map(s=>'<option value="'+s+'"'+(a.squad===s?" selected":"")+'>'+SQUADS[s]+'</option>').join("")+'</select></div></div>'
+      + '<div class="frow" style="align-items:flex-end"><div class="field"><label>Short name override <span style="text-transform:none;font-weight:500">(optional)</span></label><input id="afShort" value="'+escAttr(a.shortName||"")+'" placeholder="auto: '+escAttr(athEditId==="new"?"surname":athShort(a))+'"></div>'
+      + '<div class="field"><label>&nbsp;</label><label class="checkline" style="margin:0"><input type="checkbox" id="afActive"'+(a.active!==false?" checked":"")+'> Active</label></div></div>'
+      + '<div class="modal-actions">'
+      + (athEditId!=="new" ? '<button class="btn danger left" onclick="deleteAthlete(\''+athEditId+'\')">Delete</button>' : "")
+      + '<button class="btn" onclick="athEditId=null;renderAthletes()">Cancel</button>'
+      + '<button class="btn primary" onclick="saveAthlete()">Save athlete</button></div></div>';
+  } else {
+    const list = athleteList();
+    html += '<div class="roster-tools"><div class="grow"></div>'
+      + '<button class="btn small" onclick="exportAthletesCsv()">CSV</button>'
+      + '<button class="btn small primary" onclick="athEditId=\'new\';renderAthletes()">+ New athlete</button></div>'
+      + '<div class="lib-list" style="max-height:52vh"><table class="roster"><thead><tr>'
+      + '<th>Name</th><th>Sex</th><th>Role</th><th>Side</th><th>Wt</th><th>Age</th><th>Squad</th><th></th></tr></thead><tbody>'
+      + (list.length ? list.map(a=>'<tr class="'+(a.active===false?"inactive":"")+'">'
+          + '<td style="font-weight:600">'+esc(athFull(a))+(a.active===false?' <span class="tag">inactive</span>':"")+'</td>'
+          + '<td><span class="tag '+(a.sex==="F"?"f":"m")+'">'+a.sex+'</span></td>'
+          + '<td>'+(a.role==="cox"?'<span class="tag cox">Cox</span>':"Rower")+'</td>'
+          + '<td>'+(a.role==="cox"?'—':'<span class="tag side">'+SIDE_LABEL[a.sweepSide||"both"]+'</span>')+'</td>'
+          + '<td>'+(a.weightKg?a.weightKg:'—')+'</td><td>'+(a.dob?athAge(a.dob):'—')+'</td>'
+          + '<td>'+(SQUADS[a.squad]||"—")+'</td>'
+          + '<td style="text-align:right;white-space:nowrap"><button class="btn small" onclick="athEditId=\''+a.athleteId+'\';renderAthletes()">Edit</button></td></tr>'
+        ).join("") : '<tr><td colspan="8" class="empty-day">No athletes yet.</td></tr>')
+      + '</tbody></table></div>';
+  }
+  document.getElementById("mdAthletes").innerHTML = html;
+}
+function saveAthlete(){
+  const g=id=>document.getElementById(id);
+  const first=g("afFirst").value.trim(), last=g("afLast").value.trim();
+  if(!first || !last){ toast("Enter first and last name"); return; }
+  const role=g("afRole").value;
+  const a = {
+    athleteId: athEditId==="new" ? uid() : athEditId,
+    firstName:first, lastName:last,
+    sex:g("afSex").value, role,
+    sweepSide: role==="cox" ? "" : g("afSide").value,
+    weightKg: g("afWeight").value ? +g("afWeight").value : "",
+    dob: g("afDob").value || "",
+    squad: g("afSquad").value,
+    shortName: g("afShort").value.trim(),
+    active: g("afActive").checked
+  };
+  state.athletes[a.athleteId]=a; persist("athletes/"+a.athleteId, a);
+  athEditId=null; renderAthletes(); toast("Athlete saved"); renderAll();
+}
+function deleteAthlete(id){
+  const a=state.athletes[id]; if(!a) return;
+  if(!confirm("Delete "+athFull(a)+"? Consider setting them inactive instead to keep history.")) return;
+  delete state.athletes[id]; persist("athletes/"+id, null);
+  athEditId=null; renderAthletes(); toast("Athlete deleted");
+}
+function exportAthletesCsv(){
+  const rows=[["athlete_id","first_name","last_name","full_name","short_name","sex","role","sweep_side","weight_kg","dob","age","squad","active"]];
+  athleteList().forEach(a=>rows.push([a.athleteId,a.firstName,a.lastName,athFull(a),athShort(a),a.sex,a.role,a.sweepSide||"",a.weightKg||"",a.dob||"",a.dob?athAge(a.dob):"",a.squad||"",a.active===false?"FALSE":"TRUE"]));
+  downloadCsv("eubc_athletes.csv", rows); toast("Athletes CSV downloaded ("+(rows.length-1)+")");
+}
+
+/* =====================================================================
+   BOAT DATABASE
+===================================================================== */
+function boatArr(){
+  return Object.values(state.boats||{})
+    .sort((a,b)=> (a.boatType||"").localeCompare(b.boatType||"") || (a.boatId||"").localeCompare(b.boatId||""));
+}
+function boatsOfType(bt){ return boatArr().filter(b=>b.boatType===bt && b.active!==false); }
+let boatEditId = null;
+function openBoats(){ if(role()!=="coach") return; boatEditId=null; renderBoats(); show("ovBoats"); }
+function renderBoats(){
+  let html = '<button class="x" onclick="hide(\'ovBoats\')">✕</button><h3>Boat database</h3>'
+    + '<div class="hint" style="margin-top:-8px">Boat IDs use the EHU prefix — enter the three digits to make e.g. EHU192.</div>';
+  if(boatEditId!==null){
+    const isNew = boatEditId==="new";
+    const b = isNew ? {boatId:"",boatType:"8",boatName:"",weightClass:"OM",active:true} : {...state.boats[boatEditId]};
+    const digits = isNew ? "" : (b.boatId||"").replace(/^EHU/i,"");
+    html += '<div style="margin-top:14px">'
+      + '<div class="frow"><div class="field"><label>Boat ID</label>'
+        + '<div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;color:var(--ink-2)">EHU</span>'
+        + '<input id="bfDigits" '+(isNew?"":"disabled")+' maxlength="3" style="width:80px" value="'+escAttr(digits)+'" placeholder="192">'
+        + (isNew?"":'<span class="hint" style="margin:0">ID is fixed once set</span>')+'</div></div>'
+      + '<div class="field"><label>Boat type</label><select id="bfType">'+BOAT_TYPES.map(t=>'<option value="'+t+'"'+(b.boatType===t?" selected":"")+'>'+BOAT_TYPE_LABEL[t]+' ('+t+')</option>').join("")+'</select></div></div>'
+      + '<div class="frow"><div class="field"><label>Boat name</label><input id="bfName" value="'+escAttr(b.boatName||"")+'" placeholder="e.g. The Meggetland"></div>'
+      + '<div class="field"><label>Weight class</label><select id="bfClass">'+Object.keys(WEIGHT_CLASSES).map(c=>'<option value="'+c+'"'+(b.weightClass===c?" selected":"")+'>'+c+' · '+WEIGHT_CLASSES[c]+'</option>').join("")+'</select></div></div>'
+      + '<label class="checkline"><input type="checkbox" id="bfActive"'+(b.active!==false?" checked":"")+'> Active</label>'
+      + '<div class="modal-actions">'
+      + (isNew?"":'<button class="btn danger left" onclick="deleteBoat(\''+boatEditId+'\')">Delete</button>')
+      + '<button class="btn" onclick="boatEditId=null;renderBoats()">Cancel</button>'
+      + '<button class="btn primary" onclick="saveBoat()">Save boat</button></div></div>';
+  } else {
+    const list = boatArr();
+    html += '<div class="roster-tools"><div class="grow"></div>'
+      + '<button class="btn small" onclick="exportBoatsCsv()">CSV</button>'
+      + '<button class="btn small primary" onclick="boatEditId=\'new\';renderBoats()">+ New boat</button></div>'
+      + '<div class="lib-list" style="max-height:52vh"><table class="roster"><thead><tr>'
+      + '<th>Boat ID</th><th>Type</th><th>Name</th><th>Class</th><th></th></tr></thead><tbody>'
+      + (list.length ? list.map(b=>'<tr class="'+(b.active===false?"inactive":"")+'">'
+          + '<td style="font-weight:700;font-family:ui-monospace,monospace">'+esc(b.boatId)+(b.active===false?' <span class="tag">inactive</span>':"")+'</td>'
+          + '<td>'+BOAT_TYPE_LABEL[b.boatType]+'</td><td>'+esc(b.boatName||"—")+'</td>'
+          + '<td><span class="tag">'+esc(b.weightClass||"")+'</span></td>'
+          + '<td style="text-align:right"><button class="btn small" onclick="boatEditId=\''+escAttr(b.boatId)+'\';renderBoats()">Edit</button></td></tr>'
+        ).join("") : '<tr><td colspan="5" class="empty-day">No boats yet.</td></tr>')
+      + '</tbody></table></div>';
+  }
+  document.getElementById("mdBoats").innerHTML = html;
+}
+function saveBoat(){
+  const g=id=>document.getElementById(id);
+  const isNew = boatEditId==="new";
+  let id = boatEditId;
+  if(isNew){
+    const d = (g("bfDigits").value||"").replace(/\D/g,"").padStart(3,"0").slice(0,3);
+    if(d.length!==3){ toast("Enter three digits for the boat ID"); return; }
+    id = "EHU"+d;
+    if(state.boats[id]){ toast(id+" already exists"); return; }
+  }
+  const b = { boatId:id, boatType:g("bfType").value, boatName:g("bfName").value.trim(), weightClass:g("bfClass").value, active:g("bfActive").checked };
+  state.boats[id]=b; persist("boats/"+id, b);
+  boatEditId=null; renderBoats(); toast("Boat saved"); renderAll();
+}
+function deleteBoat(id){
+  const b=state.boats[id]; if(!b) return;
+  if(!confirm("Delete "+id+"? Consider setting it inactive instead.")) return;
+  delete state.boats[id]; persist("boats/"+id, null);
+  boatEditId=null; renderBoats(); toast("Boat deleted");
+}
+function exportBoatsCsv(){
+  const rows=[["boat_id","boat_type","boat_name","weight_class","active"]];
+  boatArr().forEach(b=>rows.push([b.boatId,b.boatType,b.boatName||"",b.weightClass||"",b.active===false?"FALSE":"TRUE"]));
+  downloadCsv("eubc_boats.csv", rows); toast("Boats CSV downloaded ("+(rows.length-1)+")");
+}
+
+/* =====================================================================
+   WATER SESSION / CREW PICKER  (coach only)
+===================================================================== */
+let crewEditId = null;         // session id being edited, or null = list
+let newCrewCat = "men";
+let newCrewDateVal = "";
+
+function crewSessionList(){
+  return Object.values(state.crewSessions||{})
+    .sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (b.created||0)-(a.created||0));
+}
+function crewList(sess){
+  return Object.values(sess.crews||{}).sort((a,b)=>(a.order||0)-(b.order||0));
+}
+/* eligibility pools for autocomplete + side check */
+function eligibleRowers(cat){
+  const sx = catSex(cat);
+  return athleteList().filter(a=>a.active!==false && a.role==="rower" && (!sx || a.sex===sx));
+}
+function eligibleCoxes(){ return athleteList().filter(a=>a.active!==false && a.role==="cox"); }
+function labelMap(list){
+  const counts={}; list.forEach(a=>{ const k=athFull(a).toLowerCase(); counts[k]=(counts[k]||0)+1; });
+  const seen={}, byLabel=new Map(), byId=new Map();
+  list.forEach(a=>{ const base=athFull(a), k=base.toLowerCase(); let lab=base;
+    if(counts[k]>1){ seen[k]=(seen[k]||0)+1; lab=base+" ("+seen[k]+")"; }
+    byLabel.set(lab.toLowerCase(), a.athleteId); byId.set(a.athleteId, lab); });
+  return {byLabel, byId};
+}
+function resolveAthlete(text, pool){
+  const t=(text||"").trim().toLowerCase(); if(!t) return "";
+  const lm=labelMap(pool);
+  if(lm.byLabel.has(t)) return lm.byLabel.get(t);
+  const exact=pool.filter(a=>athFull(a).toLowerCase()===t);
+  return exact.length===1 ? exact[0].athleteId : "";
+}
+function sideOk(athleteId, reqSide){        // reqSide "S"/"B"/null
+  if(!reqSide) return true;
+  const a=athById(athleteId); if(!a) return true;   // empty seat: not an error yet
+  if(a.sweepSide==="both") return true;
+  return a.sweepSide === REQ_SIDE_LABEL[reqSide];
+}
+
+function renderCrews(){
+  const main=document.getElementById("main");
+  if(crewEditId && state.crewSessions[crewEditId]) { renderCrewEditor(main); return; }
+  crewEditId=null;
+  const list=crewSessionList();
+  let html='<div class="week-top"><div class="week-title"><h2>Water sessions · crews</h2>'
+    + '<div class="dates">Coach-only · announce crews ahead of the day</div></div></div>';
+  html += '<div class="glass" style="padding:14px 16px;margin-bottom:14px"><div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">'
+    + '<div class="crew-cats">'+Object.keys(CREW_CATS).map(c=>'<button class="'+(newCrewCat===c?"on":"")+'" onclick="newCrewCat=\''+c+'\';renderCrews()">'+CREW_CATS[c]+'</button>').join("")+'</div>'
+    + '<input type="date" id="newCrewDate" value="'+(newCrewDateVal||"")+'" onchange="newCrewDateVal=this.value" style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px">'
+    + '<button class="btn primary" onclick="newCrewSession()">+ New session</button></div></div>';
+  html += '<div class="crew-sess-list">'
+    + (list.length ? list.map(s=>{
+        const crews=crewList(s); const bad=crews.filter(c=>crewHasSideError(s,c)).length;
+        return '<div class="glass crew-sess"><div class="grow"><h4>'+CREW_CATS[s.category]+' · '+(s.date?fmtDateY(fromIso(s.date)):"no date")+'</h4>'
+          + '<div class="meta">'+crews.length+' crew'+(crews.length===1?"":"s")
+          + (bad?' · <span style="color:var(--danger);font-weight:600">'+bad+' with a side issue</span>':(crews.length?' · all sides valid':""))+'</div></div>'
+          + '<button class="btn small" onclick="openCrewSession(\''+s.id+'\')">Edit</button>'
+          + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">PDF</button>'
+          + '<button class="btn small danger" onclick="deleteCrewSession(\''+s.id+'\')">Delete</button></div>';
+      }).join("") : '<div class="glass" style="padding:22px;text-align:center;color:var(--ink-3);font-weight:500">No sessions yet — pick a category and date to start.</div>')
+    + '</div>';
+  main.innerHTML=html;
+}
+function newCrewSession(){
+  const date=(document.getElementById("newCrewDate")||{}).value||newCrewDateVal||"";
+  const id=uid();
+  const s={id, category:newCrewCat, date, created:Date.now(), crews:{}};
+  state.crewSessions[id]=s; persist("crewSessions/"+id, s);
+  newCrewDateVal=""; crewEditId=id; renderCrews();
+}
+function openCrewSession(id){ crewEditId=id; renderCrews(); }
+function deleteCrewSession(id){
+  const s=state.crewSessions[id]; if(!s) return;
+  if(!confirm("Delete this "+CREW_CATS[s.category]+" session and its crews?")) return;
+  delete state.crewSessions[id]; persist("crewSessions/"+id, null);
+  crewEditId=null; renderCrews(); toast("Session deleted");
+}
+function crewHasSideError(sess,c){
+  const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+  return spec.seats.some((st,i)=> st.side && c.seats && c.seats[i] && !sideOk(c.seats[i], st.side));
+}
+
+function renderCrewEditor(main){
+  const s=state.crewSessions[crewEditId];
+  const rowers=eligibleRowers(s.category), coxes=eligibleCoxes();
+  const rMap=labelMap(rowers), cMap=labelMap(coxes);
+  const dlR='<datalist id="dlRowers">'+[...rMap.byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
+  const dlC='<datalist id="dlCoxes">'+[...cMap.byId.values()].map(l=>'<option value="'+escAttr(l)+'">').join("")+'</datalist>';
+
+  let html='<div class="week-top"><div class="week-title"><h2>'+CREW_CATS[s.category]+' crews</h2>'
+    + '<div class="dates">'+(s.date?fmtDateY(fromIso(s.date)):"set a date")+' · '+crewList(s).length+' crews</div></div>'
+    + '<div class="navbtns"><button class="btn small" onclick="crewEditId=null;renderCrews()">← All sessions</button></div>'
+    + '<div class="spacer"></div>'
+    + '<button class="btn small" onclick="crewPdf(\''+s.id+'\')">Generate PDF</button>'
+    + '<button class="btn primary small" onclick="finishCrews()">Finished</button></div>';
+
+  html += '<div class="glass" style="padding:12px 15px;margin-bottom:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">'
+    + '<div class="crew-cats">'+Object.keys(CREW_CATS).map(c=>'<button class="'+(s.category===c?"on":"")+'" onclick="setSessionCat(\''+s.id+'\',\''+c+'\')">'+CREW_CATS[c]+'</button>').join("")+'</div>'
+    + '<label style="font-size:12px;font-weight:500;color:var(--ink-2)">Date</label>'
+    + '<input type="date" value="'+(s.date||"")+'" onchange="setSessionDate(\''+s.id+'\',this.value)" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--line-strong);font-size:13px">'
+    + '<div class="spacer" style="flex:1"></div><span style="font-size:11.5px;color:var(--ink-3)">Autocomplete lists '+rowers.length+' rowers · '+coxes.length+' coxes for this category</span></div>';
+
+  html += '<div class="crew-grid">';
+  crewList(s).forEach(c=> html += crewCardHtml(s,c));
+  html += '</div>';
+  html += '<div class="crew-add"><button class="btn primary" onclick="addCrew(\''+s.id+'\')">+ Add crew</button></div>';
+  html += dlR+dlC;
+  main.innerHTML=html;
+}
+function crewCardHtml(s,c){
+  const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+  const classes=BOAT_CLASSES[c.boatType]||[];
+  const rigs=RIG_OPTS[c.boatType];
+  const sweep=!spec.scull;
+  const boats=boatsOfType(c.boatType);
+  const sid=s.id, cid=c.id;
+
+  let h='<div class="glass crew-card"><div class="cc-head">'
+    + '<span class="cc-title">'+c.boatClass+'</span>'
+    + '<div class="crew-seg">'+BOAT_TYPES.map(t=>'<button class="'+(c.boatType===t?"on":"")+'" onclick="setCrewType(\''+sid+'\',\''+cid+'\',\''+t+'\')">'+t+'</button>').join("")+'</div>'
+    + '<button class="btn small danger cc-remove" onclick="removeCrew(\''+sid+'\',\''+cid+'\')">Remove</button></div>';
+
+  h+='<div class="cc-selects">';
+  if(classes.length>1)
+    h+='<select onchange="setCrewClass(\''+sid+'\',\''+cid+'\',this.value)">'+classes.map(cl=>'<option value="'+cl+'"'+(c.boatClass===cl?" selected":"")+'>'+cl+'</option>').join("")+'</select>';
+  if(sweep && rigs)
+    h+='<select onchange="setCrewRig(\''+sid+'\',\''+cid+'\',this.value)">'+rigs.map(r=>'<option value="'+r[0]+'"'+(c.rig===r[0]?" selected":"")+'>'+r[1]+'</option>').join("")+'</select>';
+  if(spec.steer)
+    h+='<select onchange="setCrewSteer(\''+sid+'\',\''+cid+'\',this.value)" title="Steering"><option value="bow"'+(c.steer!=="stroke"?" selected":"")+'>Steer: bow</option><option value="stroke"'+(c.steer==="stroke"?" selected":"")+'>Steer: stroke</option></select>';
+  h+='<select onchange="setCrewBoat(\''+sid+'\',\''+cid+'\',this.value)" title="Assign boat"><option value="">— boat —</option>'
+    + boats.map(b=>'<option value="'+escAttr(b.boatId)+'"'+(c.boatRef===b.boatId?" selected":"")+'>'+esc(b.boatId)+(b.boatName?" · "+esc(b.boatName):"")+'</option>').join("")+'</select>';
+  h+='</div>';
+
+  // cox
+  if(spec.cox){
+    const cid2=c.cox, ca=athById(cid2);
+    h+='<div class="seat cox-seat"><span class="lbl">Cox</span><span class="side-req"></span>'
+      + '<input list="dlCoxes" value="'+escAttr(ca?labelMap(eligibleCoxes()).byId.get(cid2)||athFull(ca):"")+'" placeholder="cox name" onchange="assignCox(\''+sid+'\',\''+cid+'\',this.value)">'
+      + '<span class="chk">'+(ca?'✓':'')+'</span></div>';
+  }
+  // seats
+  spec.seats.forEach((st,i)=>{
+    const aid=c.seats?c.seats[i]:"", a=athById(aid);
+    const ok=sideOk(aid, st.side);
+    const bad = st.side && aid && !ok;
+    const label = a ? (labelMap(c._pool||eligibleRowers(s.category)).byId.get(aid)||athFull(a)) : "";
+    h+='<div class="seat'+(bad?" bad":"")+'"><span class="lbl">'+st.label+'</span>'
+      + '<span class="side-req '+(st.side||"")+'">'+(st.side||"")+'</span>'
+      + '<input list="dlRowers" value="'+escAttr(label)+'" placeholder="name" onchange="assignSeat(\''+sid+'\',\''+cid+'\','+i+',this.value)">'
+      + '<span class="chk '+(aid?(bad?"bad":"ok"):"")+'">'+(aid?(bad?'✗':'✓'):'')+'</span></div>';
+  });
+  if(crewHasSideError(s,c)) h+='<div class="cc-warn">Wrong side — check the ✗ seats against each athlete\'s registered side.</div>';
+  h+='</div>';
+  return h;
+}
+
+/* crew mutations */
+function _sess(sid){ return state.crewSessions[sid]; }
+function _crew(sid,cid){ const s=_sess(sid); return s && s.crews ? s.crews[cid] : null; }
+function saveSess(sid){ persist("crewSessions/"+sid, _sess(sid)); renderCrews(); }
+function setSessionCat(sid,cat){ _sess(sid).category=cat; saveSess(sid); }
+function setSessionDate(sid,date){ _sess(sid).date=date; persist("crewSessions/"+sid, _sess(sid)); }
+function addCrew(sid){
+  const s=_sess(sid); s.crews=s.crews||{};
+  const id=uid(); const order=Object.keys(s.crews).length;
+  s.crews[id]={id, order, boatType:"4", boatClass:DEFAULT_CLASS["4"], rig:"stroke", boatRef:"", steer:"bow", seats:{}, cox:""};
+  saveSess(sid);
+}
+function removeCrew(sid,cid){ const s=_sess(sid); if(s&&s.crews){ delete s.crews[cid]; saveSess(sid); } }
+function setCrewType(sid,cid,t){
+  const c=_crew(sid,cid); if(!c) return;
+  c.boatType=t; c.boatClass=DEFAULT_CLASS[t]; c.rig="stroke"; c.boatRef="";
+  clampSeats(c); saveSess(sid);
+}
+function setCrewClass(sid,cid,cl){ const c=_crew(sid,cid); if(!c) return; c.boatClass=cl; if(isScullClass(cl)) c.cox=""; clampSeats(c); saveSess(sid); }
+function setCrewRig(sid,cid,r){ const c=_crew(sid,cid); if(!c) return; c.rig=r; saveSess(sid); }
+function setCrewSteer(sid,cid,v){ const c=_crew(sid,cid); if(!c) return; c.steer=v; saveSess(sid); }
+function setCrewBoat(sid,cid,v){ const c=_crew(sid,cid); if(!c) return; c.boatRef=v; saveSess(sid); }
+function clampSeats(c){
+  const n=(SEAT_LABELS[c.boatType]||[]).length; const out={};
+  for(let i=0;i<n;i++) if(c.seats&&c.seats[i]) out[i]=c.seats[i];
+  c.seats=out;
+}
+function assignSeat(sid,cid,i,text){
+  const c=_crew(sid,cid); if(!c) return; c.seats=c.seats||{};
+  const id=resolveAthlete(text, eligibleRowers(_sess(sid).category));
+  if(id) c.seats[i]=id; else delete c.seats[i];
+  saveSess(sid);
+}
+function assignCox(sid,cid,text){
+  const c=_crew(sid,cid); if(!c) return;
+  c.cox=resolveAthlete(text, eligibleCoxes())||"";
+  saveSess(sid);
+}
+function finishCrews(){ const s=_sess(crewEditId); crewEditId=null; renderCrews(); toast("Crews saved"+(s?" · "+CREW_CATS[s.category]:"")); }
+
+/* crew PDF — all crews on one A4 */
+function crewPdf(sid){
+  const s=state.crewSessions[sid]; if(!s) return;
+  const crews=crewList(s);
+  let html='<div class="p-crewpage"><div class="p-crewhead"><div><h2>'+CREW_CATS[s.category]+' crews</h2>'
+    + '<div class="p-sub">Edinburgh University Boat Club · '+(s.date?fmtDateY(fromIso(s.date)):"")+'</div></div>'
+    + '<img class="p-logo" src="eubc-logo.png" alt="" style="height:38px"></div><div class="p-crewgrid">';
+  crews.forEach(c=>{
+    const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+    const boat=c.boatRef?state.boats[c.boatRef]:null;
+    const rigTxt = spec.scull ? "" : (RIG_OPTS[c.boatType]||[]).filter(r=>r[0]===c.rig).map(r=>r[1])[0]||"";
+    let rows="";
+    if(spec.cox){ const ca=athById(c.cox); rows+='<tr><td class="s">Cox</td><td>'+esc(ca?athShort(ca):"—")+'</td><td class="side"></td></tr>'; }
+    spec.seats.forEach((st,i)=>{ const a=athById(c.seats?c.seats[i]:""); 
+      rows+='<tr><td class="s">'+st.label+'</td><td>'+esc(a?athShort(a):"—")+'</td><td class="side">'+(st.side||"")+'</td></tr>'; });
+    html+='<div class="p-crewbox"><h3>'+c.boatClass+(rigTxt?' · '+rigTxt:"")+(spec.steer?' · steer '+(c.steer||"bow"):"")+'</h3>'
+      + '<div class="p-boat">'+(boat?esc(boat.boatId)+(boat.boatName?" · "+esc(boat.boatName):""):"boat TBC")+'</div>'
+      + '<table>'+rows+'</table></div>';
+  });
+  html+='</div><div class="p-crewfoot">Edinburgh University Boat Club · generated '+fmtDateY(new Date())+'</div></div>';
+  document.getElementById("printRoot").innerHTML=html;
+  setTimeout(()=>window.print(),120);
+}
+function exportCrewsCsv(){
+  const rows=[["session_id","date","category","crew_id","boat_type","boat_class","rig","boat_id","boat_name","seat","required_side","athlete_id","athlete_name","athlete_side","side_ok"]];
+  crewSessionList().forEach(s=>crewList(s).forEach(c=>{
+    const spec=crewSpec(c.boatType,c.boatClass,c.rig);
+    const boat=c.boatRef?state.boats[c.boatRef]:null;
+    const push=(seat,req,aid)=>{ const a=athById(aid); rows.push([s.id,s.date||"",s.category,c.id,c.boatType,c.boatClass,c.rig||"",boat?boat.boatId:"",boat?boat.boatName||"":"",seat,req?REQ_SIDE_LABEL[req]:"",aid||"",a?athFull(a):"",a?(a.sweepSide||""):"",req?(sideOk(aid,req)?"TRUE":"FALSE"):""]); };
+    if(spec.cox) push("Cox","",c.cox);
+    spec.seats.forEach((st,i)=>push(st.label, st.side, c.seats?c.seats[i]:""));
+  }));
+  downloadCsv("eubc_crews.csv", rows); toast("Crews CSV downloaded ("+(rows.length-1)+" seats)");
 }
 
 /* ---------------- utilities ---------------- */
