@@ -229,7 +229,7 @@ table.pieces input:focus{border-color:var(--accent);background:var(--surface);bo
         <strong>Take or choose a photo</strong>
         <span>of the finished erg screen</span>
       </div>
-      <input type="file" id="photoInput" accept="image/*" style="display:none">
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
       <img id="photoPreview" alt="Erg screen photo preview">
       <button class="btn ghost" id="btnClearPhoto" style="display:none;margin-top:10px">Remove photo and choose another</button>
       <div id="extractMsg"></div>
@@ -406,7 +406,7 @@ async function completeLinkSignIn(){
 }
 
 auth.onAuthStateChanged(async user => {
-  if (!user || !user.email) { me = null; $("whoBox").innerHTML=""; show("scrSignIn"); return; }
+  if (!user || !user.email) { detachScores(); me = null; $("whoBox").innerHTML=""; show("scrSignIn"); return; }
   const key = emailKey(user.email);
   const memberSnap = await db.ref(`${MEMBERS_PATH}/${key}`).get();
   let member = memberSnap.val();
@@ -422,8 +422,8 @@ auth.onAuthStateChanged(async user => {
 
   if (member.status !== "approved" && !me.isCoach) { show("scrPending"); return; }
   show("scrHome");
-  loadMyScores();
-  if (me.isCoach) { $("coachPanel").style.display="block"; loadCoachQueue(); }
+  attachScores();
+  if (me.isCoach) $("coachPanel").style.display="block";
 });
 
 /* ============================================================
@@ -652,8 +652,7 @@ $("btnSave").onclick = async () => {
       `${format} · ${record.work.distance ?? "?"}m · avg ${record.work.avgSplit ?? "?"} @ ${record.work.avgRate ?? "?"} — saved for ${sessionDate}.`;
     resetSubmission();
     show("scrSaved");
-    loadMyScores();
-    if (me.isCoach) loadCoachQueue();
+    // lists update automatically via realtime listeners
   } catch (e) {
     msg("saveMsg","bad","Couldn't save: " + e.message);
   } finally {
@@ -684,24 +683,41 @@ $("btnDone").onclick = () => show("scrHome");
 /* ============================================================
    LISTS + CSV
 ============================================================ */
-async function loadMyScores(){
-  const snap = await db.ref(SCORES_PATH).orderByChild("emailKey").equalTo(me.key).limitToLast(20).get();
-  const rows = [];
-  snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
-  rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
-  myScoreCache = rows;
-  $("myScores").innerHTML = rows.length ? rows.map(scoreCard).join("") :
-    `<p class="note">Nothing submitted yet.</p>`;
+/* Realtime listeners — lists stay current on every signed-in device */
+let myScoresQuery = null, coachQueueQuery = null;
+
+function attachScores(){
+  detachScores();
+  myScoresQuery = db.ref(SCORES_PATH).orderByChild("emailKey").equalTo(me.key).limitToLast(20);
+  myScoresQuery.on("value", snap => {
+    const rows = [];
+    snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
+    rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
+    myScoreCache = rows;
+    $("myScores").innerHTML = rows.length ? rows.map(scoreCard).join("") :
+      `<p class="note">Nothing submitted yet.</p>`;
+  }, err => {
+    $("myScores").innerHTML = `<p class="note">Couldn't load scores: ${esc(err.message)}</p>`;
+  });
+  if (me.isCoach) {
+    coachQueueQuery = db.ref(SCORES_PATH).orderByChild("submittedAt").limitToLast(200);
+    coachQueueQuery.on("value", snap => {
+      const rows = [];
+      snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
+      rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
+      coachScoreCache = rows;
+      $("coachQueue").innerHTML = rows.slice(0,30).map(s => scoreCard(s,true)).join("") ||
+        `<p class="note">No submissions yet.</p>`;
+    }, err => {
+      $("coachQueue").innerHTML = `<p class="note">Couldn't load submissions: ${esc(err.message)}</p>`;
+    });
+  }
 }
 
-async function loadCoachQueue(){
-  const snap = await db.ref(SCORES_PATH).orderByChild("submittedAt").limitToLast(200).get();
-  const rows = [];
-  snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
-  rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
-  coachScoreCache = rows;
-  $("coachQueue").innerHTML = rows.slice(0,30).map(s => scoreCard(s,true)).join("") ||
-    `<p class="note">No submissions yet.</p>`;
+function detachScores(){
+  if (myScoresQuery) myScoresQuery.off();
+  if (coachQueueQuery) coachQueueQuery.off();
+  myScoresQuery = coachQueueQuery = null;
 }
 
 function scoreCard(s, showName){
