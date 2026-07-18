@@ -168,6 +168,8 @@ const firebaseConfig = {
 const COACHES_PATH = "eubc-training-v1/coaches";
 const SCORES_PATH  = "eubc-ergscores-v1/scores";
 const ATH = "eubc-athlete-v1";           // this app's own node
+const TIMER_DB_URL = "https://racetimer-40043-default-rtdb.europe-west1.firebasedatabase.app";
+const TIMER_ATHLETES_PATH = "eubc-timing-v1/settings/athletes";   // the timer's own athlete database
 const SIGN_IN_URL = location.origin + location.pathname;
 const EXP = 2.95;                        // pace-power exponent, per coach ruling
 const DEFAULT_CONFIG = {
@@ -176,6 +178,18 @@ const DEFAULT_CONFIG = {
 };
 const PRED_EXCLUDE = ["UT2","AN"];       // zones excluded from 2k prediction
 const RAW_EXCLUDE  = ["UT2"];            // zones excluded from adjusted GMT
+const FORM = {                            // coach-side form analytics (monthly cadence)
+  winDays: 28,        // comparison window: last 28 days vs the 28 before
+  minPieces: 3,       // minimum performance pieces per window to classify
+  minTotal: 8,        // minimum career pieces before "plateau" is a fair label
+  thrPts: 0.006,      // base threshold: 0.6 GMT points
+  sdFactor: 0.5,      // ...or half the athlete's own GMT stdev, whichever is larger
+  absentDays: 10,     // watch: no erg or water activity for this many days
+  freqDrop: 0.5,      // watch: fortnight frequency below half of prior 4-week average
+  untaggedWatch: 3,   // watch: this many sessions awaiting a zone
+  snapMinAgeDays: 21, // movement compares vs a snapshot at least this old
+  snapAutoDays: 28    // auto-snapshot if none exists within this window
+};
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -212,6 +226,9 @@ let MANUAL = {};        // key -> {id: manual erg}
 let TAGS = {};          // key -> {scoreId: zone}
 let WATER = {};         // pushId -> water record
 let SUMMARY = {};       // key -> summary row
+let SNAPS = {};         // dateISO -> {key: summary row}  (coach-only block snapshots)
+let SQUAD_FILTER = "All";
+let STATE_FILTER = "all";
 let VIEW_KEY = "";      // athlete currently displayed
 let CUR_TAB = "report";
 
@@ -268,15 +285,17 @@ async function bootApp(){
     if(v.zones) CFG.zones = Object.assign({}, DEFAULT_CONFIG.zones, v.zones);
   }
   if(ME.isCoach){
-    const [a, s, m, t, w] = await Promise.all([
+    const [a, s, m, t, w, h] = await Promise.all([
       db.ref(ATH+"/athletes").get().catch(()=>null),
       db.ref(SCORES_PATH).get().catch(()=>null),
       db.ref(ATH+"/ergManual").get().catch(()=>null),
       db.ref(ATH+"/zoneTags").get().catch(()=>null),
-      db.ref(ATH+"/water").get().catch(()=>null)
+      db.ref(ATH+"/water").get().catch(()=>null),
+      db.ref(ATH+"/summaryHistory").get().catch(()=>null)
     ]);
     ATHLETES = (a&&a.val())||{}; SCORES = (s&&s.val())||{};
     MANUAL = (m&&m.val())||{}; TAGS = (t&&t.val())||{}; WATER = (w&&w.val())||{};
+    SNAPS = (h&&h.val())||{};
     VIEW_KEY = ATHLETES[ME.key] ? ME.key : (Object.keys(ATHLETES)[0] || "");
   } else {
     const [s, m, t, w, sum] = await Promise.all([
@@ -295,7 +314,7 @@ async function bootApp(){
     VIEW_KEY = ME.key;
   }
   buildNav(); renderAll(); showScreen("scrApp");
-  if(ME.isCoach) publishSummaries(false);
+  if(ME.isCoach){ await publishSummaries(false); maybeAutoSnapshot(); }
   else publishOwnSummary();
 }
 
@@ -431,6 +450,140 @@ function rankFor(key){
   return { overall: denseRank(rows,key), of: rows.length,
            bySex: denseRank(sexRows,key), ofSex: sexRows.length };
 }
+/* ============ coach-side form analytics (monthly / block cadence) ============ */
+function stdev(a){ if(a.length<2) return 0; const mu=mean(a); return Math.sqrt(mean(a.map(v=>(v-mu)*(v-mu)))); }
+function linregSlopePerWeek(pts){ // pts: [{t: days, y}]
+  if(pts.length<3) return NaN;
+  const mx = mean(pts.map(p=>p.t)), my = mean(pts.map(p=>p.y));
+  let num=0, den=0;
+  pts.forEach(p=>{ num += (p.t-mx)*(p.y-my); den += (p.t-mx)*(p.t-mx); });
+  return den ? (num/den)*7 : NaN;   // GMT fraction per week
+}
+function formAnalysis(m){
+  const perf = m.sessions.filter(s => !RAW_EXCLUDE.includes(s.zone) && isFinite(s.gmt));
+  const inWin = (s, from, to) => { const d = daysAgo(s.date); return d >= from && d < to; };
+  const cur  = perf.filter(s => inWin(s, 0, FORM.winDays)).map(s=>s.gmt);
+  const prev = perf.filter(s => inWin(s, FORM.winDays, FORM.winDays*2)).map(s=>s.gmt);
+  const sd = stdev(perf.map(s=>s.gmt));
+  const thr = Math.max(FORM.thrPts, FORM.sdFactor * sd);
+  let state = "early", delta = NaN;
+  if(cur.length >= FORM.minPieces && prev.length >= FORM.minPieces){
+    delta = mean(cur) - mean(prev);
+    if(delta > thr) state = "improving";
+    else if(delta < -thr) state = "dropping";
+    else state = perf.length >= FORM.minTotal ? "plateau" : "early";
+  }
+  const recentPts = perf.filter(s => daysAgo(s.date) < FORM.winDays*2)
+    .map(s => ({ t: -daysAgo(s.date), y: s.gmt }));
+  const slope = linregSlopePerWeek(recentPts);
+  // activity: last seen across erg + water, frequency trend
+  const lastErg = m.sessions.length ? m.sessions[m.sessions.length-1].date : null;
+  const lastWater = m.water.length ? m.water[m.water.length-1].date : null;
+  const lastAct = [lastErg, lastWater].filter(Boolean).sort().pop() || null;
+  const acts = [...m.sessions.map(s=>s.date), ...m.water.map(w=>w.date)];
+  const cnt = (from,to) => acts.filter(d => { const a=daysAgo(d); return a>=from && a<to; }).length;
+  const freqNow = cnt(0,14)/2;                       // sessions per week, last fortnight
+  const freqBase = cnt(14,42)/4;                     // prior four weeks
+  const freqRatio = freqBase > 0 ? freqNow/freqBase : null;
+  const flags = [];
+  if(lastAct && daysAgo(lastAct) >= FORM.absentDays) flags.push("absent "+Math.floor(daysAgo(lastAct))+" days");
+  if(state === "dropping") flags.push("form "+(delta*100).toFixed(1)+" pts");
+  if(freqRatio !== null && freqRatio < FORM.freqDrop && freqBase >= 1) flags.push("frequency down");
+  if(m.untagged.length >= FORM.untaggedWatch) flags.push(m.untagged.length+" untagged");
+  return { state, delta, thr, sd, slope, lastAct, freqNow, freqBase, freqRatio, flags,
+           spark: perf.slice(-10).map(s=>s.gmt) };
+}
+/* Block snapshots — the memory behind movement arrows */
+function latestSnapDate(minAgeDays){
+  const dates = Object.keys(SNAPS).sort();
+  for(let i=dates.length-1; i>=0; i--){
+    if(minAgeDays==null || daysAgo(dates[i]) >= minAgeDays) return dates[i];
+  }
+  return null;
+}
+async function takeSnapshot(announce){
+  if(!Object.keys(SUMMARY).length) return;
+  const date = todayISO();
+  try{
+    await db.ref(ATH+"/summaryHistory/"+date).set(SUMMARY);
+    SNAPS[date] = JSON.parse(JSON.stringify(SUMMARY));
+    if(announce) msg("squadMsg","Block snapshot taken ("+ddmm(date)+") — movement now measures from here.","ok");
+    renderSquad();
+  }catch(e){ if(announce) msg("squadMsg","Snapshot failed: "+e.message,"err"); }
+}
+function maybeAutoSnapshot(){
+  const latest = latestSnapDate(null);
+  if(!latest || daysAgo(latest) >= FORM.snapAutoDays) takeSnapshot(false);
+}
+function denseRankIn(rows, key){ // rows: [{k, gmt}] pre-filtered
+  const sorted = rows.filter(r=>isFinite(r.gmt)&&r.gmt>0).sort((a,b)=>b.gmt-a.gmt);
+  let rank=0, last=null, i=0;
+  for(const r of sorted){ i++; if(r.gmt!==last){ rank=i; last=r.gmt; } if(r.k===key) return rank; }
+  return null;
+}
+function rankMovement(key, squadRows){
+  const snapDate = latestSnapDate(FORM.snapMinAgeDays) || latestSnapDate(1);
+  if(!snapDate) return null;
+  const snap = SNAPS[snapDate]; if(!snap || !snap[key]) return null;
+  const keys = new Set(squadRows.map(r=>r.k));
+  const then = Object.entries(snap).filter(([k])=>keys.has(k)).map(([k,v])=>({k, gmt:v.gmt}));
+  const rThen = denseRankIn(then, key);
+  const rNow = denseRankIn(squadRows, key);
+  if(rThen==null || rNow==null) return null;
+  return { move: rThen - rNow, since: snapDate };   // positive = climbed
+}
+
+/* ============ roster sync: master list → timer's athlete database ============ */
+/* One-way, coach-triggered (also fires after every athlete save). Merges by
+   name so SR / guest entries the timer holds locally are never disturbed;
+   emails never cross into the timer's open node. */
+let _timerApp = null;
+function timerDb(){
+  if(!_timerApp) _timerApp = firebase.initializeApp({ databaseURL: TIMER_DB_URL }, "timer");
+  return _timerApp.database();
+}
+function hashKey(k){ // one-way link id: lets the sync follow renames without an email ever crossing
+  let h = 5381; const s = String(k);
+  for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))>>>0;
+  return "h"+h.toString(16);
+}
+async function syncRosterToTimer(announce){
+  if(!ME.isCoach) return;
+  try{
+    const snap = await timerDb().ref(TIMER_ATHLETES_PATH).get();
+    const existing = (snap && snap.val()) || {};
+    const byKey = {}, byName = {};
+    for(const id in existing){
+      const a = existing[id] || {};
+      if(a.k) byKey[a.k] = id;
+      if(a.name) byName[a.name.trim().toLowerCase()] = id;
+    }
+    const upd = {}; let created = 0, updated = 0;
+    for(const key in ATHLETES){
+      const p = ATHLETES[key];
+      if(!p || p.active === false || !p.name) continue;
+      const rec = { name: p.name.trim(),
+        sex: p.sex === "f" ? "F" : p.sex === "m" ? "M" : "",
+        side: p.side === "S" || p.side === "B" ? p.side : "",
+        src: "eubc", k: hashKey(key) };
+      const id = byKey[rec.k] || byName[rec.name.toLowerCase()];
+      if(id){
+        const old = existing[id] || {};
+        if(old.name !== rec.name || old.sex !== rec.sex || old.side !== rec.side || old.k !== rec.k){
+          upd[id] = Object.assign({}, old, rec); updated++;
+        }
+      } else {
+        const nid = "m" + Date.now().toString(36) + Math.random().toString(36).slice(2,6) + created;
+        upd[nid] = rec; created++;
+      }
+    }
+    if(Object.keys(upd).length) await timerDb().ref(TIMER_ATHLETES_PATH).update(upd);
+    if(announce) msg("athSyncMsg",
+      created+updated ? "Timer roster synced — "+created+" added, "+updated+" updated. Autocomplete on the timer refreshes itself."
+                      : "Timer roster already up to date.", "ok");
+  }catch(e){ if(announce) msg("athSyncMsg","Sync failed: "+e.message,"err"); }
+}
+
 async function publishOwnSummary(){
   try{
     const m = athleteMetrics(ME.key); const p = ATHLETES[ME.key]||{};
@@ -669,33 +822,102 @@ function renderWater(){
   }
 }
 
-/* ================= squad view (coach) ================= */
+/* ================= squad view (coach): squad health board ================= */
+function svgSpark(vals, color){
+  if(vals.length<2) return '<span class="small">—</span>';
+  const W=80,H=20,P=2;
+  const mn=Math.min(...vals), mx=Math.max(...vals);
+  const y = v => mx===mn ? H/2 : P + (1-(v-mn)/(mx-mn))*(H-2*P);
+  const x = i => P + (i/(vals.length-1))*(W-2*P);
+  const d = vals.map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:${W}px;height:${H}px;display:block"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+}
+const STATE_META = {
+  improving: { c:"#1D9E75", label:"improving" },
+  plateau:   { c:"#5a6b7d", label:"plateau" },
+  dropping:  { c:"#A32D2D", label:"dropping" },
+  early:     { c:"#c9c4b8", label:"early days", tc:"#5a6b7d" }
+};
 function renderSquad(){
   const el = $("viewSquad");
-  const rows = Object.entries(ATHLETES).filter(([,v])=>v).map(([k,v])=>({k, p:v, m:athleteMetrics(k)}))
-    .sort((a,b)=>(isFinite(b.m.avgGmtAll)?b.m.avgGmtAll:-1)-(isFinite(a.m.avgGmtAll)?a.m.avgGmtAll:-1));
-  let rank=0, last=null, i=0;
-  const body = rows.map(r=>{
-    i++; const g = isFinite(r.m.avgGmtAll)?r.m.avgGmtAll:null;
-    if(g!==last){ rank=i; last=g; }
-    const lastDate = r.m.sessions.length ? r.m.sessions[r.m.sessions.length-1].date : null;
-    return `<tr class="${r.k===ME.key?"me":""}"><td class="num">${g!=null?rank:"—"}</td>
-    <td><a href="#" data-open="${r.k}">${esc(r.p.name||keyEmail(r.k))}</a>${r.m.untagged.length?`<span class="badge">${r.m.untagged.length}</span>`:""}</td>
-    <td>${esc((r.p.sex||"").toUpperCase())}</td><td>${esc(r.p.squad||"")}</td>
-    <td class="r num">${r.m.ergs}</td>
-    <td class="r num">${fmtPct(r.m.avgGmtAll)}</td>
-    <td class="r num">${fmtPct(r.m.adjGmt)}</td>
-    <td class="r num">${fmtClock(r.m.pred2k)}</td>
-    <td class="r num small">${lastDate?ddmm(lastDate):"—"}</td></tr>`;
+  const all = Object.entries(ATHLETES).filter(([,v])=>v && v.active!==false)
+    .map(([k,v])=>{ const m = athleteMetrics(k); return { k, p:v, m, f: formAnalysis(m) }; });
+  const squads = ["All", ...[...new Set(all.map(r=>r.p.squad).filter(Boolean))].sort()];
+  if(!squads.includes(SQUAD_FILTER)) SQUAD_FILTER = "All";
+  const pool = all.filter(r => SQUAD_FILTER==="All" || r.p.squad===SQUAD_FILTER);
+  const squadRows = pool.map(r=>({k:r.k, gmt:r.m.avgGmtAll}));
+  pool.forEach(r => { r.rank = denseRankIn(squadRows, r.k); r.mv = rankMovement(r.k, squadRows); });
+  pool.sort((a,b)=>(a.rank||1e9)-(b.rank||1e9));
+  const counts = { all: pool.length };
+  ["improving","plateau","dropping","early"].forEach(s => counts[s] = pool.filter(r=>r.f.state===s).length);
+  const watch = pool.filter(r=>r.f.flags.length);
+  counts.watch = watch.length;
+  const shown = pool.filter(r =>
+    STATE_FILTER==="all" ? true :
+    STATE_FILTER==="watch" ? r.f.flags.length :
+    r.f.state===STATE_FILTER);
+  // squad-level movement vs last block snapshot
+  const snapDate = latestSnapDate(FORM.snapMinAgeDays) || latestSnapDate(1);
+  const avgNow = mean(pool.map(r=>r.m.avgGmtAll).filter(isFinite));
+  let squadMove = "";
+  if(snapDate){
+    const keys = new Set(pool.map(r=>r.k));
+    const thenVals = Object.entries(SNAPS[snapDate]||{}).filter(([k,v])=>keys.has(k)&&isFinite(v.gmt)&&v.gmt>0).map(([,v])=>v.gmt);
+    if(thenVals.length){
+      const d = (avgNow - mean(thenVals))*100;
+      squadMove = ` <span style="color:${d>=0?"var(--up)":"var(--down)"}">${d>=0?"▲":"▼"} ${Math.abs(d).toFixed(1)} since ${ddmm(snapDate)}</span>`;
+    }
+  }
+  const activeWeek = pool.filter(r=>r.f.lastAct && daysAgo(r.f.lastAct)<=7).length;
+  const chip = (id,label,n,color) => {
+    const on = STATE_FILTER===id;
+    const c = color||"var(--rule)"; const tc = color||"var(--muted)";
+    return `<button data-filter="${id}" style="font-size:11px;border:1px solid ${on?"var(--navy)":c};background:${on?"var(--navy)":"transparent"};color:${on?"#fff":tc};padding:3px 10px;cursor:pointer;font-family:inherit">${label} ${n}</button>`;
+  };
+  const squadChip = s => `<button data-squad="${esc(s)}" style="font-size:11px;letter-spacing:0.05em;text-transform:uppercase;border:none;background:none;cursor:pointer;font-family:inherit;padding:3px 8px;color:${s===SQUAD_FILTER?"var(--ink)":"var(--muted)"};border-bottom:2px solid ${s===SQUAD_FILTER?"var(--navy)":"transparent"};font-weight:${s===SQUAD_FILTER?"500":"400"}">${esc(s)}</button>`;
+  const watchBanner = watch.length ? `<div style="border:0.5px solid var(--hot);background:#faf1ec;padding:9px 12px;margin:10px 0;font-size:12.5px">
+    <span style="color:var(--hot);font-weight:500">Watch list</span> — ${watch.map(r=>`<a href="#" data-open="${r.k}" style="font-weight:500">${esc((r.p.name||"").split(" ")[0]+" "+((r.p.name||"").split(" ")[1]||"").slice(0,1))}</a> ${esc(r.f.flags[0])}`).join(" · ")}</div>` : "";
+  const body = shown.map(r=>{
+    const sm = STATE_META[r.f.state];
+    const mv = r.mv && r.mv.move ? `<span style="color:${r.mv.move>0?"var(--up)":"var(--down)"};font-size:11px">${r.mv.move>0?"▲":"▼"}${Math.abs(r.mv.move)}</span>` : `<span class="small">—</span>`;
+    const lastTxt = r.f.lastAct ? (daysAgo(r.f.lastAct)<1 ? "today" : Math.floor(daysAgo(r.f.lastAct))+" d") : "never";
+    const lastStyle = r.f.lastAct && daysAgo(r.f.lastAct)>=FORM.absentDays ? "color:var(--down);font-weight:500" : "color:var(--muted)";
+    const sparkColor = r.f.state==="improving"?"#6BB7E0":r.f.state==="dropping"?"#A32D2D":"#5a6b7d";
+    return `<tr>
+      <td class="num">${r.rank??"—"} ${mv}</td>
+      <td><a href="#" data-open="${r.k}">${esc(r.p.name||keyEmail(r.k))}</a>${r.m.untagged.length?`<span class="badge">${r.m.untagged.length}</span>`:""}${r.f.flags.length?` <span style="background:var(--hot);color:#fff;font-size:10px;padding:0 6px;border-radius:7px">watch</span>`:""}</td>
+      <td>${svgSpark(r.f.spark, sparkColor)}</td>
+      <td class="r num">${fmtPct(r.m.avgGmtAll)}</td>
+      <td class="r num" style="color:${isFinite(r.f.delta)?(r.f.delta>0?"var(--up)":r.f.delta<0?"var(--down)":"var(--muted)"):"var(--muted)"}">${isFinite(r.f.delta)?(r.f.delta>0?"+":"")+(r.f.delta*100).toFixed(1):"—"}</td>
+      <td><span style="font-size:11px;border:1px solid ${sm.c};color:${sm.tc||sm.c};padding:1px 7px">${sm.label}</span></td>
+      <td class="r num">${fmtClock(r.m.pred2k)}</td>
+      <td class="r num small" style="${lastStyle}">${lastTxt}</td></tr>`;
   }).join("");
-  el.innerHTML = `<div class="sect"><div class="sect-h">Squad table<span class="small">ranked on average GMT% across all tagged sessions</span></div>
-    <table class="rpt"><thead><tr><th>#</th><th>Athlete</th><th>Sex</th><th>Squad</th><th class="r">Ergs</th><th class="r">Avg GMT</th><th class="r">Adj GMT</th><th class="r">Pred 2k</th><th class="r">Last erg</th></tr></thead>
-    <tbody>${body||'<tr><td colspan="9" class="small">No athletes yet.</td></tr>'}</tbody></table>
-    <button class="btn no-print" id="btnPublish" style="margin-top:14px">Publish rankings to athletes</button>
+  el.innerHTML = `<div class="sect">
+    <div class="sect-h">Squad health<span class="small">${counts.all} athletes · ${activeWeek} active this week · avg ${fmtPct(avgNow)}${squadMove}</span></div>
+    <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:8px">${squads.map(squadChip).join("")}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" class="no-print">
+      ${chip("all","All",counts.all,"")}
+      ${chip("improving","Improving",counts.improving,"#1D9E75")}
+      ${chip("plateau","Plateau",counts.plateau,"")}
+      ${chip("dropping","Dropping",counts.dropping,"#A32D2D")}
+      ${chip("watch","Watch list",counts.watch,"#D85A30")}
+      ${chip("early","Early days",counts.early,"")}
+    </div>
+    ${watchBanner}
+    <table class="rpt"><thead><tr><th>#</th><th>Athlete</th><th>Last 10</th><th class="r">Avg GMT</th><th class="r">Form</th><th>State</th><th class="r">Pred 2k</th><th class="r">Last seen</th></tr></thead>
+    <tbody>${body||'<tr><td colspan="8" class="small">Nobody matches this filter.</td></tr>'}</tbody></table>
+    <div class="no-print" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" id="btnPublish">Publish rankings to athletes</button>
+      <button class="btn ghost" id="btnSnapshot">Take block snapshot</button>
+    </div>
     <div class="msg" id="squadMsg"></div>
-    <p class="small">Red badges count sessions still awaiting a zone. Publishing writes the summary node athletes read for their rank — it also runs automatically when you open this page.</p></div>`;
+    <p class="small">Form compares the last ${FORM.winDays} days of performance pieces against the ${FORM.winDays} before, thresholded at max(${(FORM.thrPts*100).toFixed(1)} pts, half each athlete's own variability). Movement arrows measure from the last block snapshot${snapDate?" ("+ddmm(snapDate)+")":""} — take one at the end of each taper week. Everything on this page is coach-only; athletes see only their own trend and rank.</p></div>`;
   el.querySelectorAll("[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); VIEW_KEY=a.dataset.open; CUR_TAB="report"; buildNav(); renderAll(); });
+  el.querySelectorAll("[data-filter]").forEach(b => b.onclick = () => { STATE_FILTER=b.dataset.filter; renderSquad(); });
+  el.querySelectorAll("[data-squad]").forEach(b => b.onclick = () => { SQUAD_FILTER=b.dataset.squad; renderSquad(); });
   $("btnPublish").onclick = () => publishSummaries(true);
+  $("btnSnapshot").onclick = () => takeSnapshot(true);
 }
 
 /* ================= athletes admin (coach) ================= */
@@ -703,15 +925,16 @@ function renderAthletes(){
   const el = $("viewAthletes");
   const list = Object.entries(ATHLETES).filter(([,v])=>v).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
   const rows = list.map(([k,v])=>`<tr class="${v.active===false?"":""}"><td>${esc(v.name||"")}${v.active===false?' <span class="small">(inactive)</span>':""}</td>
-    <td class="mono small">${esc(keyEmail(k))}</td><td>${esc((v.sex||"").toUpperCase())}</td><td>${esc(v.squad||"")}</td>
+    <td class="mono small">${esc(keyEmail(k))}</td><td>${esc((v.sex||"").toUpperCase())}</td><td>${v.side==="S"?"Stroke":v.side==="B"?"Bow":"—"}</td><td>${esc(v.squad||"")}</td>
     <td class="r"><button class="btn tiny ghost" data-edit="${k}">Edit</button></td></tr>`).join("");
   el.innerHTML = `<div class="sect"><div class="sect-h">Athletes<span class="small">${list.length} profiles</span></div>
-  <table class="rpt"><thead><tr><th>Name</th><th>Email</th><th>Sex</th><th>Squad</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="small">None yet — add the first below.</td></tr>'}</tbody></table>
+  <table class="rpt"><thead><tr><th>Name</th><th>Email</th><th>Sex</th><th>Side</th><th>Squad</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="6" class="small">None yet — add the first below.</td></tr>'}</tbody></table>
   <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0" id="athFormTitle">Add athlete</div>
     <div class="frm">
       <div><label>Full name (canonical — used everywhere)</label><input id="aName"></div>
       <div><label>University email</label><input id="aEmail" placeholder="s1234567@ed.ac.uk"></div>
       <div><label>Sex</label><select id="aSex"><option value="m">M</option><option value="f">F</option></select></div>
+      <div><label>Side</label><select id="aSide"><option value="">— / scull</option><option value="S">Stroke</option><option value="B">Bow</option></select></div>
       <div><label>Squad</label><select id="aSquad"><option>Beginners</option><option>Men</option><option>Women</option><option>Cox</option></select></div>
       <div><label>Active</label><select id="aActive"><option value="1">Yes</option><option value="0">No</option></select></div>
     </div>
@@ -719,24 +942,63 @@ function renderAthletes(){
     <button class="btn" id="btnAthSave" style="margin-top:14px">Save athlete</button>
     <button class="btn ghost" id="btnAthClear" style="margin-top:14px">Clear</button>
     <div class="msg" id="athMsg"></div>
-    <p class="small">The email is the join key: erg photo submissions and sign-ins under this address all resolve to this profile. Change of email = new profile, so get it right first time.</p></div></div>`;
+    <p class="small">The email is the join key: erg photo submissions and sign-ins under this address all resolve to this profile. Change of email = new profile, so get it right first time. Every save also mirrors name, sex and side into the timer's athlete database, so the pontoon autocomplete always matches this list.</p></div>
+  <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0">Timer roster</div>
+    <p class="small" style="margin:6px 0 10px">One list of names, one direction of flow: this page mints identities, the timer mirrors them. Names and sides cross over; emails never do. SR and guest names already in the timer are left untouched.</p>
+    <button class="btn ghost" id="btnSyncTimer">Sync names to timer now</button>
+    <div class="msg" id="athSyncMsg"></div></div>
+  <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0">Bulk import</div>
+    <p class="small" style="margin:6px 0 4px">One line per athlete: <span class="mono">name, email, sex, squad, side</span> — sex m/f, side S/B or blank, header row optional. Ideal for seeding the new intake in one paste.</p>
+    <textarea id="csvBox" rows="6" placeholder="Isabella Webb, s1234567@ed.ac.uk, f, Beginners, S"></textarea>
+    <button class="btn" id="btnCsvImport" style="margin-top:10px">Import athletes</button>
+    <div class="msg" id="csvMsg"></div></div></div>`;
   const fill = (k) => { const v = ATHLETES[k]; $("athFormTitle").textContent="Edit athlete"; $("aKey").value=k;
     $("aName").value=v.name||""; $("aEmail").value=keyEmail(k); $("aEmail").disabled=true;
-    $("aSex").value=v.sex||"m"; $("aSquad").value=v.squad||"Beginners"; $("aActive").value=v.active===false?"0":"1"; };
+    $("aSex").value=v.sex||"m"; $("aSide").value=v.side||""; $("aSquad").value=v.squad||"Beginners"; $("aActive").value=v.active===false?"0":"1"; };
   el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>fill(b.dataset.edit));
   $("btnAthClear").onclick = () => { $("athFormTitle").textContent="Add athlete"; $("aKey").value=""; $("aEmail").disabled=false;
     ["aName","aEmail"].forEach(id=>$(id).value=""); msg("athMsg","",""); };
+  $("btnSyncTimer").onclick = () => { msg("athSyncMsg","Syncing…",""); syncRosterToTimer(true); };
+  $("btnCsvImport").onclick = async () => {
+    const lines = $("csvBox").value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const rows = [];
+    for(const line of lines){
+      const c = line.split(",").map(v=>v.trim());
+      if(/^name/i.test(c[0]||"")) continue;                       // header row
+      const [name, email, sex, squad, side] = c;
+      if(!name || !email || !email.includes("@")){ return msg("csvMsg","Bad line: \""+line+"\" — need at least name and email.","err"); }
+      rows.push({ name, email: email.toLowerCase(),
+        sex: /^f/i.test(sex||"") ? "f" : "m",
+        squad: squad || "Beginners",
+        side: /^s/i.test(side||"") ? "S" : /^b/i.test(side||"") ? "B" : "" });
+    }
+    if(!rows.length) return msg("csvMsg","Nothing to import.","err");
+    try{
+      const upd = {};
+      rows.forEach(r => { upd[emailKey(r.email)] = { name:r.name, sex:r.sex, squad:r.squad, side:r.side,
+        active:true, email:r.email, updatedAt:Date.now() }; });
+      await db.ref(ATH+"/athletes").update(upd);
+      Object.assign(ATHLETES, upd);
+      if(!VIEW_KEY) VIEW_KEY = Object.keys(upd)[0];
+      msg("csvMsg", rows.length+" athletes imported — syncing names to the timer…","ok");
+      await syncRosterToTimer(false);
+      msg("csvMsg", rows.length+" athletes imported and mirrored to the timer.","ok");
+      renderAll(); CUR_TAB="athletes"; buildNav(); showTab();
+    }catch(e){ msg("csvMsg","Import failed: "+e.message,"err"); }
+  };
   $("btnAthSave").onclick = async () => {
     const name = $("aName").value.trim();
     const email = $("aEmail").value.trim().toLowerCase();
     if(!name) return msg("athMsg","Name is required.","err");
     if(!$("aKey").value && (!email||!email.includes("@"))) return msg("athMsg","Valid email required.","err");
     const k = $("aKey").value || emailKey(email);
-    const rec = { name, sex: $("aSex").value, squad: $("aSquad").value,
+    const rec = { name, sex: $("aSex").value, side: $("aSide").value, squad: $("aSquad").value,
       active: $("aActive").value==="1", email: keyEmail(k), updatedAt: Date.now() };
     try{ await db.ref(ATH+"/athletes/"+k).set(rec); ATHLETES[k]=rec;
       if(!VIEW_KEY) VIEW_KEY=k;
-      msg("athMsg","Saved.","ok"); renderAll(); CUR_TAB="athletes"; buildNav(); showTab();
+      msg("athMsg","Saved.","ok");
+      syncRosterToTimer(false);
+      renderAll(); CUR_TAB="athletes"; buildNav(); showTab();
     }catch(e){ msg("athMsg","Save failed: "+e.message,"err"); }
   };
 }
