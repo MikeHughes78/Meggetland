@@ -372,6 +372,7 @@ function fmtSec(sec, dp=1){
   return m + ":" + s.toFixed(dp).padStart(dp?4+dp-1:2,"0");
 }
 const todayISO = () => new Date().toISOString().slice(0,10);
+const stamp = () => { const d=new Date(); return todayISO()+"-"+String(d.getHours()).padStart(2,"0")+String(d.getMinutes()).padStart(2,"0"); };
 
 /* ============================================================
    AUTH — passwordless email link, member approval queue
@@ -745,7 +746,7 @@ $("btnCsv").onclick = () => {
   const blob = new Blob([lines.join("\n")], {type:"text/csv"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `eubc-erg-scores-${todayISO()}.csv`;
+  a.download = `eubc-erg-scores-${stamp()}.csv`;
   a.click();
 };
 const csv = v => `"${String(v??"").replace(/"/g,'""')}"`;
@@ -765,7 +766,7 @@ $("btnBackup").onclick = async () => {
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `eubc-erg-backup-${todayISO()}.json`;
+    a.download = `eubc-erg-backup-${stamp()}.json`;
     a.click();
   } catch (e) {
     alert("Backup failed: " + e.message);
