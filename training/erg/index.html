@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>EUBC erg scores</title>
+<link rel="icon" type="image/png" href="../eubc-logo.png">
 <!-- ============================================================
   EUBC ERG SCORE SUBMISSION  ·  meggetland.com/training/erg
   Single-file pattern. Firebase project: eubctraining-ad9bd
@@ -16,139 +17,191 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <style>
-  :root{
-    --navy:#0E2841;
-    --blade:#6BB7E0;
-    --canvas:#f2f3f5;
-    --panel:#ffffff;
-    --hairline:#e2e4e8;
-    --ink:#1a1d21;
-    --ink-soft:#5c6470;
-    --ok:#2e7d4f;
-    --warn:#b07a1e;
-    --bad:#b3392e;
-    --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{
-    font-family:"Swiss 721","Swiss721 BT","Helvetica Neue",Helvetica,Arial,sans-serif;
-    background:var(--canvas);color:var(--ink);
-    font-size:15px;line-height:1.45;
-    min-height:100vh;
-  }
-  .wrap{max-width:640px;margin:0 auto;padding:0 16px 64px}
+/* ============ EUBC design system — quiet macOS-style chrome ============ */
+/* Matches training/index.html. Swiss 721 corporate face; Helvetica Neue
+   native fallback. Same tokens, radii, shadows and focus treatment. */
+:root{
+  --font:"Swiss 721","Helvetica Neue",Helvetica,-apple-system,"Segoe UI",Arial,sans-serif;
+  --mono:"SF Mono",SFMono-Regular,ui-monospace,Menlo,Consolas,monospace;
+  --bg:#f2f4f6;
+  --surface:#ffffff;
+  --line:#e3e6ea;
+  --line-strong:#d3d7dc;
+  --ink:#1d2530;
+  --ink-2:#5a6472;
+  --ink-3:#8b94a1;
+  --accent:#2b62a8;        /* shield navy */
+  --accent-soft:#eaf2fa;
+  --blade:#a9d7f1;         /* blade blue */
+  --gold:#e9a63c;
+  --ok:#2e7d4f;
+  --danger:#c23a3a;
+  --r:10px;
+  --r-sm:7px;
+  --sh:0 1px 2px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--font);
+  font-size:13.5px;
+  color:var(--ink);
+  background:var(--bg);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-weight:600;letter-spacing:-0.01em}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font:inherit;color:var(--ink)}
+::selection{background:rgba(169,215,241,.6)}
 
-  /* header */
-  header{
-    background:var(--navy);color:#fff;
-    padding:14px 16px;margin-bottom:20px;
-  }
-  header .h-inner{max-width:640px;margin:0 auto;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
-  header h1{font-size:17px;font-weight:600;letter-spacing:.01em}
-  header .who{font-size:12px;color:var(--blade);font-family:var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
-  header .who button{background:none;border:none;color:var(--blade);font-size:12px;font-family:var(--mono);cursor:pointer;text-decoration:underline;padding:0}
+.wrap{max-width:640px;margin:0 auto;padding:12px 16px 64px}
 
-  /* panels */
-  .panel{
-    background:var(--panel);border:1px solid var(--hairline);
-    padding:18px;margin-bottom:14px;
-  }
-  .panel h2{font-size:14px;font-weight:600;margin-bottom:10px;color:var(--navy)}
-  .panel p.note{font-size:13px;color:var(--ink-soft);margin-bottom:10px}
+/* ---------- header bar ---------- */
+header.bar{
+  position:sticky;top:12px;z-index:40;
+  display:flex;align-items:center;gap:10px;
+  padding:9px 14px;margin-bottom:14px;
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);box-shadow:var(--sh);
+}
+.logo-sm{width:30px;height:auto;display:block}
+header.bar h1{font-size:15px;font-weight:600;line-height:1.1}
+header.bar .spacer{flex:1}
+.who{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50%}
+.who button{color:var(--accent);font-size:12px;text-decoration:underline;padding:0}
 
-  /* buttons */
-  .btn{
-    display:block;width:100%;
-    background:var(--navy);color:#fff;border:none;
-    font-family:inherit;font-size:15px;font-weight:600;
-    padding:13px 16px;cursor:pointer;
-    letter-spacing:.01em;
-  }
-  .btn:disabled{opacity:.45;cursor:default}
-  .btn.secondary{background:var(--panel);color:var(--navy);border:1px solid var(--navy)}
-  .btn.ghost{background:none;color:var(--ink-soft);border:1px solid var(--hairline);font-weight:400}
-  .btn + .btn{margin-top:10px}
-  .btn-row{display:flex;gap:10px}
-  .btn-row .btn{flex:1}
+/* ---------- cards ---------- */
+.panel{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r);box-shadow:var(--sh);
+  padding:18px;margin-bottom:14px;
+}
+.panel h2{font-size:14px;margin-bottom:10px}
+.panel p.note{font-size:12.5px;color:var(--ink-2);margin-bottom:10px;line-height:1.5}
 
-  /* inputs */
-  label.fld{display:block;font-size:12px;color:var(--ink-soft);margin:12px 0 4px}
-  input[type=text],input[type=email],input[type=date],input[type=number]{
-    width:100%;border:1px solid var(--hairline);background:#fff;
-    font-family:inherit;font-size:15px;padding:10px;color:var(--ink);
-  }
-  input:focus{outline:2px solid var(--blade);outline-offset:-1px}
-  input.mono{font-family:var(--mono);font-size:14px}
+/* ---------- sign-in card ---------- */
+#scrSignIn.active{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 120px)}
+#scrSignIn .panel{width:min(400px,100%);padding:40px 36px 32px;text-align:left}
+.logo-lg{width:120px;height:auto;margin:0 auto 16px;display:block}
+#scrSignIn h2{font-size:20px;text-align:center}
+#scrSignIn p.note{text-align:center;margin-bottom:18px}
 
-  /* status chips + banners */
-  .banner{font-size:13px;padding:10px 12px;margin:10px 0;border:1px solid}
-  .banner.info{border-color:var(--blade);background:#f0f8fd;color:var(--navy)}
-  .banner.warn{border-color:#e5c58a;background:#fdf6e9;color:var(--warn)}
-  .banner.bad{border-color:#e3b1ab;background:#fdf0ee;color:var(--bad)}
-  .banner.ok{border-color:#a9d4bb;background:#eef8f2;color:var(--ok)}
+/* ---------- buttons ---------- */
+.btn{
+  display:flex;align-items:center;justify-content:center;width:100%;
+  padding:9px 14px;border-radius:var(--r-sm);
+  font-size:14px;font-weight:500;
+  background:var(--accent);color:#fff;
+  transition:background .12s ease;
+}
+.btn:hover{background:#245489}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.secondary{
+  background:var(--surface);color:var(--ink);
+  border:1px solid var(--line-strong);box-shadow:var(--sh);
+}
+.btn.secondary:hover{background:#f6f7f9}
+.btn.ghost{background:none;color:var(--ink-2);border:1px solid var(--line);font-weight:400;box-shadow:none}
+.btn.ghost:hover{background:#f6f7f9}
+.btn + .btn{margin-top:10px}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
-  /* photo area */
-  .photo-drop{
-    border:1px dashed var(--blade);background:#fafcfe;
-    padding:28px 16px;text-align:center;cursor:pointer;color:var(--navy);
-  }
-  .photo-drop strong{display:block;font-size:15px;margin-bottom:4px}
-  .photo-drop span{font-size:12px;color:var(--ink-soft)}
-  #photoPreview{width:100%;display:none;border:1px solid var(--hairline);margin-top:10px}
+/* ---------- fields ---------- */
+label.fld{display:block;font-size:12.5px;font-weight:500;color:var(--ink-2);margin:12px 0 5px}
+input[type=text],input[type=email],input[type=date],input[type=number]{
+  width:100%;padding:8px 11px;border-radius:var(--r-sm);
+  border:1px solid var(--line-strong);background:var(--surface);
+  font-size:13.5px;transition:border-color .12s,box-shadow .12s;
+}
+input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(43,98,168,.14);outline:none}
+input.mono{font-family:var(--mono);font-size:13px}
 
-  /* confirmation table */
-  table.pieces{width:100%;border-collapse:collapse;margin-top:8px}
-  table.pieces th{
-    font-size:11px;font-weight:600;color:var(--ink-soft);text-align:left;
-    padding:6px 4px;border-bottom:1px solid var(--navy);
-  }
-  table.pieces td{padding:4px 2px;border-bottom:1px solid var(--hairline)}
-  table.pieces input{
-    width:100%;border:1px solid transparent;background:none;
-    font-family:var(--mono);font-size:14px;padding:6px 4px;color:var(--ink);
-  }
-  table.pieces input:focus{border-color:var(--blade);background:#fff;outline:none}
-  .totals-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:6px}
-  .totals-grid .cell label{display:block;font-size:11px;color:var(--ink-soft);margin-bottom:2px}
-  .totals-grid .cell input{width:100%;font-family:var(--mono);font-size:15px;padding:8px;border:1px solid var(--hairline)}
+/* ---------- banners ---------- */
+.banner{font-size:12.5px;padding:10px 12px;margin:10px 0;border:1px solid;border-radius:var(--r-sm);line-height:1.5}
+.banner.info{border-color:var(--blade);background:var(--accent-soft);color:var(--accent)}
+.banner.warn{border-color:#ecd9b0;background:#fdf6e9;color:#8a6116}
+.banner.bad{border-color:#e3b1ab;background:#fdf0ee;color:var(--danger)}
+.banner.ok{border-color:#a9d4bb;background:#eef8f2;color:var(--ok)}
 
-  /* score list */
-  .score-card{border:1px solid var(--hairline);padding:12px;margin-bottom:10px;background:#fff}
-  .score-card .fmt{font-family:var(--mono);font-size:14px;color:var(--navy);font-weight:600}
-  .score-card .meta{font-size:12px;color:var(--ink-soft);margin-top:2px}
-  .score-card .nums{font-family:var(--mono);font-size:13px;margin-top:6px}
-  .score-card .nums b{color:var(--navy)}
-  .score-card .flag{font-size:11px;color:var(--warn);margin-top:4px}
+/* ---------- photo area ---------- */
+.photo-drop{
+  border:1.5px dashed var(--blade);background:var(--accent-soft);
+  border-radius:var(--r-sm);
+  padding:28px 16px;text-align:center;cursor:pointer;color:var(--accent);
+  transition:background .12s;
+}
+.photo-drop:hover{background:#e0eef9}
+.photo-drop strong{display:block;font-size:14px;margin-bottom:4px}
+.photo-drop span{font-size:12px;color:var(--ink-2)}
+#photoPreview{width:100%;display:none;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:10px}
 
-  .spinner{
-    display:inline-block;width:16px;height:16px;border:2px solid var(--hairline);
-    border-top-color:var(--navy);border-radius:50%;animation:spin .8s linear infinite;
-    vertical-align:-3px;margin-right:8px;
-  }
-  @keyframes spin{to{transform:rotate(360deg)}}
-  @media (prefers-reduced-motion:reduce){.spinner{animation-duration:2s}}
+/* ---------- confirmation table ---------- */
+table.pieces{width:100%;border-collapse:collapse;margin-top:8px;table-layout:fixed}
+table.pieces col.c-n{width:7%}
+table.pieces col.c-time{width:22%}
+table.pieces col.c-dist{width:17%}
+table.pieces col.c-split{width:22%}
+table.pieces col.c-rate{width:12%}
+table.pieces col.c-hr{width:12%}
+table.pieces col.c-del{width:8%}
+table.pieces th{
+  font-size:11px;font-weight:600;color:var(--ink-2);text-align:left;
+  padding:6px 2px;border-bottom:1px solid var(--line-strong);
+}
+table.pieces td{padding:4px 1px;border-bottom:1px solid var(--line)}
+table.pieces input{
+  width:100%;border:1px solid transparent;background:none;border-radius:5px;
+  font-family:var(--mono);font-size:13px;padding:6px 2px;box-shadow:none;
+}
+table.pieces input:focus{border-color:var(--accent);background:var(--surface);box-shadow:none}
+.totals-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;margin-top:6px}
+.totals-grid .cell label{display:block;font-size:11px;font-weight:500;color:var(--ink-2);margin-bottom:3px}
+.totals-grid .cell input{width:100%;font-family:var(--mono);font-size:14px;padding:8px 10px}
 
-  .screen{display:none}
-  .screen.active{display:block}
-  .tiny{font-size:11px;color:var(--ink-soft)}
-  .mono-ref{font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+/* ---------- score cards ---------- */
+.score-card{
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  padding:12px;margin-bottom:10px;background:var(--surface);box-shadow:var(--sh);
+}
+.score-card .fmt{font-family:var(--mono);font-size:13.5px;color:var(--accent);font-weight:600}
+.score-card .meta{font-size:12px;color:var(--ink-3);margin-top:2px}
+.score-card .nums{font-family:var(--mono);font-size:12.5px;margin-top:6px}
+.score-card .nums b{color:var(--accent)}
+.score-card .flag{font-size:11px;color:var(--gold);margin-top:4px}
+
+.spinner{
+  display:inline-block;width:15px;height:15px;border:2px solid var(--line);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;
+  vertical-align:-3px;margin-right:8px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2s}}
+
+.screen{display:none}
+.screen.active{display:block}
+.tiny{font-size:11px;color:var(--ink-3)}
+.mono-ref{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
 </style>
 </head>
 <body>
 
-<header>
-  <div class="h-inner">
-    <h1>EUBC erg scores</h1>
-    <div class="who" id="whoBox"></div>
-  </div>
-</header>
-
 <div class="wrap">
+
+<header class="bar">
+  <img class="logo-sm" src="../eubc-logo.png" alt="EUBC">
+  <h1>Erg scores</h1>
+  <div class="spacer"></div>
+  <div class="who" id="whoBox"></div>
+</header>
 
   <!-- ================= SIGN IN ================= -->
   <div class="screen" id="scrSignIn">
     <div class="panel">
-      <h2>Sign in</h2>
+      <img class="logo-lg" src="../eubc-logo.png" alt="Edinburgh University Boat Club">
+      <h2>Erg scores</h2>
       <p class="note">Use your university email. We'll send you a sign-in link — no password needed. One time per device.</p>
       <label class="fld" for="emailInput">Email</label>
       <input type="email" id="emailInput" placeholder="s1234567@ed.ac.uk" autocomplete="email">
@@ -176,8 +229,9 @@
         <strong>Take or choose a photo</strong>
         <span>of the finished erg screen</span>
       </div>
-      <input type="file" id="photoInput" accept="image/*" style="display:none">
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
       <img id="photoPreview" alt="Erg screen photo preview">
+      <button class="btn ghost" id="btnClearPhoto" style="display:none;margin-top:10px">Remove photo and choose another</button>
       <div id="extractMsg"></div>
       <button class="btn" id="btnExtract" style="margin-top:12px" disabled>Read the screen</button>
     </div>
@@ -219,6 +273,10 @@
 
       <h2 style="margin-top:18px">Pieces</h2>
       <table class="pieces">
+        <colgroup>
+          <col class="c-n"><col class="c-time"><col class="c-dist">
+          <col class="c-split"><col class="c-rate"><col class="c-hr"><col class="c-del">
+        </colgroup>
         <thead><tr><th>#</th><th>Time</th><th>Metres</th><th>/500m</th><th>Rate</th><th>HR</th><th></th></tr></thead>
         <tbody id="piecesBody"></tbody>
       </table>
@@ -226,7 +284,8 @@
 
       <div id="checksBox"></div>
       <div id="saveMsg"></div>
-      <div class="btn-row" style="margin-top:16px">
+      <button class="btn ghost" id="btnRetake" style="margin-top:16px">Retake photo</button>
+      <div class="btn-row" style="margin-top:10px">
         <button class="btn secondary" id="btnBack">Back</button>
         <button class="btn" id="btnSave">Save score</button>
       </div>
@@ -375,7 +434,13 @@ $("photoInput").onchange = async e => {
   photoBlob = await downscale(file, 1568, 0.85);
   $("photoPreview").src = URL.createObjectURL(photoBlob);
   $("photoPreview").style.display = "block";
+  $("btnClearPhoto").style.display = "block";
   $("btnExtract").disabled = false;
+  msg("extractMsg","","");
+};
+
+$("btnClearPhoto").onclick = () => {
+  resetSubmission();
   msg("extractMsg","","");
 };
 
@@ -473,7 +538,7 @@ function addPieceRow(p){
     <td><input type="text" data-f="split" value="${p.split||""}" placeholder="1:50.2" inputmode="decimal"></td>
     <td><input type="text" data-f="rate" value="${p.rate??""}" placeholder="26" inputmode="numeric"></td>
     <td><input type="text" data-f="hr" value="${p.hr??""}" placeholder="—" inputmode="numeric"></td>
-    <td><button class="btn ghost" style="padding:4px 8px;font-size:12px" title="Remove piece">×</button></td>`;
+    <td><button class="btn ghost" style="padding:4px 2px;font-size:12px;width:100%" title="Remove piece">×</button></td>`;
   tr.querySelector("button").onclick = () => { tr.remove(); renumber(); runChecks(); };
   tr.querySelectorAll("input").forEach(i => i.addEventListener("input", runChecks));
   tb.appendChild(tr);
@@ -531,6 +596,12 @@ function runChecks(){
    SAVE — duplicate check, server timestamp, screen date as provenance
 ============================================================ */
 $("btnBack").onclick = () => show("scrHome");
+$("btnRetake").onclick = () => {
+  resetSubmission();
+  msg("extractMsg","","");
+  show("scrHome");
+  $("photoInput").click();   // same tap opens the picker straight away
+};
 $("btnSave").onclick = async () => {
   const format = $("cFormat").value.trim();
   const sessionDate = $("cDate").value;
@@ -602,6 +673,7 @@ function resetSubmission(){
   photoBlob = null; extracted = null;
   $("photoInput").value = "";
   $("photoPreview").style.display = "none";
+  $("btnClearPhoto").style.display = "none";
   $("btnExtract").disabled = true;
 }
 $("btnAnother").onclick = () => show("scrHome");
