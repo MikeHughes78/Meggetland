@@ -647,7 +647,7 @@ $("btnSave").onclick = async () => {
     warnings: runChecks()
   };
   try {
-    await db.ref(SCORES_PATH).push(record);
+    await db.ref(`${SCORES_PATH}/${me.key}`).push(record);
     $("savedSummary").textContent =
       `${format} · ${record.work.distance ?? "?"}m · avg ${record.work.avgSplit ?? "?"} @ ${record.work.avgRate ?? "?"} — saved for ${sessionDate}.`;
     resetSubmission();
@@ -688,7 +688,7 @@ let myScoresQuery = null, coachQueueQuery = null;
 
 function attachScores(){
   detachScores();
-  myScoresQuery = db.ref(SCORES_PATH).orderByChild("emailKey").equalTo(me.key).limitToLast(20);
+  myScoresQuery = db.ref(`${SCORES_PATH}/${me.key}`).limitToLast(20);
   myScoresQuery.on("value", snap => {
     const rows = [];
     snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
@@ -700,10 +700,10 @@ function attachScores(){
     $("myScores").innerHTML = `<p class="note">Couldn't load scores: ${esc(err.message)}</p>`;
   });
   if (me.isCoach) {
-    coachQueueQuery = db.ref(SCORES_PATH).orderByChild("submittedAt").limitToLast(200);
+    coachQueueQuery = db.ref(SCORES_PATH);
     coachQueueQuery.on("value", snap => {
       const rows = [];
-      snap.forEach(c => rows.push({ id:c.key, ...c.val() }));
+      snap.forEach(athlete => athlete.forEach(c => { rows.push({ id:c.key, ...c.val() }); }));
       rows.sort((a,b) => (b.submittedAt||0)-(a.submittedAt||0));
       coachScoreCache = rows;
       $("coachQueue").innerHTML = rows.slice(0,30).map(s => scoreCard(s,true)).join("") ||
