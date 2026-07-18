@@ -244,6 +244,7 @@ table.pieces input:focus{border-color:var(--accent);background:var(--surface);bo
       <p class="note">Most recent submissions across the squad, newest first.</p>
       <div id="coachQueue"></div>
       <button class="btn secondary" id="btnCsv" style="margin-top:12px">Export CSV for Power BI</button>
+      <button class="btn ghost" id="btnBackup" style="margin-top:10px">Download backup (JSON)</button>
       <p class="tiny" style="margin-top:8px">One row per piece, long format. Session summary repeated on each row.</p>
     </div>
   </div>
@@ -336,6 +337,7 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const emailKey = e => e.toLowerCase().trim().replace(/\./g, ",");
 
 let me = null;            // { email, key, name, isCoach }
@@ -518,7 +520,7 @@ function fillConfirm(d){
   // screen date provenance — never used for analysis, surfaced if it disagrees
   if (d.screenDate && d.screenDate !== todayISO()) {
     $("screenDateNote").innerHTML =
-      `<div class="banner warn">The erg screen shows <span class="mono-ref">${d.screenDate}</span>. ` +
+      `<div class="banner warn">The erg screen shows <span class="mono-ref">${esc(d.screenDate)}</span>. ` +
       `If you rowed on a different day than today, change the date above — otherwise the machine's clock is probably wrong and today's date will be used.</div>`;
   } else {
     $("screenDateNote").innerHTML = "";
@@ -572,12 +574,12 @@ function runChecks(){
     warns.push(`Piece distances add up to ${sumD}m, but total distance says ${workD}m.`);
   pieces.forEach((p,i)=>{
     const r = parseFloat(p.rate);
-    if (p.rate && (r < 14 || r > 45)) warns.push(`Piece ${i+1}: rate ${p.rate} looks unusual.`);
+    if (p.rate && (r < 14 || r > 45)) warns.push(`Piece ${i+1}: rate ${esc(p.rate)} looks unusual.`);
     const t = toSec(p.time), s = toSec(p.split), d = parseFloat(p.distance);
     if (t && s && d) {
       const expect = d/500*s;
       if (Math.abs(expect-t) > Math.max(2, t*0.02))
-        warns.push(`Piece ${i+1}: ${p.distance}m at ${p.split} would take about ${fmtSec(expect)}, not ${p.time}.`);
+        warns.push(`Piece ${i+1}: ${esc(p.distance)}m at ${esc(p.split)} would take about ${fmtSec(expect)}, not ${esc(p.time)}.`);
     }
   });
   const dt = $("cDate").value;
@@ -615,7 +617,7 @@ $("btnSave").onclick = async () => {
   if (dup && !$("btnSave").dataset.confirmedDup) {
     $("btnSave").dataset.confirmedDup = "1";
     $("btnSave").textContent = "Save anyway";
-    return msg("saveMsg","warn",`You've already submitted <span class="mono-ref">${format}</span> for ${sessionDate}. If this is a genuine second session, press "Save anyway".`);
+    return msg("saveMsg","warn",`You've already submitted <span class="mono-ref">${esc(format)}</span> for ${sessionDate}. If this is a genuine second session, press "Save anyway".`);
   }
 
   $("btnSave").disabled = true;
@@ -707,9 +709,9 @@ function scoreCard(s, showName){
     {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}) : "";
   const flags = (s.warnings||[]).length ? `<div class="flag">⚠ ${(s.warnings||[]).length} check${s.warnings.length>1?"s":""} flagged at submission</div>` : "";
   return `<div class="score-card">
-    <div class="fmt">${s.format}</div>
-    <div class="meta">${showName ? s.name + " · " : ""}rowed ${s.sessionDate} · submitted ${sub}${s.edited?" · edited by athlete":""}</div>
-    <div class="nums"><b>${s.work?.time??""}</b> · ${s.work?.distance??""}m · <b>${s.work?.avgSplit??""}</b>/500m @ ${s.work?.avgRate??""}</div>
+    <div class="fmt">${esc(s.format)}</div>
+    <div class="meta">${showName ? esc(s.name) + " · " : ""}rowed ${esc(s.sessionDate)} · submitted ${sub}${s.edited?" · edited by athlete":""}</div>
+    <div class="nums"><b>${esc(s.work?.time??"")}</b> · ${esc(s.work?.distance??"")}m · <b>${esc(s.work?.avgSplit??"")}</b>/500m @ ${esc(s.work?.avgRate??"")}</div>
     ${flags}</div>`;
 }
 
@@ -731,6 +733,30 @@ $("btnCsv").onclick = () => {
   a.click();
 };
 const csv = v => `"${String(v??"").replace(/"/g,'""')}"`;
+
+$("btnBackup").onclick = async () => {
+  $("btnBackup").disabled = true;
+  try {
+    const [scores, members] = await Promise.all([
+      db.ref(SCORES_PATH).get(), db.ref(MEMBERS_PATH).get()
+    ]);
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      node: ROOT,
+      scores: scores.val() || {},
+      members: members.val() || {}
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `eubc-erg-backup-${todayISO()}.json`;
+    a.click();
+  } catch (e) {
+    alert("Backup failed: " + e.message);
+  } finally {
+    $("btnBackup").disabled = false;
+  }
+};
 
 /* ---------------- boot ---------------- */
 completeLinkSignIn();
