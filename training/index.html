@@ -76,6 +76,8 @@ input,select,textarea{font:inherit;color:var(--ink)}
 .btn.primary:hover{background:#245489}
 .btn.danger{color:var(--danger)}
 .btn.small{padding:4px 10px;font-size:12.5px}
+.btn.erg-cta{border:1.5px solid var(--accent);color:var(--accent);font-weight:600;text-decoration:none}
+.btn.erg-cta:hover{background:var(--accent-soft)}
 .btn:focus-visible,.tab:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .icon{width:15px;height:15px;flex:none}
 
@@ -546,6 +548,7 @@ table.roster tr.inactive td{opacity:.5}
       <button class="tab" data-view="analytics" id="tabAnalytics">Analytics</button>
     </div>
     <div class="spacer"></div>
+    <a class="btn erg-cta" id="btnErg" href="erg/">Submit an erg score</a>
     <span class="badge" id="connBadge"><span class="dot"></span><span id="connTxt">Syncing…</span></span>
     <span class="badge" id="roleBadge"></span>
     <button class="btn" id="btnViewAs" onclick="toggleViewAs()">View as athlete</button>
@@ -1096,6 +1099,7 @@ function enterApp(){
   document.getElementById("btnLibrary").style.display = isCoach?"":"none";
   document.getElementById("btnMembers").style.display = isCoach?"":"none";
   document.getElementById("btnViewAs").style.display = realCoach?"":"none";
+  document.getElementById("btnErg").style.display = isCoach?"none":"";
   document.getElementById("btnViewAs").textContent = viewAsAthlete ? "Back to coach view" : "View as athlete";
   document.getElementById("tabAnalytics").style.display = isCoach?"":"none";
   document.getElementById("tabCrewsAth").style.display = isCoach?"none":"";
@@ -1128,6 +1132,7 @@ function setChrome(){
   disp("ribbonWrap", planner);
   disp("btnViewAs", planner && auth.role==="coach");
   ["btnMembers","btnEvents","btnLibrary","btnPdf"].forEach(id=>disp(id, planner && coach));
+  disp("btnErg", planner && !coach);
 }
 
 /* ---------------- render: shell ---------------- */
