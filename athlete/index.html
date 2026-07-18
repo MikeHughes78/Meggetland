@@ -1,1 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>EUBC · Athlete report</title>
+<!-- ============================================================
+     EUBC Athlete dashboard — meggetland.com/athlete
+     Firebase project: eubctraining-ad9bd (auth + data)
+     Reads:  eubc-ergscores-v1/scores  (photo app submissions)
+             eubc-training-v1/coaches  (coach whitelist)
+     Owns:   eubc-athlete-v1           (config, athletes, water,
+             zone tags, manual ergs, summary/rankings)
+     Engine: workbook-faithful, exponent 2.95 throughout
+============================================================ -->
+<style>
+:root{
+  --navy:#0E2841; --blade:#6BB7E0; --paper:#f4f2ed; --rule:#c9c4b8;
+  --muted:#5a6b7d; --ink:#0E2841; --up:#1D9E75; --down:#A32D2D; --hot:#D85A30;
+  --purple:#7F77DD; --amber:#BA7517;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{font-family:"Swiss 721","Helvetica Neue",Helvetica,Arial,sans-serif;background:var(--paper);color:var(--ink);line-height:1.45;padding-bottom:60px}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 22px}
+.small{font-size:12px;color:var(--muted)}
+.mono{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+.num{font-variant-numeric:tabular-nums}
+a{color:var(--ink)}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:15px;color:var(--ink);background:#fff;border:0.5px solid var(--rule);border-radius:0;padding:9px 10px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--blade);outline-offset:-1px}
+label{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);display:block;margin:12px 0 4px}
+.btn{background:var(--navy);color:#fff;border:none;padding:11px 20px;font-size:14px;font-weight:500;letter-spacing:0.02em}
+.btn:active{opacity:.85}
+.btn.ghost{background:transparent;color:var(--navy);border:1px solid var(--navy)}
+.btn.tiny{padding:5px 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:default}
+/* masthead */
+.masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--navy);padding-bottom:10px;gap:14px;flex-wrap:wrap}
+.kicker{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--blade);font-weight:500}
+.title{font-size:32px;font-weight:500;letter-spacing:-0.02em;line-height:1.05}
+.mast-right{text-align:right;font-size:12px;color:var(--muted)}
+.mast-right .who{font-size:16px;color:var(--ink);font-weight:500}
+/* nav */
+.nav{display:flex;gap:0;border-bottom:0.5px solid var(--rule);margin-bottom:4px;overflow-x:auto}
+.nav button{background:none;border:none;padding:12px 16px;font-size:13px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.nav button.on{color:var(--ink);border-bottom-color:var(--navy);font-weight:500}
+/* stat strip */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-bottom:0.5px solid var(--rule)}
+.stat{padding:16px 16px 16px 0;border-right:0.5px solid var(--rule)}
+.stat:last-child{border-right:none}
+.stat .lbl{font-size:11px;color:var(--muted)}
+.stat .val{font-size:33px;font-weight:500;letter-spacing:-0.02em;line-height:1.15}
+.stat .val small{font-size:16px;color:var(--muted);font-weight:400}
+.stat .sub{font-size:11px;color:var(--muted)}
+.stat .sub.up{color:var(--up)} .stat .sub.down{color:var(--down)}
+/* sections */
+.sect{margin-top:22px}
+.sect-h{font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;border-bottom:2px solid var(--navy);padding-bottom:4px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.sect-h .small{text-transform:none;letter-spacing:0}
+.cols{display:grid;grid-template-columns:1.45fr 1fr;gap:26px}
+@media(max-width:760px){.cols{grid-template-columns:1fr}}
+/* tables */
+table.rpt{width:100%;border-collapse:collapse;font-size:13.5px}
+table.rpt th{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:left;padding:4px 8px 6px 0;border-bottom:1.5px solid var(--navy)}
+table.rpt td{padding:6px 8px 6px 0;border-bottom:0.5px solid var(--rule);vertical-align:top}
+table.rpt td.r,table.rpt th.r{text-align:right;padding-right:0}
+table.rpt tr.me td{background:rgba(107,183,224,0.14)}
+.zone-pill{display:inline-block;font-size:11px;font-weight:500;padding:1px 7px;border:1px solid var(--rule);color:var(--muted)}
+.z-UT2{border-color:var(--blade);color:var(--blade)} .z-UT1{border-color:var(--purple);color:var(--purple)}
+.z-AT{border-color:var(--hot);color:var(--hot)} .z-TR{border-color:var(--amber);color:var(--amber)}
+.z-Max,.z-AN{border-color:var(--down);color:var(--down)}
+/* splits grid */
+.splits{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:0;border:0.5px solid var(--rule);border-right:none}
+.split{border-right:0.5px solid var(--rule);padding:10px 12px}
+.split .z{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+.split .t{font-size:22px;font-weight:500;letter-spacing:-0.01em}
+.split.hot .t{color:var(--hot)}
+/* cards / forms */
+.panel{border:0.5px solid var(--rule);background:#fff;padding:16px 18px;margin-top:10px}
+.frm{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0 16px}
+.msg{font-size:13px;margin-top:10px;min-height:18px}
+.msg.ok{color:var(--up)} .msg.err{color:var(--down)}
+.crewbox{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:0.5px solid var(--rule);background:#fff;max-height:150px;overflow:auto}
+.crewbox label{display:inline-flex;align-items:center;gap:5px;margin:0;font-size:13px;text-transform:none;letter-spacing:0;color:var(--ink);border:0.5px solid var(--rule);padding:4px 8px;cursor:pointer}
+.crewbox label.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.crewbox input{display:none}
+.flag{font-size:12px;color:var(--amber);margin-top:4px}
+.tagrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--rule);flex-wrap:wrap}
+.tagrow select{width:auto;padding:5px 8px;font-size:13px}
+.badge{display:inline-block;background:var(--hot);color:#fff;font-size:11px;font-weight:500;padding:1px 7px;border-radius:8px;margin-left:6px;vertical-align:2px}
+/* screens */
+.screen{display:none}.screen.on{display:block}
+.signcard{max-width:420px;margin:8vh auto 0}
+.footer{margin-top:26px;border-top:0.5px solid var(--rule);padding-top:10px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted);gap:10px;flex-wrap:wrap}
+.chartbox svg{width:100%;display:block}
+.legend{font-size:11px;color:var(--muted);margin-top:4px}
+.legend b{font-weight:500}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:-1px;margin-right:3px}
+@media print{
+  .nav,.btn,.no-print{display:none !important}
+  body{background:#fff;padding:0}
+  .wrap{max-width:none;padding:0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
 
+  <!-- ============ sign in ============ -->
+  <div class="screen on" id="scrSignIn">
+    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div></div>
+    <div class="signcard">
+      <p style="margin-top:26px;font-size:15px">Sign in with your university email. A one-tap link is sent to your inbox — no password.</p>
+      <label for="emailInput">Email</label>
+      <input type="email" id="emailInput" placeholder="s1234567@ed.ac.uk" autocomplete="email">
+      <button class="btn" id="btnSendLink" style="margin-top:14px;width:100%">Send sign-in link</button>
+      <div class="msg" id="signMsg"></div>
+    </div>
+  </div>
+
+  <!-- ============ pending / unknown ============ -->
+  <div class="screen" id="scrPending">
+    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div></div>
+    <div class="signcard">
+      <p style="margin-top:26px;font-size:15px">You're signed in as <b id="pendEmail" class="mono" style="font-size:13px"></b>, but this address isn't linked to an athlete profile yet.</p>
+      <p style="margin-top:10px;font-size:14px" class="small">Ask a coach to add you on the Athletes page. Once added, this page becomes your personal performance report.</p>
+      <button class="btn ghost" id="btnPendSignOut" style="margin-top:18px">Sign out</button>
+    </div>
+  </div>
+
+  <!-- ============ app ============ -->
+  <div class="screen" id="scrApp">
+    <div class="masthead">
+      <div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div>
+      <div class="mast-right">
+        <div class="who" id="mastName"></div>
+        <div id="mastMeta"></div>
+        <div style="margin-top:4px" class="no-print">
+          <select id="athletePick" style="display:none;width:auto;padding:4px 8px;font-size:12px"></select>
+          <button class="btn tiny ghost" id="btnPrint">Print</button>
+          <button class="btn tiny ghost" id="btnSignOut">Sign out</button>
+        </div>
+      </div>
+    </div>
+    <div class="nav no-print" id="nav"></div>
+    <div id="viewReport"></div>
+    <div id="viewWater" style="display:none"></div>
+    <div id="viewSquad" style="display:none"></div>
+    <div id="viewAthletes" style="display:none"></div>
+    <div id="viewSettings" style="display:none"></div>
+    <div class="footer"><span>Computed live from raw sessions · exponent 2.95 · GMT references set by coaches</span><span class="mono">meggetland.com/athlete</span></div>
+  </div>
+
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ================= config ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyCv3P_Brq01U_xgV1CNsGPzBbsndleerD8",
+  authDomain: "eubctraining-ad9bd.firebaseapp.com",
+  projectId: "eubctraining-ad9bd",
+  databaseURL: "https://eubctraining-ad9bd-default-rtdb.europe-west1.firebasedatabase.app"
+};
+const COACHES_PATH = "eubc-training-v1/coaches";
+const SCORES_PATH  = "eubc-ergscores-v1/scores";
+const ATH = "eubc-athlete-v1";           // this app's own node
+const SIGN_IN_URL = location.origin + location.pathname;
+const EXP = 2.95;                        // pace-power exponent, per coach ruling
+const DEFAULT_CONFIG = {
+  gmtM: 359, gmtF: 419,                  // 5:59 / 6:59 in seconds
+  zones: { "UT2":0.63, "UT1":0.725, "30' r20":0.74, "AT":0.83, "TR":0.94, "AN":1.02, "Max":1, "2k test":1, "5k test":1 }
+};
+const PRED_EXCLUDE = ["UT2","AN"];       // zones excluded from 2k prediction
+const RAW_EXCLUDE  = ["UT2"];            // zones excluded from adjusted GMT
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s??"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const emailKey = e => String(e).trim().toLowerCase().replace(/\./g, ",");
+const keyEmail = k => String(k).replace(/,/g, ".");
+const mean = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : NaN;
+const fmtClock = s => { if(!isFinite(s)||s<=0) return "—";
+  const m = Math.floor(s/60), r = s - m*60;
+  return m + ":" + (r<10?"0":"") + r.toFixed(1); };
+const fmtPct = v => isFinite(v) ? (v*100).toFixed(1)+"%" : "—";
+const fmtInt = v => isFinite(v) ? Math.round(v).toLocaleString() : "—";
+const parseClock = t => { if(!t) return NaN;
+  const p = String(t).trim().split(":").map(Number);
+  if(p.some(isNaN)) return NaN;
+  return p.length===3 ? p[0]*3600+p[1]*60+p[2] : p.length===2 ? p[0]*60+p[1] : p[0]; };
+const dstr = d => d ? String(d).slice(0,10) : "";
+const ddmm = iso => { if(!iso) return "—"; const [y,m,d] = iso.split("-"); return d+"/"+m+"/"+String(y).slice(2); };
+const todayISO = () => new Date().toISOString().slice(0,10);
+const daysAgo = iso => (Date.now() - new Date(iso+"T12:00:00").getTime())/864e5;
+const zoneClass = z => "zone-pill z-" + String(z||"").replace(/[^A-Za-z0-9]/g,"");
+const msg = (id, t, cls) => { const el=$(id); if(el){ el.textContent=t; el.className="msg "+(cls||""); } };
+
+/* ================= state ================= */
+let ME = { email:"", key:"", isCoach:false, profile:null };
+let CFG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+let ATHLETES = {};      // key -> profile
+let SCORES = {};        // key -> {scoreId: raw}
+let MANUAL = {};        // key -> {id: manual erg}
+let TAGS = {};          // key -> {scoreId: zone}
+let WATER = {};         // pushId -> water record
+let SUMMARY = {};       // key -> summary row
+let VIEW_KEY = "";      // athlete currently displayed
+let CUR_TAB = "report";
+
+/* ================= auth ================= */
+async function completeLinkSignIn(){
+  if(auth.isSignInWithEmailLink(location.href)){
+    let email = localStorage.getItem("eubc-ath-email");
+    if(!email) email = prompt("Confirm your email to finish signing in:");
+    try{
+      await auth.signInWithEmailLink(email.trim().toLowerCase(), location.href);
+      history.replaceState(null, "", location.pathname);
+    }catch(e){ msg("signMsg", "Sign-in failed: "+e.message, "err"); }
+  }
+}
+$("btnSendLink").onclick = async () => {
+  const email = $("emailInput").value.trim().toLowerCase();
+  if(!email || !email.includes("@")) return msg("signMsg","Enter a valid email address.","err");
+  try{
+    await auth.sendSignInLinkToEmail(email, { url: SIGN_IN_URL, handleCodeInApp: true });
+    localStorage.setItem("eubc-ath-email", email);
+    msg("signMsg","Link sent — check your inbox (and junk folder). Open it on this device.","ok");
+  }catch(e){ msg("signMsg", e.message, "err"); }
+};
+const doSignOut = () => auth.signOut().then(()=>location.reload());
+
+auth.onAuthStateChanged(async user => {
+  if(!user || !user.email){ showScreen("scrSignIn"); return; }
+  ME.email = user.email.toLowerCase();
+  ME.key = emailKey(ME.email);
+  try{
+    const coachSnap = await db.ref(COACHES_PATH + "/" + ME.key).get().catch(()=>null);
+    ME.isCoach = !!(coachSnap && coachSnap.val());
+  }catch(e){ ME.isCoach = false; }
+  const prof = await db.ref(ATH + "/athletes/" + ME.key).get().catch(()=>null);
+  ME.profile = prof && prof.val() ? prof.val() : null;
+  if(!ME.isCoach && !ME.profile){
+    $("pendEmail").textContent = ME.email;
+    showScreen("scrPending"); return;
+  }
+  await bootApp();
+});
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("on"));
+  $(id).classList.add("on");
+}
+$("btnPendSignOut").onclick = doSignOut;
+
+/* ================= data load ================= */
+async function bootApp(){
+  const cfgSnap = await db.ref(ATH + "/config").get().catch(()=>null);
+  if(cfgSnap && cfgSnap.val()){
+    const v = cfgSnap.val();
+    CFG.gmtM = v.gmtM || CFG.gmtM; CFG.gmtF = v.gmtF || CFG.gmtF;
+    if(v.zones) CFG.zones = Object.assign({}, DEFAULT_CONFIG.zones, v.zones);
+  }
+  if(ME.isCoach){
+    const [a, s, m, t, w] = await Promise.all([
+      db.ref(ATH+"/athletes").get().catch(()=>null),
+      db.ref(SCORES_PATH).get().catch(()=>null),
+      db.ref(ATH+"/ergManual").get().catch(()=>null),
+      db.ref(ATH+"/zoneTags").get().catch(()=>null),
+      db.ref(ATH+"/water").get().catch(()=>null)
+    ]);
+    ATHLETES = (a&&a.val())||{}; SCORES = (s&&s.val())||{};
+    MANUAL = (m&&m.val())||{}; TAGS = (t&&t.val())||{}; WATER = (w&&w.val())||{};
+    VIEW_KEY = ATHLETES[ME.key] ? ME.key : (Object.keys(ATHLETES)[0] || "");
+  } else {
+    const [s, m, t, w, sum] = await Promise.all([
+      db.ref(SCORES_PATH+"/"+ME.key).get().catch(()=>null),
+      db.ref(ATH+"/ergManual/"+ME.key).get().catch(()=>null),
+      db.ref(ATH+"/zoneTags/"+ME.key).get().catch(()=>null),
+      db.ref(ATH+"/water").get().catch(()=>null),
+      db.ref(ATH+"/summary").get().catch(()=>null)
+    ]);
+    SCORES = { [ME.key]: (s&&s.val())||{} };
+    MANUAL = { [ME.key]: (m&&m.val())||{} };
+    TAGS = { [ME.key]: (t&&t.val())||{} };
+    WATER = (w&&w.val())||{};
+    SUMMARY = (sum&&sum.val())||{};
+    ATHLETES = { [ME.key]: ME.profile };
+    VIEW_KEY = ME.key;
+  }
+  buildNav(); renderAll(); showScreen("scrApp");
+  if(ME.isCoach) publishSummaries(false);
+  else publishOwnSummary();
+}
+
+/* ================= calculation engine (workbook-faithful, exp 2.95) ================= */
+function gmtSecFor(sex){ return String(sex).toLowerCase().startsWith("f") ? CFG.gmtF : CFG.gmtM; }
+
+/* Normalise one erg record (photo-app score or manual entry) into a computable session */
+function normSession(key, id, raw, zone){
+  const prof = ATHLETES[key] || {};
+  const work = raw.work || {};
+  let times = [], pieceDist = 0;
+  if(Array.isArray(raw.pieces) && raw.pieces.length){
+    times = raw.pieces.map(p => Number(p.timeSec)).filter(v => isFinite(v) && v > 0);
+    const pd = Number(raw.pieces[0] && raw.pieces[0].distance);
+    pieceDist = isFinite(pd) && pd > 0 ? pd
+      : (Number(work.distance) > 0 ? Number(work.distance) / raw.pieces.length : 0);
+  }
+  if(!times.length){
+    const wt = Number(work.timeSec ?? raw.totalTimeSec);
+    if(isFinite(wt) && wt > 0){ times = [wt]; pieceDist = Number(work.distance) || 0; }
+  }
+  if(!times.length || !pieceDist) return null;
+  const avgT = mean(times);
+  const dist = Number(work.distance) || pieceDist * times.length;
+  const avgSplit = avgT / (pieceDist / 500);
+  const s = {
+    key, id, zone: zone || null,
+    date: dstr(raw.sessionDate || raw.date) || dstr(new Date(raw.submittedAt||Date.now()).toISOString()),
+    source: raw.source || "photo",
+    nPieces: times.length, pieceDist, dist, avgT, avgSplit,
+    watts: 2.8 * Math.pow(500/avgSplit, 3),
+    pred2k: NaN, gmt: NaN, format: raw.format || ""
+  };
+  if(zone && CFG.zones[zone]){
+    s.pred2k = avgT * (2000/pieceDist) * Math.pow(CFG.zones[zone], 1/EXP);
+    s.gmt = gmtSecFor(prof.sex) / s.pred2k;
+  }
+  return s;
+}
+
+/* All sessions for one athlete: tagged (computed) + untagged (awaiting zone) */
+function athleteSessions(key){
+  const tags = TAGS[key] || {};
+  const out = { tagged: [], untagged: [] };
+  const pools = [ [SCORES[key]||{}, false], [MANUAL[key]||{}, true] ];
+  for(const [pool, isManual] of pools){
+    for(const id in pool){
+      const raw = pool[id];
+      const zone = isManual ? raw.zone : tags[id];
+      const s = normSession(key, id, raw, zone || null);
+      if(!s) continue;
+      (zone ? out.tagged : out.untagged).push(s);
+    }
+  }
+  out.tagged.sort((a,b)=>a.date<b.date?-1:1);
+  out.untagged.sort((a,b)=>a.date<b.date?-1:1);
+  return out;
+}
+
+/* Aggregate metrics for one athlete — mirrors the DAX measure set */
+function athleteMetrics(key){
+  const { tagged, untagged } = athleteSessions(key);
+  const perf = tagged.filter(s => !RAW_EXCLUDE.includes(s.zone));
+  const predPool = tagged.filter(s => !PRED_EXCLUDE.includes(s.zone) && isFinite(s.pred2k));
+  const gmtAll = tagged.filter(s => isFinite(s.gmt));
+  const rawGmt = mean(perf.filter(s=>isFinite(s.gmt)).map(s=>s.gmt));
+  const conf = perf.length ? Math.min(1, perf.length/5) : 0;
+  const pred2k = mean(predPool.map(s=>s.pred2k));
+  const recent = gmtAll.slice(-5);
+  const distByZone = {};
+  tagged.forEach(s => { distByZone[s.zone] = (distByZone[s.zone]||0) + s.dist; });
+  const first = predPool.length ? predPool[0].pred2k : NaN;
+  const waterMine = Object.entries(WATER).map(([id,w])=>({id,...w}))
+    .filter(w => (w.crew||[]).includes(key)).sort((a,b)=>a.date<b.date?-1:1);
+  const wk = iso => { const d = new Date(iso+"T12:00:00"); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.toISOString().slice(0,10); };
+  const waterWeeks = {};
+  waterMine.forEach(w => { const k = wk(w.date); waterWeeks[k]=(waterWeeks[k]||0)+1; });
+  return {
+    key, sessions: tagged, untagged,
+    ergs: tagged.length, perfPieces: perf.length, conf,
+    avgGmtAll: mean(gmtAll.map(s=>s.gmt)),
+    rawGmt, adjGmt: isFinite(rawGmt) ? rawGmt*conf : NaN,
+    pred2k, improve: (isFinite(first)&&isFinite(pred2k)) ? first - pred2k : NaN,
+    recentGmt: mean(recent.map(s=>s.gmt)),
+    totalDist: tagged.reduce((a,s)=>a+s.dist,0),
+    distByZone,
+    ergWeek: tagged.filter(s=>daysAgo(s.date)<=7).length,
+    water: waterMine, waterWeeks,
+    waterWeek: waterMine.filter(w=>daysAgo(w.date)<=7).length
+  };
+}
+
+function targetSplits(pred2k){
+  if(!isFinite(pred2k)) return [];
+  const per500 = pred2k/4;
+  const order = ["UT2","UT1","30' r20","AT","TR"];
+  const rows = order.filter(z=>CFG.zones[z]!=null)
+    .map(z => ({ z, s: per500 * Math.pow(CFG.zones[z], -1/EXP) }));
+  rows.push({ z:"2k pace", s: per500, hot:true });
+  return rows;
+}
+
+/* Zone suggestion for untagged photo sessions — a starting point, never gospel */
+function suggestZone(s, raw){
+  const rate = Number((raw.work||{}).avgRate) || Number(((raw.pieces||[])[0]||{}).rate) || 0;
+  const totalMin = (s.avgT * s.nPieces)/60;
+  if(s.nPieces===1 && Math.abs(s.pieceDist-2000)<30) return "2k test";
+  if(s.nPieces===1 && Math.abs(totalMin-30)<1.5 && rate>0 && rate<=21) return "30' r20";
+  if(rate>0){
+    if(rate<=20) return "UT2";
+    if(rate<=24) return "UT1";
+    if(rate<=28) return "AT";
+    if(rate<=32) return "TR";
+    return s.pieceDist<=500 ? "AN" : "Max";
+  }
+  if(s.nPieces===1 && totalMin>=35) return "UT2";
+  if(s.pieceDist<=500) return "AN";
+  if(s.pieceDist<=1000) return "TR";
+  return "AT";
+}
+
+/* ================= rankings / summary node ================= */
+function rankFor(key){
+  const rows = Object.entries(SUMMARY).map(([k,v])=>({k,...v}))
+    .filter(r => isFinite(r.gmt) && r.active !== false);
+  if(!rows.length) return null;
+  rows.sort((a,b)=>b.gmt-a.gmt);
+  const denseRank = (list, k) => { let rank=0, last=null, i=0;
+    for(const r of list){ i++; if(r.gmt!==last){ rank=i; last=r.gmt; } if(r.k===k) return rank; } return null; };
+  const meRow = rows.find(r=>r.k===key);
+  if(!meRow) return null;
+  const sexRows = rows.filter(r=>r.sex===meRow.sex);
+  return { overall: denseRank(rows,key), of: rows.length,
+           bySex: denseRank(sexRows,key), ofSex: sexRows.length };
+}
+async function publishOwnSummary(){
+  try{
+    const m = athleteMetrics(ME.key); const p = ATHLETES[ME.key]||{};
+    if(!isFinite(m.avgGmtAll)) return;
+    await db.ref(ATH+"/summary/"+ME.key).set({
+      name: p.name||"", sex: p.sex||"", squad: p.squad||"", active: p.active!==false,
+      gmt: m.avgGmtAll, adjGmt: isFinite(m.adjGmt)?m.adjGmt:0,
+      pred2k: isFinite(m.pred2k)?m.pred2k:0, pieces: m.perfPieces, updatedAt: Date.now()
+    });
+    SUMMARY[ME.key] = { name:p.name, sex:p.sex, squad:p.squad, active:p.active!==false, gmt:m.avgGmtAll };
+    renderAll();
+  }catch(e){}
+}
+async function publishSummaries(announce){
+  const upd = {}; SUMMARY = {};
+  for(const key in ATHLETES){
+    const p = ATHLETES[key]; if(!p) continue;
+    const m = athleteMetrics(key);
+    const row = { name:p.name||keyEmail(key), sex:p.sex||"", squad:p.squad||"", active:p.active!==false,
+      gmt: isFinite(m.avgGmtAll)?m.avgGmtAll:0, adjGmt: isFinite(m.adjGmt)?m.adjGmt:0,
+      pred2k: isFinite(m.pred2k)?m.pred2k:0, pieces: m.perfPieces, updatedAt: Date.now() };
+    upd[key] = row; SUMMARY[key] = row;
+  }
+  try{ await db.ref(ATH+"/summary").set(upd);
+    if(announce) msg("squadMsg","Rankings published — athletes now see the updated table.","ok");
+  }catch(e){ if(announce) msg("squadMsg","Publish failed: "+e.message,"err"); }
+  renderAll();
+}
+
+/* ================= SVG chart builders ================= */
+function svgLineChart(seriesList, opts){
+  // seriesList: [{pts:[{x:dateStr,y:val}], color, dash, label}]
+  const W = opts.w||680, H = opts.h||220, P = {l:34,r:14,t:14,b:22};
+  const all = seriesList.flatMap(s=>s.pts);
+  if(!all.length) return '<p class="small">No data yet.</p>';
+  const xs = [...new Set(all.map(p=>p.x))].sort();
+  const xi = x => xs.length>1 ? P.l + (xs.indexOf(x)/(xs.length-1))*(W-P.l-P.r) : (P.l+W-P.r)/2;
+  let ymin = Math.min(...all.map(p=>p.y)), ymax = Math.max(...all.map(p=>p.y));
+  if(ymin===ymax){ ymin-=0.01; ymax+=0.01; }
+  const pad = (ymax-ymin)*0.12; ymin-=pad; ymax+=pad;
+  const yi = y => P.t + (1-(y-ymin)/(ymax-ymin))*(H-P.t-P.b);
+  const fmt = opts.fmtY || (v=>v.toFixed(2));
+  const gridVals = [ymin+(ymax-ymin)*0.2, ymin+(ymax-ymin)*0.5, ymin+(ymax-ymin)*0.8];
+  let g = gridVals.map(v=>`<line x1="${P.l}" y1="${yi(v).toFixed(1)}" x2="${W-P.r}" y2="${yi(v).toFixed(1)}" stroke="#c9c4b8" stroke-width="0.5" stroke-dasharray="2 3"/>
+<text x="2" y="${(yi(v)+3).toFixed(1)}" font-size="9.5" fill="#5a6b7d">${fmt(v)}</text>`).join("");
+  for(const s of seriesList){
+    if(!s.pts.length) continue;
+    const d = s.pts.map((p,i)=>(i?"L":"M")+xi(p.x).toFixed(1)+","+yi(p.y).toFixed(1)).join(" ");
+    g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.width||2}" ${s.dash?`stroke-dasharray="${s.dash}"`:""} stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(!s.dash) g += s.pts.map(p=>`<circle cx="${xi(p.x).toFixed(1)}" cy="${yi(p.y).toFixed(1)}" r="2.6" fill="${s.color}"/>`).join("");
+    const last = s.pts[s.pts.length-1];
+    if(s.labelLast) g += `<text x="${Math.min(xi(last.x),W-P.r-2).toFixed(1)}" y="${(yi(last.y)-7).toFixed(1)}" font-size="10" font-weight="500" fill="#0E2841" text-anchor="end">${fmt(last.y)}</text>`;
+  }
+  const t0 = xs[0], t1 = xs[xs.length-1];
+  g += `<text x="${P.l}" y="${H-4}" font-size="9.5" fill="#5a6b7d">${ddmm(t0)}</text>
+<text x="${W-P.r}" y="${H-4}" font-size="9.5" fill="#5a6b7d" text-anchor="end">${ddmm(t1)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.aria||"chart")}">${g}</svg>`;
+}
+function svgZoneBars(distByZone){
+  const order = Object.keys(CFG.zones).filter(z=>distByZone[z]);
+  if(!order.length) return '<p class="small">No tagged sessions yet.</p>';
+  const max = Math.max(...order.map(z=>distByZone[z]));
+  const colors = {"UT2":"#6BB7E0","UT1":"#7F77DD","30' r20":"#4a90c4","AT":"#D85A30","TR":"#BA7517","AN":"#A32D2D","Max":"#A32D2D","2k test":"#0E2841","5k test":"#0E2841"};
+  const rowH = 26, W = 680, labelW = 66, valW = 74;
+  const rows = order.map((z,i)=>{
+    const w = Math.max(3,(distByZone[z]/max)*(W-labelW-valW));
+    const y = i*rowH;
+    return `<text x="0" y="${y+17}" font-size="11.5" fill="#5a6b7d">${esc(z)}</text>
+<rect x="${labelW}" y="${y+5}" width="${w.toFixed(1)}" height="15" fill="${colors[z]||"#5a6b7d"}"/>
+<text x="${labelW+w+6}" y="${y+17}" font-size="11" fill="#0E2841" font-weight="500">${fmtInt(distByZone[z])}m</text>`;
+  }).join("");
+  return `<svg viewBox="0 0 ${W} ${order.length*rowH}" role="img" aria-label="Distance by training zone">${rows}</svg>`;
+}
+
+/* ================= rendering ================= */
+const TABS = () => ME.isCoach
+  ? [["report","Report"],["water","Water"],["squad","Squad"],["athletes","Athletes"],["settings","Settings"]]
+  : [["report","Report"],["water","Water"]];
+function buildNav(){
+  $("nav").innerHTML = TABS().map(([id,l])=>`<button data-t="${id}" class="${id===CUR_TAB?"on":""}">${l}</button>`).join("");
+  $("nav").querySelectorAll("button").forEach(b => b.onclick = () => { CUR_TAB=b.dataset.t; buildNav(); showTab(); });
+  $("athletePick").style.display = ME.isCoach ? "" : "none";
+  $("btnSignOut").onclick = doSignOut;
+  $("btnPrint").onclick = () => window.print();
+}
+function showTab(){
+  for(const [id] of [["report"],["water"],["squad"],["athletes"],["settings"]])
+    { const el = $("view"+id[0].toUpperCase()+id.slice(1)); if(el) el.style.display = id===CUR_TAB ? "" : "none"; }
+}
+function renderAll(){
+  renderMast(); renderReport(); renderWater();
+  if(ME.isCoach){ renderSquad(); renderAthletes(); renderSettings(); }
+  showTab();
+}
+function renderMast(){
+  const p = ATHLETES[VIEW_KEY] || {};
+  const m = VIEW_KEY ? athleteMetrics(VIEW_KEY) : null;
+  $("mastName").textContent = p.name || (ME.isCoach ? "No athletes yet" : ME.email);
+  $("mastMeta").textContent = [p.squad, m ? ("issue no. "+m.ergs) : "", ddmm(todayISO())].filter(Boolean).join(" · ");
+  if(ME.isCoach){
+    const opts = Object.entries(ATHLETES).filter(([,v])=>v).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""))
+      .map(([k,v])=>`<option value="${k}" ${k===VIEW_KEY?"selected":""}>${esc(v.name||keyEmail(k))}</option>`).join("");
+    $("athletePick").innerHTML = opts;
+    $("athletePick").onchange = e => { VIEW_KEY = e.target.value; renderAll(); };
+  }
+}
+function renderReport(){
+  const el = $("viewReport");
+  if(!VIEW_KEY){ el.innerHTML = '<div class="panel">Add athletes on the Athletes page to begin.</div>'; return; }
+  const p = ATHLETES[VIEW_KEY]||{}, m = athleteMetrics(VIEW_KEY);
+  const rk = rankFor(VIEW_KEY);
+  const canTag = ME.isCoach || VIEW_KEY===ME.key;
+  const impr = isFinite(m.improve) ? (m.improve>=0 ? {c:"up",t:"▲ "+m.improve.toFixed(1)+"s this season"} : {c:"down",t:"▼ "+Math.abs(m.improve).toFixed(1)+"s this season"}) : null;
+  const zonesWith = z => m.sessions.filter(s=>s.zone===z && isFinite(s.gmt));
+  const seriesFor = [["UT2","#6BB7E0"],["UT1","#7F77DD"],["AT","#D85A30"],["TR","#BA7517"]]
+    .map(([z,c])=>({ pts: zonesWith(z).map(s=>({x:s.date,y:s.gmt})), color:c, label:z }))
+    .filter(s=>s.pts.length>=2);
+  const gmtPts = m.sessions.filter(s=>isFinite(s.gmt)).map(s=>({x:s.date,y:s.gmt}));
+  const roll = gmtPts.map((p,i)=>({x:p.x, y: mean(gmtPts.slice(Math.max(0,i-4),i+1).map(q=>q.y))}));
+  if(gmtPts.length>=3) seriesFor.push({pts:roll, color:"#0E2841", dash:"4 3", width:1.5, label:"5-session trend", labelLast:true});
+  const untaggedRows = m.untagged.map(s=>{
+    const raw = (SCORES[VIEW_KEY]||{})[s.id] || (MANUAL[VIEW_KEY]||{})[s.id] || {};
+    const sug = suggestZone(s, raw);
+    const zopts = Object.keys(CFG.zones).map(z=>`<option ${z===sug?"selected":""}>${esc(z)}</option>`).join("");
+    return `<div class="tagrow"><span class="num" style="min-width:70px">${ddmm(s.date)}</span>
+      <span class="small" style="flex:1">${esc(s.format||"session")} · ${s.nPieces}×${fmtInt(s.pieceDist)}m · ${fmtClock(s.avgSplit)}/500m</span>
+      ${canTag?`<select data-tag="${esc(s.id)}">${zopts}</select><button class="btn tiny" data-confirm="${esc(s.id)}">Confirm</button>`:`<span class="small">awaiting zone</span>`}</div>`;
+  }).join("");
+  const logRows = m.sessions.slice().reverse().map(s=>`
+    <tr><td class="num">${ddmm(s.date)}</td>
+    <td><span class="${zoneClass(s.zone)}">${esc(s.zone)}</span></td>
+    <td class="r num">${fmtClock(s.avgSplit)}</td>
+    <td class="r num">${fmtPct(s.gmt)}</td>
+    <td class="r num">${fmtClock(s.pred2k)}</td>
+    <td class="r num small">${fmtInt(s.dist)}m</td></tr>`).join("");
+  const splits = targetSplits(m.pred2k).map(t=>`<div class="split ${t.hot?"hot":""}"><div class="z">${esc(t.z)}</div><div class="t num">${fmtClock(t.s)}</div></div>`).join("");
+  el.innerHTML = `
+  <div class="strip">
+    <div class="stat"><div class="lbl">Predicted 2000m</div><div class="val num">${fmtClock(m.pred2k)}</div>
+      ${impr?`<div class="sub ${impr.c}">${impr.t}</div>`:`<div class="sub">needs non-UT2 sessions</div>`}</div>
+    <div class="stat"><div class="lbl">Average GMT</div><div class="val num">${isFinite(m.rawGmt)?(m.rawGmt*100).toFixed(1):"—"}<small>%</small></div>
+      <div class="sub">confidence ${Math.round(m.conf*5)} of 5${m.conf<1?" · adj "+fmtPct(m.adjGmt):""}</div></div>
+    <div class="stat"><div class="lbl">Squad rank</div><div class="val num">${rk?rk.overall:"—"}<small> / ${rk?rk.of:"—"}</small></div>
+      <div class="sub">${rk?rk.bySex+" of "+rk.ofSex+" by sex":"awaiting rankings"}</div></div>
+    <div class="stat"><div class="lbl">This week</div><div class="val num">${m.waterWeek}<small> water</small> ${m.ergWeek}<small> erg</small></div>
+      <div class="sub">${fmtInt(m.totalDist)}m season erg total</div></div>
+  </div>
+  ${m.untagged.length?`<div class="sect"><div class="sect-h">Sessions awaiting a zone<span class="badge">${m.untagged.length}</span></div>${untaggedRows}
+    <p class="small" style="margin-top:6px">Untagged sessions are excluded from every number above until confirmed. Suggestions are inferred from rate and structure — correct freely.</p></div>`:""}
+  <div class="cols sect">
+    <div><div class="sect-h">GMT% progression</div>
+      <div class="chartbox">${svgLineChart(seriesFor.length?seriesFor:[{pts:gmtPts,color:"#6BB7E0"}],{fmtY:v=>(v*100).toFixed(1)+"%",aria:"GMT percent over the season"})}</div>
+      <div class="legend">${[["UT2","#6BB7E0"],["UT1","#7F77DD"],["AT","#D85A30"],["TR","#BA7717"]].filter(([z])=>zonesWith(z).length>=2).map(([z,c])=>`<span class="dot" style="background:${c}"></span>${z} `).join(" ")} <span class="dot" style="background:#0E2841"></span>5-session trend</div>
+    </div>
+    <div><div class="sect-h">Suggested splits</div>
+      <div class="splits">${splits||'<p class="small" style="padding:10px">Prediction pending.</p>'}</div>
+      <p class="small" style="margin-top:8px">Targets derive from your predicted 2000m via the ${EXP} pace–power law. Physiologies differ — treat as a starting point.</p>
+      <div class="sect-h" style="margin-top:18px">Distance by zone</div>
+      <div class="chartbox">${svgZoneBars(m.distByZone)}</div>
+    </div>
+  </div>
+  <div class="sect"><div class="sect-h">Session log<span class="small">${m.ergs} tagged erg sessions</span></div>
+    <table class="rpt"><thead><tr><th>Date</th><th>Zone</th><th class="r">Avg /500m</th><th class="r">GMT%</th><th class="r">Pred 2k</th><th class="r">Distance</th></tr></thead>
+    <tbody>${logRows||'<tr><td colspan="6" class="small">Nothing yet — sessions from the erg photo app appear here.</td></tr>'}</tbody></table></div>`;
+  el.querySelectorAll("[data-confirm]").forEach(b => b.onclick = async () => {
+    const id = b.dataset.confirm;
+    const zone = el.querySelector(`select[data-tag="${CSS.escape(id)}"]`).value;
+    try{
+      if((MANUAL[VIEW_KEY]||{})[id]){ await db.ref(ATH+"/ergManual/"+VIEW_KEY+"/"+id+"/zone").set(zone); MANUAL[VIEW_KEY][id].zone = zone; }
+      else { await db.ref(ATH+"/zoneTags/"+VIEW_KEY+"/"+id).set(zone); (TAGS[VIEW_KEY]=TAGS[VIEW_KEY]||{})[id]=zone; }
+      renderAll();
+      if(!ME.isCoach) publishOwnSummary();
+    }catch(e){ alert("Could not save zone: "+e.message); }
+  });
+}
+
+/* ================= water view ================= */
+function renderWater(){
+  const el = $("viewWater");
+  const m = VIEW_KEY ? athleteMetrics(VIEW_KEY) : { water:[], waterWeeks:{} };
+  const p = ATHLETES[VIEW_KEY]||{};
+  const gmtPts = m.water.filter(w=>isFinite(Number(w.gmtPct))).map(w=>({x:w.date, y:Number(w.gmtPct)/100}));
+  const chart = gmtPts.length>=2
+    ? svgLineChart([{pts:gmtPts,color:"#6BB7E0",labelLast:true}],{fmtY:v=>(v*100).toFixed(1)+"%",aria:"Crew GMT percent on the water",h:190})
+    : '<p class="small">Crew GMT% appears here once outings carry a percentage.</p>';
+  const rows = m.water.slice().reverse().map(w=>`
+    <tr><td class="num">${ddmm(w.date)}</td><td>${esc(w.boat||"—")}</td>
+    <td class="r num">${isFinite(Number(w.gmtPct))?Number(w.gmtPct).toFixed(1)+"%":"—"}</td>
+    <td class="small">${esc((w.crewNames||[]).join(", "))}</td>
+    <td class="small">${esc(w.source||"manual")}</td></tr>`).join("");
+  const weekKeys = Object.keys(m.waterWeeks).sort();
+  const attend = weekKeys.length ? svgLineChart([{pts:weekKeys.map(k=>({x:k,y:m.waterWeeks[k]})),color:"#0E2841",labelLast:true}],{fmtY:v=>Math.round(v)+"",aria:"Water sessions per week",h:150}) : "";
+  const coachForm = ME.isCoach ? `
+  <div class="sect"><div class="sect-h">Record an outing</div>
+  <div class="panel"><div class="frm">
+    <div><label>Date</label><input type="date" id="wDate" value="${todayISO()}"></div>
+    <div><label>Boat / event</label><input id="wBoat" placeholder="W4+ · Talisker"></div>
+    <div><label>Crew GMT% (optional)</label><input id="wGmt" inputmode="decimal" placeholder="e.g. 78.4"></div>
+    <div><label>Source</label><select id="wSource"><option>manual</option><option>timer</option><option>peach</option></select></div>
+  </div>
+  <label>Crew</label><div class="crewbox" id="wCrew">${Object.entries(ATHLETES).filter(([,v])=>v&&v.active!==false).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")).map(([k,v])=>`<label data-k="${k}"><input type="checkbox">${esc(v.name||keyEmail(k))}</label>`).join("")}</div>
+  <label>Notes (optional)</label><input id="wNotes" placeholder="6×500m, tailwind">
+  <button class="btn" id="btnWaterSave" style="margin-top:14px">Save outing</button>
+  <div class="msg" id="waterMsg"></div></div></div>` : "";
+  el.innerHTML = `
+    <div class="cols sect">
+      <div><div class="sect-h">Crew GMT% on the water<span class="small">${esc(p.name||"")}</span></div><div class="chartbox">${chart}</div>
+        <p class="small" style="margin-top:6px">Crew GMT% belongs to the whole boat — it reflects the crew you rowed in, not you alone. Per-seat telemetry lands here when the Peach feed arrives.</p></div>
+      <div><div class="sect-h">Outings per week</div><div class="chartbox">${attend||'<p class="small">No outings recorded yet.</p>'}</div></div>
+    </div>
+    <div class="sect"><div class="sect-h">Water record<span class="small">${m.water.length} outings</span></div>
+      <table class="rpt"><thead><tr><th>Date</th><th>Boat</th><th class="r">GMT%</th><th>Crew</th><th>Source</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="5" class="small">No outings recorded for this athlete yet.</td></tr>'}</tbody></table></div>
+    ${coachForm}`;
+  if(ME.isCoach){
+    el.querySelectorAll("#wCrew label").forEach(l => l.onclick = () => setTimeout(()=>l.classList.toggle("on", l.querySelector("input").checked),0));
+    $("btnWaterSave").onclick = async () => {
+      const crewEls = [...el.querySelectorAll("#wCrew label")].filter(l=>l.querySelector("input").checked);
+      const crew = crewEls.map(l=>l.dataset.k);
+      const crewNames = crew.map(k=>(ATHLETES[k]||{}).name||keyEmail(k));
+      const gmtRaw = $("wGmt").value.trim();
+      if(!$("wDate").value) return msg("waterMsg","Pick a date.","err");
+      if(!crew.length) return msg("waterMsg","Pick at least one crew member.","err");
+      const rec = { date: $("wDate").value, boat: $("wBoat").value.trim(), crew, crewNames,
+        source: $("wSource").value, notes: $("wNotes").value.trim(), createdBy: ME.key, createdAt: Date.now() };
+      if(gmtRaw){ const g = Number(gmtRaw); if(!isFinite(g)||g<=0||g>120) return msg("waterMsg","GMT% looks wrong — enter e.g. 78.4","err"); rec.gmtPct = g; }
+      try{
+        const ref = await db.ref(ATH+"/water").push(rec);
+        WATER[ref.key] = rec;
+        msg("waterMsg","Outing saved.","ok");
+        ["wBoat","wGmt","wNotes"].forEach(id=>$(id).value="");
+        el.querySelectorAll("#wCrew input").forEach(i=>{i.checked=false;});
+        renderAll();
+      }catch(e){ msg("waterMsg","Save failed: "+e.message,"err"); }
+    };
+  }
+}
+
+/* ================= squad view (coach) ================= */
+function renderSquad(){
+  const el = $("viewSquad");
+  const rows = Object.entries(ATHLETES).filter(([,v])=>v).map(([k,v])=>({k, p:v, m:athleteMetrics(k)}))
+    .sort((a,b)=>(isFinite(b.m.avgGmtAll)?b.m.avgGmtAll:-1)-(isFinite(a.m.avgGmtAll)?a.m.avgGmtAll:-1));
+  let rank=0, last=null, i=0;
+  const body = rows.map(r=>{
+    i++; const g = isFinite(r.m.avgGmtAll)?r.m.avgGmtAll:null;
+    if(g!==last){ rank=i; last=g; }
+    const lastDate = r.m.sessions.length ? r.m.sessions[r.m.sessions.length-1].date : null;
+    return `<tr class="${r.k===ME.key?"me":""}"><td class="num">${g!=null?rank:"—"}</td>
+    <td><a href="#" data-open="${r.k}">${esc(r.p.name||keyEmail(r.k))}</a>${r.m.untagged.length?`<span class="badge">${r.m.untagged.length}</span>`:""}</td>
+    <td>${esc((r.p.sex||"").toUpperCase())}</td><td>${esc(r.p.squad||"")}</td>
+    <td class="r num">${r.m.ergs}</td>
+    <td class="r num">${fmtPct(r.m.avgGmtAll)}</td>
+    <td class="r num">${fmtPct(r.m.adjGmt)}</td>
+    <td class="r num">${fmtClock(r.m.pred2k)}</td>
+    <td class="r num small">${lastDate?ddmm(lastDate):"—"}</td></tr>`;
+  }).join("");
+  el.innerHTML = `<div class="sect"><div class="sect-h">Squad table<span class="small">ranked on average GMT% across all tagged sessions</span></div>
+    <table class="rpt"><thead><tr><th>#</th><th>Athlete</th><th>Sex</th><th>Squad</th><th class="r">Ergs</th><th class="r">Avg GMT</th><th class="r">Adj GMT</th><th class="r">Pred 2k</th><th class="r">Last erg</th></tr></thead>
+    <tbody>${body||'<tr><td colspan="9" class="small">No athletes yet.</td></tr>'}</tbody></table>
+    <button class="btn no-print" id="btnPublish" style="margin-top:14px">Publish rankings to athletes</button>
+    <div class="msg" id="squadMsg"></div>
+    <p class="small">Red badges count sessions still awaiting a zone. Publishing writes the summary node athletes read for their rank — it also runs automatically when you open this page.</p></div>`;
+  el.querySelectorAll("[data-open]").forEach(a => a.onclick = e => { e.preventDefault(); VIEW_KEY=a.dataset.open; CUR_TAB="report"; buildNav(); renderAll(); });
+  $("btnPublish").onclick = () => publishSummaries(true);
+}
+
+/* ================= athletes admin (coach) ================= */
+function renderAthletes(){
+  const el = $("viewAthletes");
+  const list = Object.entries(ATHLETES).filter(([,v])=>v).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""));
+  const rows = list.map(([k,v])=>`<tr class="${v.active===false?"":""}"><td>${esc(v.name||"")}${v.active===false?' <span class="small">(inactive)</span>':""}</td>
+    <td class="mono small">${esc(keyEmail(k))}</td><td>${esc((v.sex||"").toUpperCase())}</td><td>${esc(v.squad||"")}</td>
+    <td class="r"><button class="btn tiny ghost" data-edit="${k}">Edit</button></td></tr>`).join("");
+  el.innerHTML = `<div class="sect"><div class="sect-h">Athletes<span class="small">${list.length} profiles</span></div>
+  <table class="rpt"><thead><tr><th>Name</th><th>Email</th><th>Sex</th><th>Squad</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="5" class="small">None yet — add the first below.</td></tr>'}</tbody></table>
+  <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0" id="athFormTitle">Add athlete</div>
+    <div class="frm">
+      <div><label>Full name (canonical — used everywhere)</label><input id="aName"></div>
+      <div><label>University email</label><input id="aEmail" placeholder="s1234567@ed.ac.uk"></div>
+      <div><label>Sex</label><select id="aSex"><option value="m">M</option><option value="f">F</option></select></div>
+      <div><label>Squad</label><select id="aSquad"><option>Beginners</option><option>Men</option><option>Women</option><option>Cox</option></select></div>
+      <div><label>Active</label><select id="aActive"><option value="1">Yes</option><option value="0">No</option></select></div>
+    </div>
+    <input type="hidden" id="aKey">
+    <button class="btn" id="btnAthSave" style="margin-top:14px">Save athlete</button>
+    <button class="btn ghost" id="btnAthClear" style="margin-top:14px">Clear</button>
+    <div class="msg" id="athMsg"></div>
+    <p class="small">The email is the join key: erg photo submissions and sign-ins under this address all resolve to this profile. Change of email = new profile, so get it right first time.</p></div></div>`;
+  const fill = (k) => { const v = ATHLETES[k]; $("athFormTitle").textContent="Edit athlete"; $("aKey").value=k;
+    $("aName").value=v.name||""; $("aEmail").value=keyEmail(k); $("aEmail").disabled=true;
+    $("aSex").value=v.sex||"m"; $("aSquad").value=v.squad||"Beginners"; $("aActive").value=v.active===false?"0":"1"; };
+  el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>fill(b.dataset.edit));
+  $("btnAthClear").onclick = () => { $("athFormTitle").textContent="Add athlete"; $("aKey").value=""; $("aEmail").disabled=false;
+    ["aName","aEmail"].forEach(id=>$(id).value=""); msg("athMsg","",""); };
+  $("btnAthSave").onclick = async () => {
+    const name = $("aName").value.trim();
+    const email = $("aEmail").value.trim().toLowerCase();
+    if(!name) return msg("athMsg","Name is required.","err");
+    if(!$("aKey").value && (!email||!email.includes("@"))) return msg("athMsg","Valid email required.","err");
+    const k = $("aKey").value || emailKey(email);
+    const rec = { name, sex: $("aSex").value, squad: $("aSquad").value,
+      active: $("aActive").value==="1", email: keyEmail(k), updatedAt: Date.now() };
+    try{ await db.ref(ATH+"/athletes/"+k).set(rec); ATHLETES[k]=rec;
+      if(!VIEW_KEY) VIEW_KEY=k;
+      msg("athMsg","Saved.","ok"); renderAll(); CUR_TAB="athletes"; buildNav(); showTab();
+    }catch(e){ msg("athMsg","Save failed: "+e.message,"err"); }
+  };
+}
+
+/* ================= settings (coach) ================= */
+function renderSettings(){
+  const el = $("viewSettings");
+  const zoneRows = Object.entries(CFG.zones).map(([z,v])=>`<div><label>${esc(z)} energy %</label><input data-zone="${esc(z)}" inputmode="decimal" value="${(v*100).toFixed(1)}"></div>`).join("");
+  el.innerHTML = `<div class="sect"><div class="sect-h">Gold medal references</div>
+  <div class="panel"><div class="frm">
+    <div><label>Men's GMT (2000m)</label><input id="cfgM" value="${fmtClock(CFG.gmtM).replace(/\.0$/,"")}" placeholder="5:59"></div>
+    <div><label>Women's GMT (2000m)</label><input id="cfgF" value="${fmtClock(CFG.gmtF).replace(/\.0$/,"")}" placeholder="6:59"></div>
+  </div>
+  <p class="small" style="margin-top:8px">Editing a GMT is retroactive: every historical GMT%, ranking and trend recomputes from raw pieces the moment you save. A wrong reference is a ten-second fix. If you ever need "new standard from a given date", ask and effective-dating gets built.</p>
+  <div class="sect-h" style="margin-top:18px">Zone energy percentages</div>
+  <div class="frm">${zoneRows}</div>
+  <button class="btn" id="btnCfgSave" style="margin-top:14px">Save configuration</button>
+  <div class="msg" id="cfgMsg"></div></div></div>
+  <div class="sect"><div class="sect-h">Manual erg entry</div>
+  <div class="panel"><div class="frm">
+    <div><label>Athlete</label><select id="mAth">${Object.entries(ATHLETES).filter(([,v])=>v).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||"")).map(([k,v])=>`<option value="${k}">${esc(v.name||keyEmail(k))}</option>`).join("")}</select></div>
+    <div><label>Date</label><input type="date" id="mDate" value="${todayISO()}"></div>
+    <div><label>Zone</label><select id="mZone">${Object.keys(CFG.zones).map(z=>`<option>${esc(z)}</option>`).join("")}</select></div>
+    <div><label>Piece distance (m)</label><input id="mDist" inputmode="numeric" placeholder="750"></div>
+  </div>
+  <label>Piece times (comma separated, m:ss.t)</label><input id="mTimes" placeholder="2:25.7, 2:24.9, 2:26.1">
+  <button class="btn" id="btnManSave" style="margin-top:14px">Save session</button>
+  <div class="msg" id="manMsg"></div>
+  <p class="small">For sessions that never met the photo app — borrowed machines, water-damaged screens, history you trust. Continuous pieces: one time, distance = total metres.</p></div></div>`;
+  $("btnCfgSave").onclick = async () => {
+    const mS = parseClock($("cfgM").value), fS = parseClock($("cfgF").value);
+    if(!isFinite(mS)||!isFinite(fS)||mS<250||fS<250) return msg("cfgMsg","GMTs look wrong — use m:ss.","err");
+    const zones = {};
+    let bad = false;
+    el.querySelectorAll("[data-zone]").forEach(inp=>{
+      const v = Number(inp.value)/100;
+      if(!isFinite(v)||v<=0.2||v>1.3) bad = true; else zones[inp.dataset.zone]=v;
+    });
+    if(bad) return msg("cfgMsg","A zone percentage looks wrong.","err");
+    try{ await db.ref(ATH+"/config").set({gmtM:mS, gmtF:fS, zones, updatedAt:Date.now(), updatedBy:ME.key});
+      CFG.gmtM=mS; CFG.gmtF=fS; CFG.zones=zones;
+      msg("cfgMsg","Saved — all reports recomputed.","ok"); publishSummaries(false);
+    }catch(e){ msg("cfgMsg","Save failed: "+e.message,"err"); }
+  };
+  $("btnManSave").onclick = async () => {
+    const key = $("mAth").value, dist = Number($("mDist").value);
+    const times = $("mTimes").value.split(",").map(t=>parseClock(t)).filter(v=>isFinite(v)&&v>0);
+    if(!key) return msg("manMsg","Pick an athlete.","err");
+    if(!isFinite(dist)||dist<100) return msg("manMsg","Piece distance looks wrong.","err");
+    if(!times.length) return msg("manMsg","Enter at least one piece time.","err");
+    const rec = { source:"manual", zone:$("mZone").value, sessionDate:$("mDate").value,
+      work:{ distance: dist*times.length, timeSec: times.reduce((a,b)=>a+b,0) },
+      pieces: times.map((t,i)=>({n:i+1,timeSec:t,distance:dist})),
+      enteredBy: ME.key, submittedAt: Date.now() };
+    try{ const ref = await db.ref(ATH+"/ergManual/"+key).push(rec);
+      (MANUAL[key]=MANUAL[key]||{})[ref.key]=rec;
+      msg("manMsg","Session saved and computed.","ok");
+      $("mTimes").value=""; renderAll(); CUR_TAB="settings"; buildNav(); showTab();
+    }catch(e){ msg("manMsg","Save failed: "+e.message,"err"); }
+  };
+}
+
+/* ================= boot ================= */
+completeLinkSignIn();
+</script>
+</body>
+</html>
