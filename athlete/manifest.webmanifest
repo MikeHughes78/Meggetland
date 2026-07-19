@@ -1,7 +1,7 @@
 {
-  "name": "EUBC Athlete report",
+  "name": "EUBC Athlete dashboard",
   "short_name": "EUBC",
-  "description": "Edinburgh University Boat Club performance dashboard",
+  "description": "Edinburgh University Boat Club athlete dashboard",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

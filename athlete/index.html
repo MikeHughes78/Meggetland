@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>EUBC · Athlete report</title>
+<title>EUBC · Athlete dashboard</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0E2841">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -117,7 +117,7 @@ table.rpt tr.me td{background:rgba(107,183,224,0.14)}
 
   <!-- ============ sign in ============ -->
   <div class="screen on" id="scrSignIn">
-    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div></div>
+    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete dashboard</div></div></div>
     <div class="signcard">
       <p style="margin-top:26px;font-size:15px">Sign in with your university email. A one-tap link is sent to your inbox — no password.</p>
       <label for="emailInput">Email</label>
@@ -129,7 +129,7 @@ table.rpt tr.me td{background:rgba(107,183,224,0.14)}
 
   <!-- ============ pending / unknown ============ -->
   <div class="screen" id="scrPending">
-    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div></div>
+    <div class="masthead"><div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete dashboard</div></div></div>
     <div class="signcard">
       <p style="margin-top:26px;font-size:15px">You're signed in as <b id="pendEmail" class="mono" style="font-size:13px"></b>, but this address isn't linked to an athlete profile yet.</p>
       <p style="margin-top:10px;font-size:14px" class="small">Ask a coach to add you on the Athletes page. Once added, this page becomes your personal performance report.</p>
@@ -140,7 +140,7 @@ table.rpt tr.me td{background:rgba(107,183,224,0.14)}
   <!-- ============ app ============ -->
   <div class="screen" id="scrApp">
     <div class="masthead">
-      <div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete report</div></div>
+      <div><div class="kicker">Edinburgh University Boat Club</div><div class="title">Athlete dashboard</div></div>
       <div class="mast-right">
         <div class="who" id="mastName"></div>
         <div id="mastMeta"></div>
@@ -185,6 +185,17 @@ const DEFAULT_CONFIG = {
 };
 const PRED_EXCLUDE = ["UT2","AN"];       // zones excluded from 2k prediction
 const RAW_EXCLUDE  = ["UT2"];            // zones excluded from adjusted GMT
+/* ---- training planner interop (mirrors eubc-training-v1 exactly) ---- */
+const TRAIN_NODE = "eubc-training-v1";
+let LAND_START = "2026-09-21";          // "all time" window opens here
+const PZONES = ["UT2","UT1","AT","TR","AN","Max","Test","S&C"];
+const PZCOLOR = { UT2:"#4DA3E0", UT1:"#38B6A5", AT:"#63B75D", TR:"#E8B33C", AN:"#E8823C", Max:"#E05252", Test:"#9A6FD6", "S&C":"#7A8CA0" };
+const P_SPLITS = { UT2:125, UT1:120, AT:115, TR:110, AN:105, Max:100, Test:110, "S&C":120 };
+const P_T2_MODE = { Water:1.00, Erg:1.35, Land:1.00, Off:0 };
+const P_T2_INT  = { UT2:1.00, UT1:1.35, AT:2.10, TR:5.00, AN:9.00, Max:9.00, Test:9.00, "S&C":0 };
+const SQUAD_KEY = { "Beginners":"beginner", "Men":"men", "Women":"women" };
+/* dashboard erg zones → planner zones */
+const ERGZONE_TO_PLAN = { "UT2":"UT2", "UT1":"UT1", "30' r20":"UT1", "AT":"AT", "TR":"TR", "AN":"AN", "Max":"Max", "2k test":"Test", "5k test":"Test" };
 const FORM = {                            // coach-side form analytics (monthly cadence)
   winDays: 28,        // comparison window: last 28 days vs the 28 before
   minPieces: 3,       // minimum performance pieces per window to classify
@@ -237,6 +248,11 @@ let MANUAL = {};        // key -> {id: manual erg}
 let TAGS = {};          // key -> {scoreId: zone}
 let WATER = {};         // pushId -> water record
 let SUMMARY = {};       // key -> summary row
+let PLAN = {};          // squadKey -> plans object from the training system
+let TSET = null;        // training system settings (splits + t2 factors)
+let CROSS = {};         // key -> {id: cross-training entry}
+let SNC = {};           // key -> {id: S&C entry}
+let LAND_WIN = "28";    // land-training window: all | 14 | 28 | 56 (days)
 let SNAPS = {};         // dateISO -> {key: summary row}  (coach-only block snapshots)
 let SQUAD_FILTER = "All";
 let STATE_FILTER = "all";
@@ -297,31 +313,37 @@ async function bootApp(){
     if(v.zones) CFG.zones = Object.assign({}, DEFAULT_CONFIG.zones, v.zones);
   }
   if(ME.isCoach){
-    const [a, s, m, t, w, h] = await Promise.all([
+    const [a, s, m, t, w, h, x, g] = await Promise.all([
       db.ref(ATH+"/athletes").get().catch(()=>null),
       db.ref(SCORES_PATH).get().catch(()=>null),
       db.ref(ATH+"/ergManual").get().catch(()=>null),
       db.ref(ATH+"/zoneTags").get().catch(()=>null),
       db.ref(ATH+"/water").get().catch(()=>null),
-      db.ref(ATH+"/summaryHistory").get().catch(()=>null)
+      db.ref(ATH+"/summaryHistory").get().catch(()=>null),
+      db.ref(ATH+"/crossTraining").get().catch(()=>null),
+      db.ref(ATH+"/snc").get().catch(()=>null)
     ]);
     ATHLETES = (a&&a.val())||{}; SCORES = (s&&s.val())||{};
     MANUAL = (m&&m.val())||{}; TAGS = (t&&t.val())||{}; WATER = (w&&w.val())||{};
-    SNAPS = (h&&h.val())||{};
+    SNAPS = (h&&h.val())||{}; CROSS = (x&&x.val())||{}; SNC = (g&&g.val())||{};
     VIEW_KEY = ATHLETES[ME.key] ? ME.key : (Object.keys(ATHLETES)[0] || "");
   } else {
-    const [s, m, t, w, sum] = await Promise.all([
+    const [s, m, t, w, sum, x, g] = await Promise.all([
       db.ref(SCORES_PATH+"/"+ME.key).get().catch(()=>null),
       db.ref(ATH+"/ergManual/"+ME.key).get().catch(()=>null),
       db.ref(ATH+"/zoneTags/"+ME.key).get().catch(()=>null),
       db.ref(ATH+"/water").get().catch(()=>null),
-      db.ref(ATH+"/summary").get().catch(()=>null)
+      db.ref(ATH+"/summary").get().catch(()=>null),
+      db.ref(ATH+"/crossTraining/"+ME.key).get().catch(()=>null),
+      db.ref(ATH+"/snc/"+ME.key).get().catch(()=>null)
     ]);
     SCORES = { [ME.key]: (s&&s.val())||{} };
     MANUAL = { [ME.key]: (m&&m.val())||{} };
     TAGS = { [ME.key]: (t&&t.val())||{} };
     WATER = (w&&w.val())||{};
     SUMMARY = (sum&&sum.val())||{};
+    CROSS = { [ME.key]: (x&&x.val())||{} };
+    SNC = { [ME.key]: (g&&g.val())||{} };
     ATHLETES = { [ME.key]: ME.profile };
     VIEW_KEY = ME.key;
   }
@@ -545,6 +567,148 @@ function rankMovement(key, squadRows){
   return { move: rThen - rNow, since: snapDate };   // positive = climbed
 }
 
+/* ============ land training: expected (planner) vs actual ============ */
+async function loadPlanFor(squadName){
+  const sq = SQUAD_KEY[squadName];
+  if(!sq || PLAN[sq] !== undefined) return;
+  PLAN[sq] = null;                                   // mark as loading/attempted
+  try{
+    const [p, st] = await Promise.all([
+      db.ref(TRAIN_NODE+"/plans/"+sq).get(),
+      TSET ? Promise.resolve(null) : db.ref(TRAIN_NODE+"/settings").get()
+    ]);
+    PLAN[sq] = (p && p.val()) || {};
+    if(st && st.val() && !TSET) TSET = st.val();
+  }catch(e){ PLAN[sq] = null; }
+}
+function tFactors(){
+  const t = (TSET && TSET.t2) || {};
+  return { mode: Object.assign({}, P_T2_MODE, t.mode||{}),
+           intensity: Object.assign({}, P_T2_INT, t.intensity||{}) };
+}
+function tSplits(){ return Object.assign({}, P_SPLITS, (TSET && TSET.splits)||{}); }
+function planSessMinutes(s){
+  if(s.type === "Off") return 0;
+  if(s.mode === "distance"){
+    const sp = tSplits()[s.zone] || 120;
+    return Math.round((+s.km || 0) * 2 * sp / 60);
+  }
+  return Math.round(+s.minutes || 0);
+}
+function landWindow(win){
+  const to = todayISO();
+  const from = win === "all" ? LAND_START : dstr(new Date(Date.now() - (+win)*864e5).toISOString());
+  return { from: from > LAND_START ? from : LAND_START, to };
+}
+function computeLand(key, win){
+  const prof = ATHLETES[key] || {};
+  const sq = SQUAD_KEY[prof.squad];
+  const { from, to } = landWindow(win);
+  const F = tFactors();
+  const out = { from, to, hasPlan: !!(sq && PLAN[sq]),
+    expZones:{}, actZones:{}, expT2:0, actT2:0, expSessions:0, actSessions:0 };
+  // expected: every non-water, non-off session in the athlete's squad plan
+  if(out.hasPlan){
+    for(const dIso in PLAN[sq]){
+      if(dIso < from || dIso > to) continue;
+      const day = PLAN[sq][dIso];
+      for(const id in day){
+        const s = day[id];
+        if(!s || s.type === "Water" || s.type === "Off") continue;
+        const m = planSessMinutes(s);
+        if(!m) continue;
+        out.expZones[s.zone] = (out.expZones[s.zone]||0) + m;
+        out.expT2 += m * (F.mode[s.type] ?? 0) * (F.intensity[s.zone] ?? 0);
+        out.expSessions++;
+      }
+    }
+  }
+  // actual 1: tagged erg sessions — work minutes, zones mapped to planner zones
+  for(const s of athleteSessions(key).tagged){
+    if(s.date < from || s.date > to) continue;
+    const m = Math.round(s.avgT * s.nPieces / 60);
+    if(!m) continue;
+    const pz = ERGZONE_TO_PLAN[s.zone] || "UT2";
+    out.actZones[pz] = (out.actZones[pz]||0) + m;
+    out.actT2 += m * (F.mode.Erg ?? 1.35) * (F.intensity[pz] ?? 0);
+    out.actSessions++;
+  }
+  // actual 2: cross-training (always UT2, land mode) and S&C
+  for(const [pool, zone] of [[CROSS[key]||{}, "UT2"], [SNC[key]||{}, "S&C"]]){
+    for(const id in pool){
+      const e = pool[id];
+      const d = dstr(e.date), m = Math.round(+e.minutes||0);
+      if(!d || d < from || d > to || !m) continue;
+      out.actZones[zone] = (out.actZones[zone]||0) + m;
+      out.actT2 += m * (F.mode.Land ?? 1) * (F.intensity[zone] ?? 0);
+      out.actSessions++;
+    }
+  }
+  out.expT2 = Math.round(out.expT2); out.actT2 = Math.round(out.actT2);
+  return out;
+}
+const fmtMin = m => !m ? "0′" : m < 60 ? m+"′" : (Math.floor(m/60)+"h"+(m%60? " "+(m%60)+"′":""));
+function t2PillHtml(actual, expected){
+  if(!expected) return "";
+  const r = actual/expected;
+  const ok = r >= 0.9 && r <= 1.1;
+  const col = ok ? "var(--up)" : r < 0.9 ? "var(--amber)" : "var(--hot)";
+  const lbl = ok ? "on target" : r < 0.9 ? Math.round((1-r)*100)+"% under" : Math.round((r-1)*100)+"% over";
+  return `<span style="font-size:11px;border:1px solid ${col};color:${col};padding:1px 7px;margin-left:6px">${lbl}</span>`;
+}
+function landChartSvg(land){
+  const zonesUsed = PZONES.filter(z => (land.expZones[z]||0) + (land.actZones[z]||0) > 0);
+  if(!zonesUsed.length) return '<p class="small">Nothing in this window yet.</p>';
+  const expTot = PZONES.reduce((a,z)=>a+(land.expZones[z]||0),0);
+  const actTot = PZONES.reduce((a,z)=>a+(land.actZones[z]||0),0);
+  const W=340, H=250, pb=26, pt=20, colW=86, gap=54;
+  const x1 = W/2 - gap/2 - colW, x2 = W/2 + gap/2;
+  const maxT = Math.max(60, expTot, actTot);
+  const yh = v => v/maxT*(H-pt-pb);
+  let g = "";
+  [[land.expZones, x1, expTot, "Expected"], [land.actZones, x2, actTot, "Actual"]].forEach(([zones, x, tot, label])=>{
+    let acc = 0;
+    for(const z of PZONES){
+      const v = zones[z]||0; if(!v) continue;
+      const hh = yh(v);
+      g += `<rect x="${x}" y="${(H-pb-yh(acc)-hh).toFixed(1)}" width="${colW}" height="${Math.max(1,hh).toFixed(1)}" fill="${PZCOLOR[z]}" rx="1.5"><title>${z} ${fmtMin(v)}</title></rect>`;
+      if(hh > 15) g += `<text x="${x+colW/2}" y="${(H-pb-yh(acc)-hh/2+3.5).toFixed(1)}" font-size="10" text-anchor="middle" fill="#fff" font-weight="500">${z}</text>`;
+      acc += v;
+    }
+    g += `<text x="${x+colW/2}" y="${(H-pb-yh(tot)-6).toFixed(1)}" font-size="12.5" text-anchor="middle" fill="#0E2841" font-weight="500">${fmtMin(tot)}</text>`;
+    g += `<text x="${x+colW/2}" y="${H-8}" font-size="11" text-anchor="middle" fill="#5a6b7d">${label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Expected versus actual land training minutes by zone">${g}</svg>`;
+}
+async function saveLandEntry(kind){
+  const key = VIEW_KEY;
+  const date = $(kind+"Date").value;
+  const minutes = Math.round(Number($(kind+"Min").value));
+  if(!date) return msg(kind+"Msg","Pick a date.","err");
+  if(!isFinite(minutes) || minutes < 5 || minutes > 400) return msg(kind+"Msg","Minutes look wrong.","err");
+  const rec = { date, minutes, createdAt: Date.now(), enteredBy: ME.key };
+  if(kind === "cross") rec.activity = $("crossAct").value;
+  const node = kind === "cross" ? "crossTraining" : "snc";
+  try{
+    const ref = await db.ref(ATH+"/"+node+"/"+key).push(rec);
+    const store = kind === "cross" ? CROSS : SNC;
+    (store[key] = store[key]||{})[ref.key] = rec;
+    msg(kind+"Msg","Logged.","ok");
+    $(kind+"Min").value = "";
+    renderReport();
+  }catch(e){ msg(kind+"Msg","Save failed: "+e.message,"err"); }
+}
+async function deleteLandEntry(kind, id){
+  const key = VIEW_KEY;
+  const node = kind === "cross" ? "crossTraining" : "snc";
+  try{
+    await db.ref(ATH+"/"+node+"/"+key+"/"+id).set(null);
+    const store = kind === "cross" ? CROSS : SNC;
+    if(store[key]) delete store[key][id];
+    renderReport();
+  }catch(e){ alert("Delete failed: "+e.message); }
+}
+
 /* ============ roster sync: master list → timer's athlete database ============ */
 /* One-way, coach-triggered (also fires after every athlete save). Merges by
    name so SR / guest entries the timer holds locally are never disturbed;
@@ -707,6 +871,9 @@ function renderReport(){
   const el = $("viewReport");
   if(!VIEW_KEY){ el.innerHTML = '<div class="panel">Add athletes on the Athletes page to begin.</div>'; return; }
   const p = ATHLETES[VIEW_KEY]||{}, m = athleteMetrics(VIEW_KEY);
+  if(SQUAD_KEY[p.squad] && PLAN[SQUAD_KEY[p.squad]] === undefined){
+    loadPlanFor(p.squad).then(()=>renderReport());
+  }
   const rk = rankFor(VIEW_KEY);
   const canTag = ME.isCoach || VIEW_KEY===ME.key;
   const impr = isFinite(m.improve) ? (m.improve>=0 ? {c:"up",t:"▲ "+m.improve.toFixed(1)+"s this season"} : {c:"down",t:"▼ "+Math.abs(m.improve).toFixed(1)+"s this season"}) : null;
@@ -733,6 +900,44 @@ function renderReport(){
     <td class="r num">${fmtClock(s.pred2k)}</td>
     <td class="r num small">${fmtInt(s.dist)}m</td></tr>`).join("");
   const splits = targetSplits(m.pred2k).map(t=>`<div class="split ${t.hot?"hot":""}"><div class="z">${esc(t.z)}</div><div class="t num">${fmtClock(t.s)}</div></div>`).join("");
+  // ---- land training: expected vs actual ----
+  const land = computeLand(VIEW_KEY, LAND_WIN);
+  const canLog = ME.isCoach || VIEW_KEY===ME.key;
+  const winChip = (id,label) => `<button data-lwin="${id}" style="font-size:11px;border:1px solid ${LAND_WIN===id?"var(--navy)":"var(--rule)"};background:${LAND_WIN===id?"var(--navy)":"transparent"};color:${LAND_WIN===id?"#fff":"var(--muted)"};padding:3px 10px;cursor:pointer;font-family:inherit">${label}</button>`;
+  const entryList = (pool, kind) => Object.entries(pool||{}).sort((a,b)=>b[1].date<a[1].date?-1:1).slice(0,5)
+    .map(([id,e])=>`<div class="tagrow"><span class="num" style="min-width:70px">${ddmm(dstr(e.date))}</span>
+      <span class="small" style="flex:1">${esc(e.activity||(kind==="cross"?"cross-training":"S&C"))} · ${e.minutes}′</span>
+      ${canLog?`<button class="btn tiny ghost" data-delland="${kind}:${id}">Remove</button>`:""}</div>`).join("");
+  const landForms = canLog ? `
+    <div class="frm" style="margin-top:14px">
+      <div><label>Cross-training date</label><input type="date" id="crossDate" value="${todayISO()}"></div>
+      <div><label>Activity</label><select id="crossAct"><option>Bike</option><option>Run</option><option>Swim</option><option>Hike</option><option>Other</option></select></div>
+      <div><label>Minutes</label><input id="crossMin" inputmode="numeric" placeholder="45"></div>
+      <div style="align-self:end"><button class="btn tiny" id="btnCrossSave" style="margin-bottom:2px">Log cross-training</button></div>
+    </div><div class="msg" id="crossMsg"></div>
+    ${entryList((CROSS[VIEW_KEY]||{}),"cross")}
+    <div class="frm" style="margin-top:14px">
+      <div><label>S&amp;C date</label><input type="date" id="sncDate" value="${todayISO()}"></div>
+      <div><label>Minutes</label><input id="sncMin" inputmode="numeric" placeholder="60"></div>
+      <div style="align-self:end"><button class="btn tiny" id="btnSncSave" style="margin-bottom:2px">Log S&amp;C</button></div>
+    </div><div class="msg" id="sncMsg"></div>
+    ${entryList((SNC[VIEW_KEY]||{}),"snc")}` : "";
+  const landSect = `
+  <div class="sect"><div class="sect-h">Land training · expected vs actual<span class="small no-print">${winChip("all","All time")} ${winChip("56","8 wk")} ${winChip("28","4 wk")} ${winChip("14","2 wk")}</span></div>
+    ${land.hasPlan || land.actSessions ? `
+    <div class="cols">
+      <div class="chartbox">${landChartSvg(land)}
+        <div class="legend">${PZONES.filter(z=>(land.expZones[z]||0)+(land.actZones[z]||0)>0).map(z=>`<span class="dot" style="background:${PZCOLOR[z]}"></span>${z} `).join(" ")}</div></div>
+      <div>
+        <div class="strip" style="border-top:0.5px solid var(--rule)">
+          <div class="stat"><div class="lbl">Land sessions</div><div class="val num">${land.actSessions}<small> / ${land.hasPlan?land.expSessions:"—"}</small></div><div class="sub">done vs planned</div></div>
+          <div class="stat"><div class="lbl">T2 minutes</div><div class="val num">${fmtMin(land.actT2)}<small> / ${land.hasPlan?fmtMin(land.expT2):"—"}</small></div><div class="sub">${land.hasPlan?t2PillHtml(land.actT2, land.expT2):"no plan found"}</div></div>
+        </div>
+        <p class="small" style="margin-top:8px">${ddmm(land.from)} – ${ddmm(land.to)}. Expected comes from the ${esc(p.squad||"")} training plan (erg + land sessions); actual stacks tagged ergs, cross-training (counted as UT2) and S&amp;C. T2 uses the planner's load model — S&amp;C carries zero aerobic T2 by design.</p>
+        ${landForms}
+      </div>
+    </div>` : `<p class="small">No ${esc(p.squad||"")} plan found for this window${canLog?" — cross-training and S&C can still be logged:":"."}</p>${landForms}`}
+  </div>`;
   el.innerHTML = `
   <div class="strip">
     <div class="stat"><div class="lbl">Predicted 2000m</div><div class="val num">${fmtClock(m.pred2k)}</div>
@@ -758,9 +963,17 @@ function renderReport(){
       <div class="chartbox">${svgZoneBars(m.distByZone)}</div>
     </div>
   </div>
+  ${landSect}
   <div class="sect"><div class="sect-h">Session log<span class="small">${m.ergs} tagged erg sessions</span></div>
     <table class="rpt"><thead><tr><th>Date</th><th>Zone</th><th class="r">Avg /500m</th><th class="r">GMT%</th><th class="r">Pred 2k</th><th class="r">Distance</th></tr></thead>
     <tbody>${logRows||'<tr><td colspan="6" class="small">Nothing yet — sessions from the erg photo app appear here.</td></tr>'}</tbody></table></div>`;
+  el.querySelectorAll("[data-lwin]").forEach(b => b.onclick = () => { LAND_WIN = b.dataset.lwin; renderReport(); });
+  el.querySelectorAll("[data-delland]").forEach(b => b.onclick = () => {
+    const [kind,id] = b.dataset.delland.split(":");
+    if(confirm("Remove this entry?")) deleteLandEntry(kind, id);
+  });
+  const bx = $("btnCrossSave"); if(bx) bx.onclick = () => saveLandEntry("cross");
+  const bs = $("btnSncSave"); if(bs) bs.onclick = () => saveLandEntry("snc");
   el.querySelectorAll("[data-confirm]").forEach(b => b.onclick = async () => {
     const id = b.dataset.confirm;
     const zone = el.querySelector(`select[data-tag="${CSS.escape(id)}"]`).value;
@@ -1158,6 +1371,31 @@ function bootDemo(){
         crew: crew.map(([k])=>k), crewNames: crew.map(([,v])=>v.name),
         source: rng()<0.3?"timer":"manual", createdBy:"demo", createdAt: Date.now() };
     });
+  }
+  // seed a beginner training plan matching the planner's schema, 15 weeks back
+  LAND_START = iso(105);
+  PLAN.beginner = {};
+  const tpl = [ [1,{name:"Erg UT2 70′",type:"Erg",zone:"UT2",mode:"duration",minutes:70}],
+                [2,{name:"S&C",type:"Land",zone:"S&C",mode:"duration",minutes:60}],
+                [3,{name:"Erg UT1 3×20′",type:"Erg",zone:"UT1",mode:"duration",minutes:60}],
+                [4,{name:"Cross-training",type:"Land",zone:"UT2",mode:"duration",minutes:45}],
+                [5,{name:"Erg AT 4×10′",type:"Erg",zone:"AT",mode:"duration",minutes:40}] ];
+  for(let d=105; d>=0; d--){
+    const dt = new Date(Date.now()-d*864e5), dow = (dt.getDay()+6)%7;
+    for(const [day,s] of tpl) if(dow===day-1) PLAN.beginner[iso(d)] = { ["p"+d]: s };
+    if(dow===5 && Math.floor(d/7)%2===0) PLAN.beginner[iso(d)] = { ["p"+d]: {name:"Erg TR 6×500",type:"Erg",zone:"TR",mode:"duration",minutes:25} };
+  }
+  // self-reported cross-training and S&C with imperfect adherence
+  let ci=0;
+  for(const key in ATHLETES){
+    CROSS[key]={}; SNC[key]={};
+    const adhere = ATHLETES[key].name==="Nina Fairweather" ? 0.25 : 0.55+rng()*0.35;
+    for(let d=103; d>=0; d-=7){
+      if(rng()<adhere) SNC[key]["g"+(ci)+"d"+d] = { date: iso(d-1<0?0:d-1), minutes: 55+Math.round(rng()*15), createdAt: Date.now() };
+      if(rng()<adhere*0.8) CROSS[key]["x"+(ci)+"d"+d] = { date: iso(d-3<0?0:d-3), minutes: 40+Math.round(rng()*25),
+        activity: ["Bike","Run","Swim"][Math.floor(rng()*3)], createdAt: Date.now() };
+    }
+    ci++;
   }
   ME = { email:"demo.coach@ed.ac.uk", key:"demo,coach@ed,ac,uk", isCoach:true, profile:null };
   VIEW_KEY = Object.keys(ATHLETES)[0];

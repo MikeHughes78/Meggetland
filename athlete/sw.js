@@ -1,7 +1,7 @@
 /* EUBC Athlete report — service worker
    Strategy: network-first for the page itself (GitHub deploys land instantly),
    cache fallback when offline; cache-first for icons and manifest. */
-const CACHE = "eubc-athlete-shell-v3";
+const CACHE = "eubc-athlete-shell-v4";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./icon-192-maskable.png",
   "./icon-512-maskable.png", "./apple-touch-icon.png"];
