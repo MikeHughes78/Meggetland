@@ -661,24 +661,38 @@ function landChartSvg(land){
   if(!zonesUsed.length) return '<p class="small">Nothing in this window yet.</p>';
   const expTot = PZONES.reduce((a,z)=>a+(land.expZones[z]||0),0);
   const actTot = PZONES.reduce((a,z)=>a+(land.actZones[z]||0),0);
-  const W=340, H=250, pb=26, pt=20, colW=86, gap=54;
-  const x1 = W/2 - gap/2 - colW, x2 = W/2 + gap/2;
-  const maxT = Math.max(60, expTot, actTot);
-  const yh = v => v/maxT*(H-pt-pb);
+  const W=480, H=280, pl=64, pr=118, pt=14, pb=34;
+  const pw = W-pl-pr, ph = H-pt-pb;
+  const colW = Math.min(84, pw*0.30), gapC = (pw - 2*colW)/3;
+  const x1 = pl+gapC, x2 = pl+gapC*2+colW;
+  // nice axis: pick a tick step giving 4-6 gridlines
+  const rawMax = Math.max(30, expTot, actTot);
+  const step = [15,30,60,120,180,240,300,600,900,1200].find(s => rawMax/s <= 6) || 1800;
+  const maxT = Math.ceil(rawMax/step)*step;
+  const y = v => pt + ph*(1 - v/maxT);
   let g = "";
-  [[land.expZones, x1, expTot, "Expected"], [land.actZones, x2, actTot, "Actual"]].forEach(([zones, x, tot, label])=>{
+  for(let v=0; v<=maxT; v+=step){
+    g += `<line x1="${pl}" y1="${y(v).toFixed(1)}" x2="${W-pr}" y2="${y(v).toFixed(1)}" stroke="#c9c4b8" stroke-width="0.5" ${v?'stroke-dasharray="2 3"':''}/>`
+       + `<text x="${pl-7}" y="${(y(v)+3.5).toFixed(1)}" font-size="10" text-anchor="end" fill="#5a6b7d">${v}</text>`;
+  }
+  g += `<text transform="translate(13 ${pt+ph/2}) rotate(-90)" font-size="10.5" text-anchor="middle" fill="#5a6b7d" letter-spacing="0.05em">Time-in-zone (minutes)</text>`;
+  [[land.expZones, x1, "Prescribed training"], [land.actZones, x2, "Actual training"]].forEach(([zones, x, label])=>{
     let acc = 0;
     for(const z of PZONES){
       const v = zones[z]||0; if(!v) continue;
-      const hh = yh(v);
-      g += `<rect x="${x}" y="${(H-pb-yh(acc)-hh).toFixed(1)}" width="${colW}" height="${Math.max(1,hh).toFixed(1)}" fill="${PZCOLOR[z]}" rx="1.5"><title>${z} ${fmtMin(v)}</title></rect>`;
-      if(hh > 15) g += `<text x="${x+colW/2}" y="${(H-pb-yh(acc)-hh/2+3.5).toFixed(1)}" font-size="10" text-anchor="middle" fill="#fff" font-weight="500">${z}</text>`;
+      g += `<rect x="${x}" y="${y(acc+v).toFixed(1)}" width="${colW}" height="${Math.max(1,(y(acc)-y(acc+v))).toFixed(1)}" fill="${PZCOLOR[z]}" stroke="#f4f2ed" stroke-width="0.5"><title>${esc(z)} · ${fmtMin(v)}</title></rect>`;
       acc += v;
     }
-    g += `<text x="${x+colW/2}" y="${(H-pb-yh(tot)-6).toFixed(1)}" font-size="12.5" text-anchor="middle" fill="#0E2841" font-weight="500">${fmtMin(tot)}</text>`;
-    g += `<text x="${x+colW/2}" y="${H-8}" font-size="11" text-anchor="middle" fill="#5a6b7d">${label}</text>`;
+    g += `<text x="${x+colW/2}" y="${H-12}" font-size="10.5" text-anchor="middle" fill="#0E2841">${label}</text>`;
   });
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Expected versus actual land training minutes by zone">${g}</svg>`;
+  // legend at right, stack order top-down
+  const lx = W-pr+16;
+  zonesUsed.slice().reverse().forEach((z,i)=>{
+    const ly = pt+10+i*19;
+    g += `<rect x="${lx}" y="${ly-8}" width="11" height="11" fill="${PZCOLOR[z]}"/>`
+       + `<text x="${lx+17}" y="${ly+1.5}" font-size="10.5" fill="#0E2841">min at ${esc(z)}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Prescribed versus actual time in zone, minutes">${g}</svg>`;
 }
 async function saveLandEntry(kind){
   const key = VIEW_KEY;
@@ -926,8 +940,7 @@ function renderReport(){
   <div class="sect"><div class="sect-h">Land training · expected vs actual<span class="small no-print">${winChip("all","All time")} ${winChip("56","8 wk")} ${winChip("28","4 wk")} ${winChip("14","2 wk")}</span></div>
     ${land.hasPlan || land.actSessions ? `
     <div class="cols">
-      <div class="chartbox">${landChartSvg(land)}
-        <div class="legend">${PZONES.filter(z=>(land.expZones[z]||0)+(land.actZones[z]||0)>0).map(z=>`<span class="dot" style="background:${PZCOLOR[z]}"></span>${z} `).join(" ")}</div></div>
+      <div class="chartbox">${landChartSvg(land)}</div>
       <div>
         <div class="strip" style="border-top:0.5px solid var(--rule)">
           <div class="stat"><div class="lbl">Land sessions</div><div class="val num">${land.actSessions}<small> / ${land.hasPlan?land.expSessions:"—"}</small></div><div class="sub">done vs planned</div></div>
