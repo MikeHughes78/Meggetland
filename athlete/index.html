@@ -192,8 +192,12 @@ const FORM = {                            // coach-side form analytics (monthly 
 };
 
 firebase.initializeApp(firebaseConfig);
+const DEMO = new URLSearchParams(location.search).has("demo");
 const auth = firebase.auth();
-const db = firebase.database();
+const db = DEMO
+  ? { ref: () => ({ set: async()=>{}, update: async()=>{}, get: async()=>({val:()=>null}),
+                    push: async()=>({ key: "d"+Math.random().toString(36).slice(2,9) }) }) }
+  : firebase.database();
 
 /* ================= helpers ================= */
 const $ = id => document.getElementById(id);
@@ -252,9 +256,10 @@ $("btnSendLink").onclick = async () => {
     msg("signMsg","Link sent — check your inbox (and junk folder). Open it on this device.","ok");
   }catch(e){ msg("signMsg", e.message, "err"); }
 };
-const doSignOut = () => auth.signOut().then(()=>location.reload());
+const doSignOut = () => DEMO ? (location.href = location.pathname) : auth.signOut().then(()=>location.reload());
 
 auth.onAuthStateChanged(async user => {
+  if(DEMO) return;
   if(!user || !user.email){ showScreen("scrSignIn"); return; }
   ME.email = user.email.toLowerCase();
   ME.key = emailKey(ME.email);
@@ -548,6 +553,7 @@ function hashKey(k){ // one-way link id: lets the sync follow renames without an
   return "h"+h.toString(16);
 }
 async function syncRosterToTimer(announce){
+  if(DEMO){ if(announce) msg("athSyncMsg","Demo mode — nothing syncs anywhere.","ok"); return; }
   if(!ME.isCoach) return;
   try{
     const snap = await timerDb().ref(TIMER_ATHLETES_PATH).get();
@@ -1061,8 +1067,114 @@ function renderSettings(){
   };
 }
 
+/* ================= demo mode (?demo) ================= */
+/* Sixteen fabricated athletes, full in-memory season. Nothing reads from or
+   writes to Firebase; close the tab and it never happened. */
+function bootDemo(){
+  const rng = (seed => () => { seed|=0; seed = seed+0x6D2B79F5|0;
+    let t = Math.imul(seed^seed>>>15, 1|seed);
+    t = t+Math.imul(t^t>>>7, 61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296; })(20261025);
+  const iso = ago => new Date(Date.now() - ago*864e5).toISOString().slice(0,10);
+  const ZDEF = { "UT2":{n:1,d:9000,r:[18,20]}, "UT1":{n:3,d:2000,r:[22,24]}, "AT":{n:4,d:1000,r:[26,28]},
+                 "TR":{n:3,d:750,r:[30,32]}, "Max":{n:4,d:250,r:[34,38]}, "2k test":{n:1,d:2000,r:[29,32]} };
+  const zonePick = () => { const r = rng();
+    return r<0.42?"UT2":r<0.62?"UT1":r<0.78?"AT":r<0.90?"TR":r<0.96?"Max":"2k test"; };
+  // name, sex, side, archetype
+  const cast = [
+    ["Isla Morrison","f","S","fast"],   ["Rory Campbell","m","B","steady"],
+    ["Freya Sinclair","f","B","steady"],["Ewan Drummond","m","S","plateau"],
+    ["Maisie Baird","f","S","plateau"], ["Callum Rennie","m","B","dropping"],
+    ["Ailsa Kerr","f","B","erratic"],   ["Fraser Boyd","m","S","steady"],
+    ["Skye Henderson","f","S","ghost"], ["Lachlan Muir","m","B","fastish"],
+    ["Nina Fairweather","f","B","freqdrop"], ["Angus Petrie","m","S","plateau"],
+    ["Orla Macrae","f","S","early"],    ["Hamish Todd","m","B","untagged"],
+    ["Eilidh Ross","f","B","steady"],   ["Struan Wallace","m","S","dropping2"]
+  ];
+  const ARCH = {
+    fast:{g0:0.82,wk:0.0045,noise:0.008}, fastish:{g0:0.85,wk:0.0035,noise:0.008},
+    steady:{g0:0.855,wk:0.0024,noise:0.007}, plateau:{g0:0.885,wk:0.0002,noise:0.006},
+    dropping:{g0:0.905,wk:-0.0030,noise:0.007}, dropping2:{g0:0.875,wk:-0.0024,noise:0.009},
+    erratic:{g0:0.87,wk:0.0012,noise:0.020}, ghost:{g0:0.88,wk:0.0008,noise:0.007},
+    freqdrop:{g0:0.865,wk:0.0008,noise:0.008}, early:{g0:0.845,wk:0.004,noise:0.008},
+    untagged:{g0:0.86,wk:0.0008,noise:0.008}
+  };
+  ATHLETES={}; SCORES={}; TAGS={}; MANUAL={}; WATER={}; SNAPS={}; SUMMARY={};
+  cast.forEach(([name,sex,side,arch],ci)=>{
+    const key = name.toLowerCase().replace(/[^a-z]/g,"")+"@demo";
+    ATHLETES[key] = { name, sex, side, squad: ci<12 ? "Beginners" : (sex==="f"?"Women":"Men"), active:true, email:key };
+    SCORES[key]={}; TAGS[key]={}; MANUAL[key]={};
+    const a = ARCH[arch];
+    const gmtRef = sex==="f" ? CFG.gmtF : CFG.gmtM;
+    let sessDays = [];
+    for(let d=105; d>=0; d--){
+      let pWeek = 3;                                    // sessions per week
+      if(arch==="early" && d>10) pWeek = 0;
+      if(arch==="ghost" && d<14) pWeek = 0;
+      if(arch==="freqdrop" && d<14) pWeek = 0.6;
+      if(rng() < pWeek/7) sessDays.push(d);
+    }
+    if(arch==="ghost" && !sessDays.some(d=>d>=14)) sessDays.push(20);
+    sessDays.forEach((d,si)=>{
+      const zone = si===sessDays.length-1 && arch==="fast" ? "2k test" : zonePick();
+      const zd = ZDEF[zone];
+      const prog = (105-d)/7;                            // weeks elapsed
+      let gmt = a.g0 + a.wk*prog + (rng()*2-1)*a.noise;
+      gmt = Math.max(0.75, Math.min(0.99, gmt));
+      const energy = CFG.zones[zone];
+      const pred = gmtRef/gmt;
+      const avgT = pred / ((2000/zd.d) * Math.pow(energy, 1/EXP));
+      const rate = Math.round(zd.r[0] + rng()*(zd.r[1]-zd.r[0]));
+      const pieces = Array.from({length:zd.n}, (_,i)=>({ n:i+1,
+        timeSec: +(avgT*(1+(rng()*2-1)*0.012)).toFixed(1), distance: zd.d, rate }));
+      const totalT = pieces.reduce((s,p)=>s+p.timeSec,0);
+      const id = "demo"+ci+"s"+si;
+      SCORES[key][id] = { sessionDate: iso(d), format: zd.n+"×"+zd.d+"m",
+        work: { distance: zd.d*zd.n, timeSec:+totalT.toFixed(1), avgRate: rate }, pieces };
+      const untag = (arch==="untagged" && si>=sessDays.length-4) || (arch!=="untagged" && rng()<0.006);
+      if(!untag) TAGS[key][id] = zone;
+    });
+  });
+  // water outings: three per week, same-sex crews of four
+  const boats = { f:["W4+ Talisker","W4+ Almond","W4x Cramond"], m:["M4+ Forth","M4- Inchcolm","M4x Bass Rock"] };
+  let wi=0;
+  for(let d=98; d>=0; d-=2){
+    if(rng()<0.25) continue;
+    ["f","m"].forEach(sx=>{
+      const pool = Object.entries(ATHLETES).filter(([k,v])=>v.sex===sx && v.squad==="Beginners"
+        && !(v.name==="Skye Henderson" && d<14) && !(v.name==="Nina Fairweather" && d<14));
+      const crew = pool.sort(()=>rng()-0.5).slice(0,4);
+      if(crew.length<4) return;
+      const base = sx==="f"?62:66;
+      WATER["w"+(wi++)] = { date: iso(d), boat: boats[sx][Math.floor(rng()*3)],
+        gmtPct: +(base + (98-d)/7*0.9 + (rng()*2-1)*2.5).toFixed(1),
+        crew: crew.map(([k])=>k), crewNames: crew.map(([,v])=>v.name),
+        source: rng()<0.3?"timer":"manual", createdBy:"demo", createdAt: Date.now() };
+    });
+  }
+  ME = { email:"demo.coach@ed.ac.uk", key:"demo,coach@ed,ac,uk", isCoach:true, profile:null };
+  VIEW_KEY = Object.keys(ATHLETES)[0];
+  // block snapshots at 54 and 26 days ago, computed from data as of those dates
+  [54,26].forEach(ago=>{
+    const snap = {};
+    for(const key in ATHLETES){
+      const cut = iso(ago);
+      const gmts = athleteSessions(key).tagged.filter(s=>s.date<cut && isFinite(s.gmt)).map(s=>s.gmt);
+      if(gmts.length) snap[key] = { name:ATHLETES[key].name, sex:ATHLETES[key].sex,
+        squad:ATHLETES[key].squad, active:true, gmt: mean(gmts) };
+    }
+    SNAPS[iso(ago)] = snap;
+  });
+  buildNav(); renderAll(); showScreen("scrApp");
+  publishSummaries(false);
+  const banner = document.createElement("div");
+  banner.innerHTML = `<div style="background:var(--navy);color:#fff;font-size:12.5px;padding:8px 14px;margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><span><b style="font-weight:500">Demo data</b> — sixteen fabricated athletes, generated in your browser. Nothing is read from or saved to the club database.</span><a href="${location.pathname}" style="color:#6BB7E0;white-space:nowrap">Exit demo</a></div>`;
+  const wrap = document.querySelector(".wrap");
+  wrap.insertBefore(banner.firstChild, wrap.firstChild);
+}
+
 /* ================= boot ================= */
-completeLinkSignIn();
+if(DEMO) bootDemo(); else completeLinkSignIn();
 </script>
 </body>
 </html>
