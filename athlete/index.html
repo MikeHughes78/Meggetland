@@ -145,7 +145,9 @@ table.rpt tr.me td{background:rgba(107,183,224,0.14)}
         <div class="who" id="mastName"></div>
         <div id="mastMeta"></div>
         <div style="margin-top:4px" class="no-print">
+          <span id="rolePill" style="display:inline-block;font-size:11px;font-weight:500;letter-spacing:0.05em;padding:2px 9px;vertical-align:1px"></span>
           <select id="athletePick" style="display:none;width:auto;padding:4px 8px;font-size:12px"></select>
+          <button class="btn tiny ghost" id="btnViewAs" style="display:none"></button>
           <button class="btn tiny ghost" id="btnPrint">Print</button>
           <button class="btn tiny ghost" id="btnSignOut">Sign out</button>
         </div>
@@ -194,6 +196,7 @@ const PZCOLOR = { UT2:"#4DA3E0", UT1:"#38B6A5", AT:"#63B75D", TR:"#E8B33C", AN:"
 const P_SPLITS = { UT2:125, UT1:120, AT:115, TR:110, AN:105, Max:100, Test:110, "S&C":120 };
 const P_T2_MODE = { Water:1.00, Erg:1.35, Land:1.00, Off:0 };
 const P_T2_INT  = { UT2:1.00, UT1:1.35, AT:2.10, TR:5.00, AN:9.00, Max:9.00, Test:9.00, "S&C":0 };
+const PSTACK = ["S&C","UT2","UT1","AT","TR","AN","Max","Test"];   // chart stack order, bottom-up
 const SQUAD_KEY = { "Beginners":"beginner", "Men":"men", "Women":"women" };
 /* dashboard erg zones → planner zones */
 const ERGZONE_TO_PLAN = { "UT2":"UT2", "UT1":"UT1", "30' r20":"UT1", "AT":"AT", "TR":"TR", "AN":"AN", "Max":"Max", "2k test":"Test", "5k test":"Test" };
@@ -253,7 +256,8 @@ let PLAN = {};          // squadKey -> plans object from the training system
 let TSET = null;        // training system settings (splits + t2 factors)
 let CROSS = {};         // key -> {id: cross-training entry}
 let SNC = {};           // key -> {id: S&C entry}
-let LAND_WIN = "28";    // land-training window: all | 14 | 28 | 56 (days)
+let LAND_WIN = "28";    // land-training window: all | 7 | 14 | 28 | 56 (days)
+let VIEW_AS = false;    // coach previewing exactly what the athlete sees
 let SNAPS = {};         // dateISO -> {key: summary row}  (coach-only block snapshots)
 let SQUAD_FILTER = "All";
 let STATE_FILTER = "all";
@@ -658,7 +662,7 @@ function t2PillHtml(actual, expected){
   return `<span style="font-size:11px;border:1px solid ${col};color:${col};padding:1px 7px;margin-left:6px">${lbl}</span>`;
 }
 function landChartSvg(land){
-  const zonesUsed = PZONES.filter(z => (land.expZones[z]||0) + (land.actZones[z]||0) > 0);
+  const zonesUsed = PSTACK.filter(z => (land.expZones[z]||0) + (land.actZones[z]||0) > 0);
   if(!zonesUsed.length) return '<p class="small">Nothing in this window yet.</p>';
   const expTot = PZONES.reduce((a,z)=>a+(land.expZones[z]||0),0);
   const actTot = PZONES.reduce((a,z)=>a+(land.actZones[z]||0),0);
@@ -679,7 +683,7 @@ function landChartSvg(land){
   g += `<text transform="translate(13 ${pt+ph/2}) rotate(-90)" font-size="10.5" text-anchor="middle" fill="#5a6b7d" letter-spacing="0.05em">Time-in-zone (minutes)</text>`;
   [[land.expZones, x1, "Prescribed training"], [land.actZones, x2, "Actual training"]].forEach(([zones, x, label])=>{
     let acc = 0;
-    for(const z of PZONES){
+    for(const z of PSTACK){
       const v = zones[z]||0; if(!v) continue;
       g += `<rect x="${x}" y="${y(acc+v).toFixed(1)}" width="${colW}" height="${Math.max(1,(y(acc)-y(acc+v))).toFixed(1)}" fill="${PZCOLOR[z]}" stroke="#f4f2ed" stroke-width="0.5"><title>${esc(z)} · ${fmtMin(v)}</title></rect>`;
       acc += v;
@@ -851,13 +855,12 @@ function svgZoneBars(distByZone){
 }
 
 /* ================= rendering ================= */
-const TABS = () => ME.isCoach
+const TABS = () => (ME.isCoach && !VIEW_AS)
   ? [["report","Report"],["water","Water"],["squad","Squad"],["athletes","Athletes"],["settings","Settings"]]
   : [["report","Report"],["water","Water"]];
 function buildNav(){
   $("nav").innerHTML = TABS().map(([id,l])=>`<button data-t="${id}" class="${id===CUR_TAB?"on":""}">${l}</button>`).join("");
   $("nav").querySelectorAll("button").forEach(b => b.onclick = () => { CUR_TAB=b.dataset.t; buildNav(); showTab(); });
-  $("athletePick").style.display = ME.isCoach ? "" : "none";
   $("btnSignOut").onclick = doSignOut;
   $("btnPrint").onclick = () => window.print();
 }
@@ -875,6 +878,26 @@ function renderMast(){
   const m = VIEW_KEY ? athleteMetrics(VIEW_KEY) : null;
   $("mastName").textContent = p.name || (ME.isCoach ? "No athletes yet" : ME.email);
   $("mastMeta").textContent = [p.squad, m ? ("issue no. "+m.ergs) : "", ddmm(todayISO())].filter(Boolean).join(" · ");
+  const pill = $("rolePill");
+  if(ME.isCoach && !VIEW_AS){
+    pill.textContent = "Coach view";
+    pill.style.cssText += "border:1px solid var(--navy);color:var(--navy)";
+  } else if(ME.isCoach && VIEW_AS){
+    pill.textContent = "Athlete preview";
+    pill.style.cssText += "border:1px solid var(--hot);color:var(--hot)";
+  } else {
+    pill.textContent = "Athlete view";
+    pill.style.cssText += "border:1px solid var(--blade);color:var(--blade)";
+  }
+  const va = $("btnViewAs");
+  va.style.display = ME.isCoach ? "" : "none";
+  va.textContent = VIEW_AS ? "Exit athlete view" : "View as athlete";
+  va.onclick = () => {
+    VIEW_AS = !VIEW_AS;
+    if(VIEW_AS && !["report","log","water"].includes(CUR_TAB)) CUR_TAB = "report";
+    buildNav(); renderAll();
+  };
+  $("athletePick").style.display = (ME.isCoach && !VIEW_AS) ? "" : "none";
   if(ME.isCoach){
     const opts = Object.entries(ATHLETES).filter(([,v])=>v).sort((a,b)=>(a[1].name||"").localeCompare(b[1].name||""))
       .map(([k,v])=>`<option value="${k}" ${k===VIEW_KEY?"selected":""}>${esc(v.name||keyEmail(k))}</option>`).join("");
