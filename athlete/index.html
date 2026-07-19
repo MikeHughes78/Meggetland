@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>EUBC · Athlete report</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E2841">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="EUBC">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <!-- ============================================================
      EUBC Athlete dashboard — meggetland.com/athlete
      Firebase project: eubctraining-ad9bd (auth + data)
@@ -1175,6 +1182,8 @@ function bootDemo(){
 
 /* ================= boot ================= */
 if(DEMO) bootDemo(); else completeLinkSignIn();
+if("serviceWorker" in navigator && location.protocol === "https:")
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
 </html>
