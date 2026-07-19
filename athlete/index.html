@@ -153,6 +153,7 @@ table.rpt tr.me td{background:rgba(107,183,224,0.14)}
     </div>
     <div class="nav no-print" id="nav"></div>
     <div id="viewReport"></div>
+    <div id="viewLog" style="display:none"></div>
     <div id="viewWater" style="display:none"></div>
     <div id="viewSquad" style="display:none"></div>
     <div id="viewAthletes" style="display:none"></div>
@@ -709,7 +710,7 @@ async function saveLandEntry(kind){
     (store[key] = store[key]||{})[ref.key] = rec;
     msg(kind+"Msg","Logged.","ok");
     $(kind+"Min").value = "";
-    renderReport();
+    renderReport(); renderLog();
   }catch(e){ msg(kind+"Msg","Save failed: "+e.message,"err"); }
 }
 async function deleteLandEntry(kind, id){
@@ -719,7 +720,7 @@ async function deleteLandEntry(kind, id){
     await db.ref(ATH+"/"+node+"/"+key+"/"+id).set(null);
     const store = kind === "cross" ? CROSS : SNC;
     if(store[key]) delete store[key][id];
-    renderReport();
+    renderReport(); renderLog();
   }catch(e){ alert("Delete failed: "+e.message); }
 }
 
@@ -780,7 +781,7 @@ async function publishOwnSummary(){
     const m = athleteMetrics(ME.key); const p = ATHLETES[ME.key]||{};
     if(!isFinite(m.avgGmtAll)) return;
     await db.ref(ATH+"/summary/"+ME.key).set({
-      name: p.name||"", sex: p.sex||"", squad: p.squad||"", active: p.active!==false,
+      name: p.name||"", sex: p.sex||"", side: p.side||"", squad: p.squad||"", active: p.active!==false,
       gmt: m.avgGmtAll, adjGmt: isFinite(m.adjGmt)?m.adjGmt:0,
       pred2k: isFinite(m.pred2k)?m.pred2k:0, pieces: m.perfPieces, updatedAt: Date.now()
     });
@@ -793,7 +794,7 @@ async function publishSummaries(announce){
   for(const key in ATHLETES){
     const p = ATHLETES[key]; if(!p) continue;
     const m = athleteMetrics(key);
-    const row = { name:p.name||keyEmail(key), sex:p.sex||"", squad:p.squad||"", active:p.active!==false,
+    const row = { name:p.name||keyEmail(key), sex:p.sex||"", side:p.side||"", squad:p.squad||"", active:p.active!==false,
       gmt: isFinite(m.avgGmtAll)?m.avgGmtAll:0, adjGmt: isFinite(m.adjGmt)?m.adjGmt:0,
       pred2k: isFinite(m.pred2k)?m.pred2k:0, pieces: m.perfPieces, updatedAt: Date.now() };
     upd[key] = row; SUMMARY[key] = row;
@@ -861,11 +862,11 @@ function buildNav(){
   $("btnPrint").onclick = () => window.print();
 }
 function showTab(){
-  for(const [id] of [["report"],["water"],["squad"],["athletes"],["settings"]])
+  for(const [id] of [["report"],["log"],["water"],["squad"],["athletes"],["settings"]])
     { const el = $("view"+id[0].toUpperCase()+id.slice(1)); if(el) el.style.display = id===CUR_TAB ? "" : "none"; }
 }
 function renderAll(){
-  renderMast(); renderReport(); renderWater();
+  renderMast(); renderReport(); renderLog(); renderWater();
   if(ME.isCoach){ renderSquad(); renderAthletes(); renderSettings(); }
   showTab();
 }
@@ -922,22 +923,9 @@ function renderReport(){
     .map(([id,e])=>`<div class="tagrow"><span class="num" style="min-width:70px">${ddmm(dstr(e.date))}</span>
       <span class="small" style="flex:1">${esc(e.activity||(kind==="cross"?"cross-training":"S&C"))} · ${e.minutes}′</span>
       ${canLog?`<button class="btn tiny ghost" data-delland="${kind}:${id}">Remove</button>`:""}</div>`).join("");
-  const landForms = canLog ? `
-    <div class="frm" style="margin-top:14px">
-      <div><label>Cross-training date</label><input type="date" id="crossDate" value="${todayISO()}"></div>
-      <div><label>Activity</label><select id="crossAct"><option>Bike</option><option>Run</option><option>Swim</option><option>Hike</option><option>Other</option></select></div>
-      <div><label>Minutes</label><input id="crossMin" inputmode="numeric" placeholder="45"></div>
-      <div style="align-self:end"><button class="btn tiny" id="btnCrossSave" style="margin-bottom:2px">Log cross-training</button></div>
-    </div><div class="msg" id="crossMsg"></div>
-    ${entryList((CROSS[VIEW_KEY]||{}),"cross")}
-    <div class="frm" style="margin-top:14px">
-      <div><label>S&amp;C date</label><input type="date" id="sncDate" value="${todayISO()}"></div>
-      <div><label>Minutes</label><input id="sncMin" inputmode="numeric" placeholder="60"></div>
-      <div style="align-self:end"><button class="btn tiny" id="btnSncSave" style="margin-bottom:2px">Log S&amp;C</button></div>
-    </div><div class="msg" id="sncMsg"></div>
-    ${entryList((SNC[VIEW_KEY]||{}),"snc")}` : "";
+  const landForms = canLog ? `<button class="btn ghost tiny no-print" id="btnGoLog" style="margin-top:12px">Missing a session? Log it here</button>` : "";
   const landSect = `
-  <div class="sect"><div class="sect-h">Land training · expected vs actual<span class="small no-print">${winChip("all","All time")} ${winChip("56","8 wk")} ${winChip("28","4 wk")} ${winChip("14","2 wk")}</span></div>
+  <div class="sect"><div class="sect-h">Land training · expected vs actual<span class="small no-print">${winChip("all","All time")} ${winChip("56","8 wk")} ${winChip("28","4 wk")} ${winChip("14","2 wk")} ${winChip("7","7 d")}</span></div>
     ${land.hasPlan || land.actSessions ? `
     <div class="cols">
       <div class="chartbox">${landChartSvg(land)}</div>
@@ -985,8 +973,7 @@ function renderReport(){
     const [kind,id] = b.dataset.delland.split(":");
     if(confirm("Remove this entry?")) deleteLandEntry(kind, id);
   });
-  const bx = $("btnCrossSave"); if(bx) bx.onclick = () => saveLandEntry("cross");
-  const bs = $("btnSncSave"); if(bs) bs.onclick = () => saveLandEntry("snc");
+  const gl = $("btnGoLog"); if(gl) gl.onclick = () => { CUR_TAB="log"; buildNav(); renderLog(); showTab(); };
   el.querySelectorAll("[data-confirm]").forEach(b => b.onclick = async () => {
     const id = b.dataset.confirm;
     const zone = el.querySelector(`select[data-tag="${CSS.escape(id)}"]`).value;
@@ -997,6 +984,106 @@ function renderReport(){
       if(!ME.isCoach) publishOwnSummary();
     }catch(e){ alert("Could not save zone: "+e.message); }
   });
+}
+
+/* ================= log screen (session entry, off the front page) ================= */
+function renderLog(){
+  const el = $("viewLog"); if(!el) return;
+  const canLog = ME.isCoach || VIEW_KEY===ME.key;
+  const p = ATHLETES[VIEW_KEY]||{};
+  const entryList = (pool, kind) => Object.entries(pool||{}).sort((a,b)=>b[1].date<a[1].date?-1:1).slice(0,8)
+    .map(([id,e])=>`<div class="tagrow"><span class="num" style="min-width:70px">${ddmm(dstr(e.date))}</span>
+      <span class="small" style="flex:1">${esc(e.activity||(kind==="cross"?"cross-training":"S&C"))} · ${e.minutes}′</span>
+      ${canLog?`<button class="btn tiny ghost" data-delland="${kind}:${id}">Remove</button>`:""}</div>`).join("");
+  el.innerHTML = !canLog ? '<div class="panel">Only the athlete or a coach can log sessions here.</div>' : `
+  <div class="sect"><div class="sect-h">Log a session<span class="small">${esc(p.name||"")}</span></div>
+    <p class="small" style="margin-bottom:4px">Erg scores arrive automatically from the photo app. Anything else that deserves credit — cross-training or S&amp;C — goes in here and counts toward the land-training picture on your dashboard.</p>
+    <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0">Cross-training <span class="small">always counts as UT2</span></div>
+      <div class="frm">
+        <div><label>Date</label><input type="date" id="crossDate" value="${todayISO()}"></div>
+        <div><label>Activity</label><select id="crossAct"><option>Bike</option><option>Run</option><option>Swim</option><option>Hike</option><option>Other</option></select></div>
+        <div><label>Minutes</label><input id="crossMin" inputmode="numeric" placeholder="45"></div>
+      </div>
+      <button class="btn" id="btnCrossSave" style="margin-top:12px">Log cross-training</button>
+      <div class="msg" id="crossMsg"></div>
+      ${entryList((CROSS[VIEW_KEY]||{}),"cross")}</div>
+    <div class="panel"><div class="sect-h" style="border:none;margin-bottom:0">Strength &amp; conditioning</div>
+      <div class="frm">
+        <div><label>Date</label><input type="date" id="sncDate" value="${todayISO()}"></div>
+        <div><label>Minutes</label><input id="sncMin" inputmode="numeric" placeholder="60"></div>
+      </div>
+      <button class="btn" id="btnSncSave" style="margin-top:12px">Log S&amp;C</button>
+      <div class="msg" id="sncMsg"></div>
+      ${entryList((SNC[VIEW_KEY]||{}),"snc")}</div>
+    <button class="btn ghost no-print" id="btnLogBack" style="margin-top:14px">← Back to dashboard</button>
+  </div>`;
+  if(!canLog) return;
+  $("btnCrossSave").onclick = () => saveLandEntry("cross");
+  $("btnSncSave").onclick = () => saveLandEntry("snc");
+  $("btnLogBack").onclick = () => { CUR_TAB="report"; buildNav(); renderAll(); };
+  el.querySelectorAll("[data-delland]").forEach(b => b.onclick = () => {
+    const [kind,id] = b.dataset.delland.split(":");
+    if(confirm("Remove this entry?")) deleteLandEntry(kind, id);
+  });
+}
+
+/* ================= water rankings by side ================= */
+function isScullBoat(name){ return /\b\d?x\b|\dx|scull/i.test(String(name||"")); }
+function waterAverages(){
+  const sweep = {}, scull = {};
+  for(const id in WATER){
+    const w = WATER[id];
+    const g = Number(w.gmtPct);
+    if(!isFinite(g) || g <= 0 || !Array.isArray(w.crew)) continue;
+    const pool = isScullBoat(w.boat) ? scull : sweep;
+    for(const k of w.crew){ (pool[k] = pool[k]||{s:0,n:0}); pool[k].s += g; pool[k].n++; }
+  }
+  const avg = pool => Object.fromEntries(Object.entries(pool).map(([k,v])=>[k, v.s/v.n]));
+  return { sweep: avg(sweep), scull: avg(scull) };
+}
+function waterRoster(){
+  // coaches read profiles; athletes read the summary node (which carries side)
+  const src = ME.isCoach ? ATHLETES : SUMMARY;
+  const out = {};
+  for(const k in src){
+    const v = src[k]; if(!v || v.active === false) continue;
+    out[k] = { name: v.name || keyEmail(k), side: v.side || "" };
+  }
+  return out;
+}
+function waterRankings(key){
+  const roster = waterRoster();
+  const { sweep, scull } = waterAverages();
+  const me = roster[key] || ATHLETES[key] || {};
+  const rankIn = (avgs, keys) => {
+    const rows = keys.filter(k => isFinite(avgs[k])).map(k=>({k, g:avgs[k]})).sort((a,b)=>b.g-a.g);
+    let rank=0, last=null, i=0, mine=null;
+    for(const r of rows){ i++; if(r.g!==last){ rank=i; last=r.g; } if(r.k===key) mine=rank; }
+    return { mine, of: rows.length, rows };
+  };
+  const sideName = me.side==="S" ? "strokeside" : me.side==="B" ? "bowside" : null;
+  const sideKeys = Object.keys(roster).filter(k => roster[k].side && roster[k].side === me.side);
+  const sweepR = sideName ? rankIn(sweep, sideKeys) : null;
+  const scullR = rankIn(scull, Object.keys(roster));
+  const bits = [];
+  if(sweepR && sweepR.mine) bits.push(`you currently rank <b style="font-weight:500">${sweepR.mine} of ${sweepR.of}</b> on ${sideName}`);
+  if(scullR.mine) bits.push(`your sculling rank is <b style="font-weight:500">${scullR.mine} of ${scullR.of}</b>`);
+  const headline = bits.length
+    ? `<p style="font-size:15px;margin-bottom:10px">${bits.join(" · ").replace(/^y/,"Y")}</p>`
+    : `<p class="small" style="margin-bottom:10px">Rankings appear once outings carry a crew GMT%.</p>`;
+  // side table: bow and stroke lists from the athlete database, ranked by sweep GMT
+  const sideCol = side => Object.keys(roster).filter(k=>roster[k].side===side)
+    .sort((a,b)=>{
+      const ga = sweep[a], gb = sweep[b];
+      if(isFinite(ga)&&isFinite(gb)) return gb-ga;
+      if(isFinite(ga)) return -1; if(isFinite(gb)) return 1;
+      return roster[a].name.localeCompare(roster[b].name);
+    })
+    .map(k=>`<div style="padding:2px 0;${k===key?"font-weight:700":""}">${esc(roster[k].name)}${isFinite(sweep[k])?` <span class="small num">${sweep[k].toFixed(1)}%</span>`:""}</div>`)
+    .join("") || '<div class="small">—</div>';
+  const table = `<table class="rpt"><thead><tr><th>Bowside</th><th>Strokeside</th></tr></thead>
+    <tbody><tr><td style="vertical-align:top">${sideCol("B")}</td><td style="vertical-align:top">${sideCol("S")}</td></tr></tbody></table>`;
+  return { html: headline + table };
 }
 
 /* ================= water view ================= */
@@ -1013,8 +1100,7 @@ function renderWater(){
     <td class="r num">${isFinite(Number(w.gmtPct))?Number(w.gmtPct).toFixed(1)+"%":"—"}</td>
     <td class="small">${esc((w.crewNames||[]).join(", "))}</td>
     <td class="small">${esc(w.source||"manual")}</td></tr>`).join("");
-  const weekKeys = Object.keys(m.waterWeeks).sort();
-  const attend = weekKeys.length ? svgLineChart([{pts:weekKeys.map(k=>({x:k,y:m.waterWeeks[k]})),color:"#0E2841",labelLast:true}],{fmtY:v=>Math.round(v)+"",aria:"Water sessions per week",h:150}) : "";
+  const wr = waterRankings(VIEW_KEY);
   const coachForm = ME.isCoach ? `
   <div class="sect"><div class="sect-h">Record an outing</div>
   <div class="panel"><div class="frm">
@@ -1031,7 +1117,7 @@ function renderWater(){
     <div class="cols sect">
       <div><div class="sect-h">Crew GMT% on the water<span class="small">${esc(p.name||"")}</span></div><div class="chartbox">${chart}</div>
         <p class="small" style="margin-top:6px">Crew GMT% belongs to the whole boat — it reflects the crew you rowed in, not you alone. Per-seat telemetry lands here when the Peach feed arrives.</p></div>
-      <div><div class="sect-h">Outings per week</div><div class="chartbox">${attend||'<p class="small">No outings recorded yet.</p>'}</div></div>
+      <div><div class="sect-h">Water rankings</div>${wr.html}</div>
     </div>
     <div class="sect"><div class="sect-h">Water record<span class="small">${m.water.length} outings</span></div>
       <table class="rpt"><thead><tr><th>Date</th><th>Boat</th><th class="r">GMT%</th><th>Crew</th><th>Source</th></tr></thead>
